@@ -89,6 +89,33 @@ test.describe('Grafana — Tempest dashboard', () => {
     expect(csv).toMatch(/air_temp_c/);
   });
 
+  test('Pressure timeseries (panel-7) actually renders a canvas with a readable hPa axis', async ({ page }) => {
+    // Regression: a legacy legend (displayMode:"hidden") made this panel mount
+    // header-only — no canvas, but no error and no "No data", so the generic
+    // render check below could not catch it. And pressurembar units collapsed
+    // the axis to "1 bar". This asserts the viz body really draws.
+    await page.goto(`${BASE_URL}/login`);
+    await page.locator('input[name="user"]').fill(USER);
+    await page.locator('input[name="password"]').fill(PASS);
+    await Promise.all([
+      page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15_000 }),
+      page.locator('button[type="submit"]').click(),
+    ]);
+
+    await page.goto(`${BASE_URL}/d/tempest-basic/x?viewPanel=panel-7&orgId=1`,
+      { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 30_000 });
+    await page.waitForTimeout(2000);
+
+    expect(await page.locator('[data-testid="data-testid Panel status error"]').count()).toBe(0);
+    expect(await page.getByText('No data', { exact: true }).count()).toBe(0);
+    // The viz body must mount a uPlot canvas. The legacy-legend bug rendered the
+    // panel header-only with no canvas, so this is the load-bearing assertion.
+    // (Axis tick labels are drawn into the canvas, not the DOM, so the hPa-vs-bar
+    //  unit fix is guarded by a static test instead.)
+    expect(await page.locator('canvas').count()).toBeGreaterThan(0);
+  });
+
   test('dashboard renders in the browser without panel errors', async ({ page }) => {
     // Log in
     await page.goto(`${BASE_URL}/login`);

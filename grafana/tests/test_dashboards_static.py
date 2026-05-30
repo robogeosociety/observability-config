@@ -86,6 +86,33 @@ def test_datasource_refs_resolve(f):
     assert not missing, f"{f.name}: references undefined datasource uid(s): {sorted(missing)}"
 
 
+@pytest.mark.parametrize("f", DASHBOARDS, ids=IDS)
+def test_no_legacy_hidden_legend(f):
+    """`legend.displayMode: "hidden"` is the pre-10 form and no longer a valid
+    enum in Grafana 11 — it makes the whole panel body fail to mount (header
+    only, no canvas, no error). Use `showLegend: false` instead."""
+    d = json.loads(f.read_text())
+    bad = []
+    for p in d["panels"]:
+        legend = p.get("options", {}).get("legend")
+        if isinstance(legend, dict) and legend.get("displayMode") == "hidden":
+            bad.append(p.get("id"))
+    assert not bad, (
+        f"{f.name}: panels {bad} use legacy legend displayMode:'hidden' "
+        "(fails to render in Grafana 11) — use {\"showLegend\": false}")
+
+
+@pytest.mark.parametrize("f", DASHBOARDS, ids=IDS)
+def test_no_si_collapsing_pressure_unit(f):
+    """`pressurembar` SI-scales millibars to bar, collapsing a ~1015 mb axis to
+    a column of "1 bar" ticks. Use `pressurehpa` (numerically identical, native)."""
+    d = json.loads(f.read_text())
+    bad = [p.get("id") for p in d["panels"]
+           if p.get("fieldConfig", {}).get("defaults", {}).get("unit") == "pressurembar"]
+    assert not bad, (f"{f.name}: panels {bad} use unit 'pressurembar' "
+                     "(axis collapses to '1 bar') — use 'pressurehpa'")
+
+
 def test_dashboard_uids_unique():
     uids = [json.loads(f.read_text())["uid"] for f in DASHBOARDS]
     dupes = {u for u in uids if uids.count(u) > 1}
