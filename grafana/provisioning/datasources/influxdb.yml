@@ -74,7 +74,8 @@ datasources:
     editable: true
 
   # Campsite availability snapshots (measurement `availability`) written daily
-  # by robot-geographical-society/data sync-influx — campsite-availability dashboard.
+  # by the in-repo ingest job (campsites/ingest.py, launchd 07:30; pulls from R2)
+  # — feeds the campsite-availability dashboard. See campsites/README.md.
   - name: InfluxDB - campsites
     uid: campsites
     type: influxdb
