@@ -72,3 +72,19 @@ datasources:
     secureJsonData:
       token: ${INFLUX_GRAFANA_TOKEN}
     editable: true
+
+  # Campsite availability snapshots (measurement `availability`) written daily
+  # by robot-geographical-society/data sync-influx — campsite-availability dashboard.
+  - name: InfluxDB - campsites
+    uid: campsites
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: home
+      defaultBucket: campsites
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUX_GRAFANA_TOKEN}
+    editable: true
