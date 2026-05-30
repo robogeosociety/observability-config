@@ -1,0 +1,254 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Last backup",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 1},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Local — time since last success",
+      "gridPos": {"x": 0, "y": 1, "w": 8, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"local\" and r._field == \"success\" and r._value == 1)\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "decimals": 0,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 93600},
+            {"color": "red", "value": 176400}
+          ]},
+          "noValue": "NEVER"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Local — last result",
+      "gridPos": {"x": 8, "y": 1, "w": 8, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"local\" and r._field == \"success\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [
+            {"type": "value", "options": {"1": {"text": "OK", "color": "green"}, "0": {"text": "FAILED", "color": "red"}}}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null}, {"color": "green", "value": 1}
+          ]},
+          "noValue": "NEVER"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Local — last size",
+      "gridPos": {"x": 16, "y": 1, "w": 8, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"local\" and r._field == \"bytes\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {"unit": "decbytes", "color": {"mode": "fixed", "fixedColor": "blue"}, "noValue": "—"},
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "R2 (offsite) — time since last success",
+      "gridPos": {"x": 0, "y": 7, "w": 12, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"r2\" and r._field == \"success\" and r._value == 1)\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "decimals": 0,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 93600},
+            {"color": "red", "value": 176400}
+          ]},
+          "noValue": "NOT CONFIGURED"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "R2 (offsite) — last result",
+      "gridPos": {"x": 12, "y": 7, "w": 12, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"r2\" and r._field == \"success\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [
+            {"type": "value", "options": {"1": {"text": "OK", "color": "green"}, "0": {"text": "FAILED", "color": "red"}}}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null}, {"color": "green", "value": 1}
+          ]},
+          "noValue": "NOT CONFIGURED"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Backup size",
+      "gridPos": {"x": 0, "y": 13, "w": 12, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r._field == \"bytes\")\n  |> group(columns: [\"target\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 10, "pointSize": 6, "showPoints": "always", "spanNulls": true},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "none"},
+        "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["last", "max"]}
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Backup result (1 = ok, 0 = fail)",
+      "gridPos": {"x": 12, "y": 13, "w": 12, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r._field == \"success\")\n  |> group(columns: [\"target\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1, "decimals": 0,
+          "custom": {"drawStyle": "points", "pointSize": 8, "showPoints": "always", "lineWidth": 1, "fillOpacity": 0, "spanNulls": true},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "none"},
+        "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["last"]}
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Recent backups",
+      "gridPos": {"x": 0, "y": 21, "w": 24, "h": 10},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"backup\")\n  |> pivot(rowKey: [\"_time\", \"target\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"_time\", \"target\", \"success\", \"bytes\", \"duration_s\"])\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 30)"
+      }],
+      "transformations": [],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto", "filterable": true}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "_time"}, "properties": [{"id": "displayName", "value": "Time"}, {"id": "custom.width", "value": 200}]},
+          {"matcher": {"id": "byName", "options": "target"}, "properties": [{"id": "displayName", "value": "Target"}, {"id": "custom.width", "value": 100}]},
+          {"matcher": {"id": "byName", "options": "bytes"}, "properties": [{"id": "displayName", "value": "Size"}, {"id": "unit", "value": "decbytes"}]},
+          {"matcher": {"id": "byName", "options": "duration_s"}, "properties": [{"id": "displayName", "value": "Duration"}, {"id": "unit", "value": "s"}, {"id": "custom.width", "value": 110}]},
+          {"matcher": {"id": "byName", "options": "success"},
+           "properties": [
+             {"id": "displayName", "value": "Result"}, {"id": "custom.width", "value": 100},
+             {"id": "mappings", "value": [{"type": "value", "options": {"1": {"text": "OK", "color": "green", "index": 0}, "0": {"text": "FAIL", "color": "red", "index": 1}}}]},
+             {"id": "custom.cellOptions", "value": {"type": "color-background", "mode": "basic"}},
+             {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}},
+             {"id": "color", "value": {"mode": "thresholds"}}
+           ]}
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{"displayName": "Time", "desc": true}],
+        "footer": {"show": false, "reducer": ["sum"], "fields": ""}
+      }
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": ["backups", "ops"],
+  "templating": {"list": []},
+  "time": {"from": "now-30d", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Backups",
+  "uid": "backups",
+  "version": 1,
+  "weekStart": ""
+}

@@ -26,11 +26,16 @@ def test_backup_script_syntax():
 
 def test_backup_script_has_safety_and_core_steps():
     text = BACKUP.read_text()
-    assert "set -eu" in text, "should fail fast on errors/unset vars"
+    assert "set -u" in text and "pipefail" in text, "should fail on unset vars + pipe errors"
     assert "influx backup" in text, "should actually run an influx backup"
     # dump is streamed out via a zsh redirect (not docker cp) so a single /bin/zsh
     # Full Disk Access grant covers every /Volumes access
     assert 'tar' in text and '> "$HOST_TARBALL"' in text, "should stream the dump out via redirect"
+    # emits a heartbeat to the ops bucket for the Backups dashboard
+    assert "/api/v2/write" in text and "ops" in text, "should emit a backup heartbeat to influx"
+    assert "success=1i" in text and "success=0i" in text, "should record success and failure"
+    # offsite R2 upload is wired but optional (activated by R2_* in .env)
+    assert "R2_ACCOUNT_ID" in text and "r2_upload.py" in text, "should support optional R2 upload"
     # retention pruning must be present so backups don't grow unbounded
     assert "RETENTION_DAYS" in text and "-mtime" in text, "should prune old backups"
     # must read secrets from the env file, never hardcode a token

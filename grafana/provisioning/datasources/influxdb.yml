@@ -57,3 +57,18 @@ datasources:
     secureJsonData:
       token: ${INFLUX_GRAFANA_TOKEN}
     editable: true
+
+  # Backup heartbeats (measurement `backup`) written by influxdb/backup.sh.
+  - name: InfluxDB - ops
+    uid: ops
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: home
+      defaultBucket: ops
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUX_GRAFANA_TOKEN}
+    editable: true

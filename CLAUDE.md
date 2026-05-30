@@ -14,7 +14,17 @@ tree (Grafana bind-mounts `grafana/provisioning`). GitHub: private
   (dashboard JSON, datasource YAML, provider). Subdirs: `dev-status/` (host
   collector), `playwright/` (e2e + visual suite), `tests/` (pytest), `mcp/`
   (Grafana MCP setup).
-- `influxdb/` — InfluxDB 2.7. `docker-compose.yml` + `backup.sh`.
+- `influxdb/` — InfluxDB 2.7. `docker-compose.yml`, `backup.sh` (+ `r2_upload.py`).
+
+## Backups
+
+`influxdb/backup.sh` dumps Influx to a `.tar.gz` on the 2TB disk, emits a
+heartbeat to the `ops` bucket (`backup` measurement: `success`/`bytes`/`duration_s`,
+tag `target=local|r2`), and — when `R2_*` creds are in `.env` — uploads offsite to
+the Cloudflare R2 `influxdb-backups` bucket via `r2_upload.py`. The **Backups**
+Grafana dashboard (`backups.json`, datasource `ops`) shows last-success age, result,
+size, and history per target. R2 is **pending a scoped R2 token** in `.env`
+(bucket exists; until then it's local-only and the dashboard shows R2 "NOT CONFIGURED").
 
 ## Hard rules
 

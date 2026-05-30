@@ -1,19 +1,23 @@
 #!/bin/zsh
-# Daily InfluxDB backup → external 2TB disk (/Volumes/dev/observability/influxdb/backups).
+# Daily InfluxDB backup → external 2TB disk + (optional) Cloudflare R2 offsite.
 #
-# Runs via LaunchAgent dev.tommydoerr.influxdb-backup (ProgramArguments: /bin/zsh
-# <this script>). launchd-spawned processes are TCC-gated from /Volumes, so this
-# REQUIRES Full Disk Access granted to /bin/zsh
-# (System Settings → Privacy & Security → Full Disk Access → add /bin/zsh).
+# Runs via LaunchAgent dev.tommydoerr.influxdb-backup (ProgramArguments:
+# /bin/zsh <this script>). launchd-spawned processes are TCC-gated from /Volumes,
+# so this REQUIRES Full Disk Access granted to /bin/zsh (System Settings →
+# Privacy & Security → Full Disk Access). All /Volumes access is done by this zsh
+# process; the dump is streamed out of the container via a redirect (not docker
+# cp) so a single grant suffices.
 #
-# Design: every /Volumes touch (read .env, write the tarball, prune) is done by
-# THIS zsh process, so the single /bin/zsh FDA grant is sufficient. The dump is
-# streamed out of the container via a zsh redirect instead of `docker cp`, so the
-# docker CLI never writes to /Volumes (no separate grant needed).
-set -euo pipefail
+# Emits a heartbeat to InfluxDB (bucket `ops`, measurement `backup`) after each
+# run — the "Backups" Grafana dashboard reads it. R2 upload happens only when
+# R2_* creds are present in .env (see .env.example); until then it's local-only.
+set -uo pipefail
 
-ENV_FILE="/Volumes/dev/observability/influxdb/.env"
+SCRIPT_DIR="${0:A:h}"
+ENV_FILE="${SCRIPT_DIR}/.env"
 BACKUP_ROOT="/Volumes/dev/observability/influxdb/backups"
+OPS_BUCKET="ops"
+INFLUX_URL="${INFLUX_URL:-http://localhost:8086}"
 RETENTION_DAYS=30
 DOCKER="/usr/local/bin/docker"
 [[ -x "$DOCKER" ]] || DOCKER="/opt/homebrew/bin/docker"
@@ -26,19 +30,50 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 CONTAINER_DIR="/tmp/backup-${STAMP}"
 HOST_TARBALL="${BACKUP_ROOT}/influx-${STAMP}.tar.gz"
 
+# Write one line of InfluxDB line protocol to the ops bucket (best-effort).
+emit() {
+  curl -s -XPOST \
+    "${INFLUX_URL}/api/v2/write?org=${INFLUX_ORG}&bucket=${OPS_BUCKET}&precision=s" \
+    -H "Authorization: Token ${INFLUX_ADMIN_TOKEN}" \
+    --data-binary "$1" >/dev/null 2>&1 || true
+}
+fail() {
+  emit "backup,target=local success=0i"
+  echo "[$(date)] backup FAILED: $1"
+  exit 1
+}
+
 mkdir -p "$BACKUP_ROOT"
 echo "[$(date)] starting backup ${STAMP}"
+start=$SECONDS
 
-# Dump inside the container, then stream it out via a zsh redirect (zsh, which has
-# FDA, writes the /Volumes file — docker only talks to the daemon).
+# Dump inside the container, stream it out via a zsh redirect (zsh writes /Volumes).
 "$DOCKER" exec influxdb influx backup "$CONTAINER_DIR" \
-  --org "$INFLUX_ORG" --token "$INFLUX_ADMIN_TOKEN"
-"$DOCKER" exec influxdb tar -C /tmp -czf - "backup-${STAMP}" > "$HOST_TARBALL"
-"$DOCKER" exec influxdb rm -rf "$CONTAINER_DIR"
+  --org "$INFLUX_ORG" --token "$INFLUX_ADMIN_TOKEN" || fail "influx backup"
+"$DOCKER" exec influxdb tar -C /tmp -czf - "backup-${STAMP}" > "$HOST_TARBALL" || fail "stream dump"
+"$DOCKER" exec influxdb rm -rf "$CONTAINER_DIR" || true
+[[ -s "$HOST_TARBALL" ]] || fail "empty tarball"
 
-echo "[$(date)] wrote $HOST_TARBALL ($(du -h "$HOST_TARBALL" | awk '{print $1}'))"
+SIZE=$(stat -f%z "$HOST_TARBALL")
+DUR=$(( SECONDS - start ))
+emit "backup,target=local success=1i,bytes=${SIZE}i,duration_s=${DUR}i"
+echo "[$(date)] local backup ok: $HOST_TARBALL (${SIZE} bytes, ${DUR}s)"
 
-# Prune tarballs older than RETENTION_DAYS (zsh performs the /Volumes delete).
+# Optional offsite copy to Cloudflare R2 (activated by adding R2_* to .env).
+if [[ -n "${R2_ACCOUNT_ID:-}" && -n "${R2_ACCESS_KEY_ID:-}" && -n "${R2_BUCKET:-}" ]]; then
+  if uv run --no-project --with boto3 python "${SCRIPT_DIR}/r2_upload.py" \
+       put "$HOST_TARBALL" "influx-${STAMP}.tar.gz"; then
+    emit "backup,target=r2 success=1i,bytes=${SIZE}i"
+    echo "[$(date)] uploaded to r2://${R2_BUCKET}/influx-${STAMP}.tar.gz"
+  else
+    emit "backup,target=r2 success=0i"
+    echo "[$(date)] R2 upload FAILED"
+  fi
+else
+  echo "[$(date)] R2 creds not set — skipping offsite upload (local-only)"
+fi
+
+# Prune local tarballs older than RETENTION_DAYS.
 find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'influx-*.tar.gz' \
   -mtime "+${RETENTION_DAYS}" -print -delete
 
