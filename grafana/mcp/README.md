@@ -14,7 +14,7 @@ Claude Code via Docker.
 1. **Service account + token** in Grafana (`Admin` role so all 56 tools work):
 
    ```sh
-   source /Volumes/dev/grafana/.env
+   source /Volumes/dev/observability/grafana/.env
    AUTH="$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD"
    said=$(curl -s -u "$AUTH" -X POST localhost:3001/api/serviceaccounts \
      -H 'Content-Type: application/json' \
@@ -68,7 +68,7 @@ printf '%s\n%s\n%s\n' \
 ## Revoke
 
 ```sh
-source /Volumes/dev/grafana/.env; AUTH="$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD"
+source /Volumes/dev/observability/grafana/.env; AUTH="$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD"
 # find the SA, then: DELETE /api/serviceaccounts/<id>
 curl -s -u "$AUTH" "localhost:3001/api/serviceaccounts/search?query=claude-mcp"
 ```

@@ -4,8 +4,8 @@
 
 set -eu
 
-ENV_FILE="/Volumes/dev/influxdb/.env"
-BACKUP_ROOT="/Volumes/dev/influxdb/backups"
+ENV_FILE="/Volumes/dev/observability/influxdb/.env"
+BACKUP_ROOT="/Volumes/dev/observability/influxdb/backups"
 RETENTION_DAYS=30
 DOCKER="/usr/local/bin/docker"
 [[ -x "$DOCKER" ]] || DOCKER="/opt/homebrew/bin/docker"

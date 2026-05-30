@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 
-const ENV_FILE = process.env.GRAFANA_ENV_FILE ?? '/Volumes/dev/grafana/.env';
+const ENV_FILE = process.env.GRAFANA_ENV_FILE ?? '/Volumes/dev/observability/grafana/.env';
 const BASE_URL = process.env.GRAFANA_URL ?? 'http://localhost:3001';
 
 function parseEnv(p: string): Record<string, string> {
@@ -65,7 +65,7 @@ test.describe('Grafana — Tempest dashboard', () => {
 
   test('recent obs_st data exists in tempest_archive (direct Flux to InfluxDB)', async ({ request }) => {
     // Read the Influx read-only token from the influxdb .env (Grafana's token works here).
-    const influxEnv = parseEnv('/Volumes/dev/influxdb/.env');
+    const influxEnv = parseEnv('/Volumes/dev/observability/influxdb/.env');
     const grafanaEnv = parseEnv(ENV_FILE);
     const influxToken = grafanaEnv.INFLUX_GRAFANA_TOKEN ?? influxEnv.INFLUX_GRAFANA_TOKEN;
     expect(influxToken, 'INFLUX_GRAFANA_TOKEN missing from .env').toBeTruthy();

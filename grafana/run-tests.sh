@@ -8,7 +8,7 @@
 # self-skip if a service is down.
 set -uo pipefail
 
-ROOT="${0:A:h:h}"            # repo root (/Volumes/dev)
+ROOT="${0:A:h:h}"            # repo root (/Volumes/dev/observability)
 GRAFANA="$ROOT/grafana"
 PY_DIRS=("$GRAFANA/tests" "$GRAFANA/dev-status" "$ROOT/influxdb/tests")
 PYTEST=(uv run --no-project --with pytest --with pyyaml python -m pytest --import-mode=importlib)

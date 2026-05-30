@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 
-const ENV_FILE = process.env.GRAFANA_ENV_FILE ?? '/Volumes/dev/grafana/.env';
+const ENV_FILE = process.env.GRAFANA_ENV_FILE ?? '/Volumes/dev/observability/grafana/.env';
 const BASE_URL = process.env.GRAFANA_URL ?? 'http://localhost:3001';
 const DEV_STATUS_URL = process.env.DEV_STATUS_URL ?? 'http://localhost:8077';
 

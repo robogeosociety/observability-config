@@ -14,7 +14,7 @@ import fs from 'node:fs';
 // Local-only and machine-specific (not run in CI) — the e2e tier already
 // requires the live stack.
 
-const ENV_FILE = process.env.GRAFANA_ENV_FILE ?? '/Volumes/dev/grafana/.env';
+const ENV_FILE = process.env.GRAFANA_ENV_FILE ?? '/Volumes/dev/observability/grafana/.env';
 const BASE_URL = process.env.GRAFANA_URL ?? 'http://localhost:3001';
 
 // 2026-05-30 13:37:22Z .. 16:37:22Z (epoch ms) — a fixed window with real data.

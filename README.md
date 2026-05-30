@@ -9,14 +9,13 @@ Infrastructure-as-code for the home observability stack running on
   Tailscale Serves* section of the status page.
 - **`influxdb/`** — InfluxDB 2.7. Time-series store + daily backup job.
 
-## This repo's layout is unusual on purpose
+## Layout
 
-The git repo is rooted at the `/Volumes/dev` workspace but tracks **only**
-`grafana/` and `influxdb/` (see `.gitignore`). The two config dirs can't be
-moved into a dedicated folder without breaking the live Docker bind mounts,
-launchd jobs, and the many absolute `/Volumes/dev/...` path references in the
-configs — so the repo wraps them in place. On GitHub it shows up clean (just
-these two dirs). To undo entirely: `rm -rf /Volumes/dev/.git`.
+The repo lives at `/Volumes/dev/observability/` and the live config *is* the
+repo working tree — Grafana's `./provisioning` bind mount, the InfluxDB backup
+LaunchAgent, and the test `.env` paths all point here. Edit in place, commit,
+push. (Run `docker compose up -d` from `grafana/` / `influxdb/` after changes
+that affect the containers.)
 
 ## Secrets
 
