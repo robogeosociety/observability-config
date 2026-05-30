@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tommydoerr.campsite-ingest</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>/Volumes/dev/observability/campsites/ingest.sh</string>
+    </array>
+    <!-- 07:30 local — ~90 min after the collector Worker cron (13:00 UTC / 06:00 PDT). -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>7</integer>
+        <key>Minute</key><integer>30</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/tommydoerr/Library/Logs/campsite-ingest.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tommydoerr/Library/Logs/campsite-ingest.log</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
