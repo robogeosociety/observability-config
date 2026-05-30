@@ -1,0 +1,22 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  hermetic:
+    # Tier 1 only: unit + static validation. The integration/e2e tiers need the
+    # live Grafana/InfluxDB stack running on the Mac mini and are run locally via
+    # grafana/run-tests.sh.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest pyyaml
+      - name: Tier 1 — unit + static
+        run: >
+          pytest grafana/tests grafana/dev-status influxdb/tests
+          -m "not integration" --import-mode=importlib -q

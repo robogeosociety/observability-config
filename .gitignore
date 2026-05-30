@@ -6,15 +6,22 @@
 !/README.md
 !/grafana/
 !/influxdb/
+!/.github/
 
 # --- within the tracked dirs: never commit secrets, data, logs, or deps ---
 **/.env
 **/.env.*
 !**/.env.example
 
+# python test artifacts
+__pycache__/
+.pytest_cache/
+
 # grafana
 grafana/playwright/node_modules/
 grafana/playwright/test-results/
+grafana/playwright/playwright-report/
+grafana/playwright/*.png
 
 # influxdb (data snapshots + runtime log — regenerated, not config)
 influxdb/backups/

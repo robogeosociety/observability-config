@@ -7,7 +7,9 @@ providers:
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
-    allowUiUpdates: true
+    # Locked: dashboards are edited as code in this repo, not in the Grafana UI.
+    # With this false, provisioned dashboards are read-only in the UI (Save disabled).
+    allowUiUpdates: false
     options:
       path: /etc/grafana/provisioning/dashboards
       foldersFromFilesStructure: true

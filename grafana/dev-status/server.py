@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
-LISTEN_PORT = 8077
+LISTEN_PORT = int(os.environ.get("DEV_STATUS_PORT", "8077"))
 TAILSCALE = "/opt/homebrew/bin/tailscale"
 VITE_PORTS = os.path.expanduser("~/.claude/vite-ports.json")
 PROBE_TIMEOUT = 1.5  # seconds
