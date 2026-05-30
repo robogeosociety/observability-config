@@ -18,7 +18,7 @@
         {
           "refId": "nodes",
           "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-          "query": "import \"array\"\napiCalls = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"api_calls_total\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nclients = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"active_clients\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nthrottle = from(bucket: \"transit_tracker\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"throttle_events_total\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nrefresh = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"refresh_interval\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\napiCallsV = if length(arr: apiCalls) > 0 then apiCalls[0] else 0.0\nclientsV = if length(arr: clients) > 0 then clients[0] else 0.0\nthrottleV = if length(arr: throttle) > 0 then throttle[0] else 0.0\nrefreshV = if length(arr: refresh) > 0 then refresh[0] else 30.0\narray.from(rows: [\n  {id: \"oba\", title: \"OneBusAway API\", subTitle: \"upstream provider\", mainStat: \"calls: \" + string(v: int(v: apiCallsV)), secondaryStat: \"429s: \" + string(v: int(v: throttleV))},\n  {id: \"proxy\", title: \"Transit Proxy\", subTitle: \":8000\", mainStat: \"clients: \" + string(v: int(v: clientsV)), secondaryStat: \"refresh: \" + string(v: int(v: refreshV)) + \"s\"},\n  {id: \"displays\", title: \"Displays\", subTitle: \"ESP32 / simulator\", mainStat: \"active: \" + string(v: int(v: clientsV)), secondaryStat: \"\"},\n])"
+          "query": "import \"array\"\napiCalls = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"api_calls_total\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nclients = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"active_clients\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nthrottle = from(bucket: \"transit_tracker\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"throttle_rate\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nrefresh = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"refresh_interval\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\napiCallsV = if length(arr: apiCalls) > 0 then apiCalls[0] else 0.0\nclientsV = if length(arr: clients) > 0 then clients[0] else 0.0\nthrottleV = if length(arr: throttle) > 0 then throttle[0] else 0.0\nrefreshV = if length(arr: refresh) > 0 then refresh[0] else 30.0\narray.from(rows: [\n  {id: \"oba\", title: \"OneBusAway API\", subTitle: \"upstream provider\", mainStat: \"calls: \" + string(v: int(v: apiCallsV)), secondaryStat: \"throttle: \" + string(v: throttleV) + \"%\"},\n  {id: \"proxy\", title: \"Transit Proxy\", subTitle: \":8000\", mainStat: \"clients: \" + string(v: int(v: clientsV)), secondaryStat: \"refresh: \" + string(v: int(v: refreshV)) + \"s\"},\n  {id: \"displays\", title: \"Displays\", subTitle: \"ESP32 / simulator\", mainStat: \"active: \" + string(v: int(v: clientsV)), secondaryStat: \"\"},\n])"
         },
         {
           "refId": "edges",
@@ -81,17 +81,17 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Throttle Events (1h)",
+      "title": "Throttle Rate",
       "gridPos": {"x": 18, "y": 0, "w": 3, "h": 5},
       "datasource": {"type": "influxdb", "uid": "transit_tracker"},
       "targets": [{
         "refId": "A",
         "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"throttle_events_total\" and r._field == \"value\")\n  |> last()"
+        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"throttle_rate\" and r._field == \"value\")\n  |> last()"
       }],
       "fieldConfig": {
         "defaults": {
-          "unit": "short", "decimals": 0,
+          "unit": "percent", "decimals": 1,
           "color": {"mode": "thresholds"},
           "thresholds": {"mode": "absolute", "steps": [
             {"color": "green", "value": null},
