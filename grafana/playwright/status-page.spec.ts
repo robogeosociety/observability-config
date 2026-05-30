@@ -60,6 +60,44 @@ test.describe('Status page + dev-status collector', () => {
     }
   });
 
+  test('live-summary stat (panel-12) shows readable numbers matching the collector', async ({ page, request }) => {
+    // ground truth from the collector
+    const d = await (await request.get(`${DEV_STATUS_URL}/dev-status.json`)).json();
+    const expected = { up: d.up, down: d.down, total: d.total };
+
+    // log in
+    await page.goto(`${BASE_URL}/login`);
+    await page.locator('input[name="user"]').fill(USER);
+    await page.locator('input[name="password"]').fill(PASS);
+    await Promise.all([
+      page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15_000 }),
+      page.locator('button[type="submit"]').click(),
+    ]);
+
+    // open the single-panel view used in the report
+    await page.goto(`${BASE_URL}/d/status-page/project-status?viewPanel=panel-12&orgId=1`,
+      { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 30_000 });
+
+    // For each of up/down/total, the value must render as a real number AND be
+    // large enough to read — guards the two regressions we hit:
+    //   (a) values:true → dozens of ~1.5px tiles, and
+    //   (b) wrong root_selector → null/0 values.
+    for (const [label, value] of Object.entries(expected)) {
+      const found = await page.evaluate((want) => {
+        let maxSize = 0;
+        for (const el of Array.from(document.querySelectorAll('div,span,a'))) {
+          if (el.children.length) continue;             // leaf nodes only
+          if ((el.textContent || '').trim() !== String(want)) continue;
+          maxSize = Math.max(maxSize, parseFloat(getComputedStyle(el).fontSize) || 0);
+        }
+        return maxSize;
+      }, value);
+      expect(found, `value for "${label}" (${value}) not rendered`).toBeGreaterThan(0);
+      expect(found, `value for "${label}" is too small to read (${found}px)`).toBeGreaterThan(20);
+    }
+  });
+
   test('status page renders in the browser with the routes table populated', async ({ page }) => {
     // Log in
     await page.goto(`${BASE_URL}/login`);
@@ -75,24 +113,29 @@ test.describe('Status page + dev-status collector', () => {
     await expect(page).toHaveTitle(/Project Status/i, { timeout: 15_000 });
 
     // The Routes & backends table is below the fold and Grafana lazy-renders
-    // panels only once their place in the scroll container comes into view.
-    // Scroll the dashboard's scroll container to the bottom in steps until the
-    // collector-fed row shows up.
-    const row = page.getByText('realitycapture', { exact: true }).first();
-    await page.mouse.move(640, 400); // put the pointer over the dashboard content
-    for (let i = 0; i < 25 && !(await row.count()); i++) {
-      await page.mouse.wheel(0, 1500); // real wheel events scroll Grafana's canvas
-      await page.waitForTimeout(400);
+    // panels only once scrolled into view. Scroll gently until the panel title
+    // is visible, then STOP — over-scrolling pushes into the table's own
+    // internal scroll and virtualizes the rows back out.
+    const title = page.getByText('Routes & backends', { exact: true });
+    await page.mouse.move(640, 400);
+    for (let i = 0; i < 30 && !(await title.isVisible().catch(() => false)); i++) {
+      await page.mouse.wheel(0, 600);
+      await page.waitForTimeout(250);
     }
+    await expect(title).toBeVisible({ timeout: 10_000 });
+    await page.waitForTimeout(1500); // let the table render its rows
 
-    // No panel-level error states anywhere. (We do NOT assert absence of "No data" —
-    // dev backends are legitimately down and freshness panels may be empty.)
+    // No panel-level error states on the dev-deployments panels.
     const panelErrors = page.locator('[data-testid="data-testid Panel status error"]');
     expect(await panelErrors.count()).toBe(0);
 
-    // The table pulled live rows from the collector. realitycapture is a stable,
-    // registered serve, so its row should be present and visible.
-    await expect(row).toBeVisible({ timeout: 15_000 });
+    // The table is populated from the collector: every row has a Source cell of
+    // "serve" or "registry", so at least one is visible regardless of sort/scroll.
+    await expect(page.getByText(/^(serve|registry)$/).first())
+      .toBeVisible({ timeout: 15_000 });
+    // and the routes carry the tailnet host (serve rows) — proves real data, not a shell.
+    await expect(page.getByText(/tail59a169\.ts\.net/).first())
+      .toBeVisible({ timeout: 15_000 });
 
     await page.screenshot({ path: 'status-page.png', fullPage: true });
   });

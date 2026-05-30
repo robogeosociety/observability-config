@@ -388,7 +388,7 @@
         "format": "table",
         "url": "http://host.docker.internal:8077/dev-status.json",
         "url_options": {"method": "GET", "data": ""},
-        "root_selector": "",
+        "root_selector": "summary",
         "columns": [
           {"selector": "up", "text": "up", "type": "number"},
           {"selector": "down", "text": "down", "type": "number"},
@@ -415,7 +415,7 @@
         "justifyMode": "center",
         "orientation": "horizontal",
         "textMode": "value_and_name",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": true}
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
       }
     },
     {

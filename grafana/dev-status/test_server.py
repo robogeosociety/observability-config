@@ -106,6 +106,11 @@ def test_collect_shape_health_and_naming(monkeypatch):
     assert out["up"] == sum(r["up"] for r in out["deployments"])
     assert out["up"] + out["down"] == out["total"]
 
+    # single-row summary the stat panel reads (root_selector "summary")
+    assert isinstance(out["summary"], list) and len(out["summary"]) == 1
+    s = out["summary"][0]
+    assert s == {"up": out["up"], "down": out["down"], "total": out["total"]}
+
 
 def test_collect_does_not_duplicate_served_registry_port(monkeypatch):
     serve = {"Web": {"host:443": {"Handlers": {"/x": {"Proxy": "http://127.0.0.1:5190"}}}}}

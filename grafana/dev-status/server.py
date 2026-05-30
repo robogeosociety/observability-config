@@ -160,6 +160,14 @@ def collect():
         "total": len(rows),
         "up": up_count,
         "down": len(rows) - up_count,
+        # Single-row array so the Grafana Infinity stat panel can read these
+        # scalars cleanly (root_selector "summary"). Reading them off the root
+        # object doesn't work — Infinity flattens into the deployments array.
+        "summary": [{
+            "up": up_count,
+            "down": len(rows) - up_count,
+            "total": len(rows),
+        }],
         "deployments": rows,
     }
 
