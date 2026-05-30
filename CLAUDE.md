@@ -25,6 +25,9 @@ the Cloudflare R2 `influxdb-backups` bucket via `r2_upload.py`. The **Backups**
 Grafana dashboard (`backups.json`, datasource `ops`) shows last-success age, result,
 size, and history per target. R2 is **pending a scoped R2 token** in `.env`
 (bucket exists; until then it's local-only and the dashboard shows R2 "NOT CONFIGURED").
+The token + bucket are defined as code in `terraform/` (Cloudflare provider v5):
+`terraform apply` (with `TF_VAR_cloudflare_api_token`) mints the scoped R2 token and
+outputs the S3 creds for `influxdb/.env` — see `terraform/README.md`.
 
 ## Hard rules
 
