@@ -64,9 +64,14 @@ integration + e2e are local-only (need the running stack on this Mac).
 
 ## Gotchas
 
-- **`/Volumes` + launchd = TCC block (exit 78).** Any launchd job that must read
-  or write `/Volumes` fails. That's why dev-status runs from the internal disk;
-  it's also why the InfluxDB backup LaunchAgent is currently non-functional.
+- **`/Volumes` + launchd = TCC block.** Any launchd job that must read or write
+  `/Volumes` fails ("Operation not permitted"). That's why dev-status runs from
+  the internal disk. The InfluxDB backup keeps its data on `/Volumes` and instead
+  requires **Full Disk Access granted to `/bin/zsh`** (System Settings → Privacy &
+  Security → Full Disk Access); `influxdb/backup.sh` is structured so that single
+  grant suffices (zsh does all `/Volumes` access; the dump is streamed out of the
+  container via a redirect, not `docker cp`). Its log is on the internal disk
+  (`~/Library/Logs/influxdb-backup.log`) since launchd can't open a `/Volumes` log.
 - **Grafana → host** services use `host.docker.internal` (OrbStack).
 - **InfluxDB** binds only named volumes (`influxdb_data`, `influxdb_config`), not
   its host config dir — editing `influxdb/` never disturbs the running container.

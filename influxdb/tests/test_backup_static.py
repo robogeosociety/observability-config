@@ -28,7 +28,9 @@ def test_backup_script_has_safety_and_core_steps():
     text = BACKUP.read_text()
     assert "set -eu" in text, "should fail fast on errors/unset vars"
     assert "influx backup" in text, "should actually run an influx backup"
-    assert "docker cp" in text, "should copy the dump out of the container"
+    # dump is streamed out via a zsh redirect (not docker cp) so a single /bin/zsh
+    # Full Disk Access grant covers every /Volumes access
+    assert 'tar' in text and '> "$HOST_TARBALL"' in text, "should stream the dump out via redirect"
     # retention pruning must be present so backups don't grow unbounded
     assert "RETENTION_DAYS" in text and "-mtime" in text, "should prune old backups"
     # must read secrets from the env file, never hardcode a token
