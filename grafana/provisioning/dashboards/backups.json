@@ -157,10 +157,91 @@
       }
     },
     {
+      "id": 10,
+      "type": "stat",
+      "title": "Obsidian — time since last success",
+      "gridPos": {"x": 0, "y": 13, "w": 8, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"obsidian\" and r._field == \"success\" and r._value == 1)\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "decimals": 0,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 3600},
+            {"color": "red", "value": 21600}
+          ]},
+          "noValue": "NEVER"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Obsidian — last result",
+      "gridPos": {"x": 8, "y": 13, "w": 8, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"obsidian\" and r._field == \"success\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [
+            {"type": "value", "options": {"1": {"text": "OK", "color": "green"}, "0": {"text": "FAILED", "color": "red"}}}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null}, {"color": "green", "value": 1}
+          ]},
+          "noValue": "NEVER"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Obsidian — vault size",
+      "gridPos": {"x": 16, "y": 13, "w": 8, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "ops"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "ops"},
+        "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"obsidian\" and r._field == \"bytes\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {"unit": "decbytes", "color": {"mode": "fixed", "fixedColor": "blue"}, "noValue": "—"},
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
       "id": 7,
       "type": "timeseries",
       "title": "Backup size",
-      "gridPos": {"x": 0, "y": 13, "w": 12, "h": 8},
+      "gridPos": {"x": 0, "y": 19, "w": 12, "h": 8},
       "datasource": {"type": "influxdb", "uid": "ops"},
       "targets": [{
         "refId": "A",
@@ -184,7 +265,7 @@
       "id": 8,
       "type": "timeseries",
       "title": "Backup result (1 = ok, 0 = fail)",
-      "gridPos": {"x": 12, "y": 13, "w": 12, "h": 8},
+      "gridPos": {"x": 12, "y": 19, "w": 12, "h": 8},
       "datasource": {"type": "influxdb", "uid": "ops"},
       "targets": [{
         "refId": "A",
@@ -208,7 +289,7 @@
       "id": 9,
       "type": "table",
       "title": "Recent backups",
-      "gridPos": {"x": 0, "y": 21, "w": 24, "h": 10},
+      "gridPos": {"x": 0, "y": 27, "w": 24, "h": 10},
       "datasource": {"type": "influxdb", "uid": "ops"},
       "targets": [{
         "refId": "A",
@@ -249,6 +330,6 @@
   "timezone": "browser",
   "title": "Backups",
   "uid": "backups",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
