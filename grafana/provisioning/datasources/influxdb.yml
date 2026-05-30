@@ -1,0 +1,59 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB - tempest_archive
+    uid: tempest_archive
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: home
+      defaultBucket: tempest_archive
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUX_GRAFANA_TOKEN}
+    editable: true
+
+  - name: InfluxDB - home_assistant
+    uid: home_assistant
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: home
+      defaultBucket: home_assistant
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUX_GRAFANA_TOKEN}
+    editable: true
+
+  - name: InfluxDB - zigbee_archive
+    uid: zigbee_archive
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: home
+      defaultBucket: zigbee_archive
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUX_GRAFANA_TOKEN}
+    editable: true
+
+  - name: InfluxDB - transit_tracker
+    uid: transit_tracker
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: home
+      defaultBucket: transit_tracker
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUX_GRAFANA_TOKEN}
+    editable: true

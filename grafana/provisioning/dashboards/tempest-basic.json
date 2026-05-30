@@ -1,0 +1,286 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Air Temperature",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"air_temp_c\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 1.8 + 32.0 }))"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "blue", "value": null},
+            {"color": "green", "value": 50},
+            {"color": "orange", "value": 77},
+            {"color": "red", "value": 95}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Humidity",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"humidity_pct\")\n  |> last()"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "decimals": 1,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "orange", "value": null},
+            {"color": "green", "value": 30},
+            {"color": "blue", "value": 70},
+            {"color": "purple", "value": 90}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Wind (avg)",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"wind_rapid\" and r._field == \"wind_avg_mps\")\n  |> last()"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "velocityms",
+          "decimals": 1,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 5},
+            {"color": "orange", "value": 10},
+            {"color": "red", "value": 15}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Battery",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"battery_v\")\n  |> last()"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "decimals": 2,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "orange", "value": 2.5},
+            {"color": "yellow", "value": 2.7},
+            {"color": "green", "value": 2.8}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Temperature & Humidity",
+      "gridPos": {"x": 0, "y": 4, "w": 24, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"air_temp_c\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value * 1.8 + 32.0 }))"
+        },
+        {
+          "refId": "B",
+          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"humidity_pct\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byFrameRefID", "options": "A"},
+            "properties": [
+              {"id": "unit", "value": "fahrenheit"},
+              {"id": "displayName", "value": "Air Temp (°F)"},
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byFrameRefID", "options": "B"},
+            "properties": [
+              {"id": "unit", "value": "humidity"},
+              {"id": "displayName", "value": "Humidity (%)"},
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}},
+              {"id": "custom.axisPlacement", "value": "right"}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "none"},
+        "legend": {"displayMode": "list", "placement": "bottom", "calcs": ["min", "max", "mean", "lastNotNull"]}
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Wind (avg / gust / lull)",
+      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and (r._field == \"wind_avg_mps\" or r._field == \"wind_gust_mps\" or r._field == \"wind_lull_mps\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "velocityms",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": [
+          {"matcher": {"id": "byRegexp", "options": ".*wind_gust.*"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}, {"id": "displayName", "value": "Gust"}]},
+          {"matcher": {"id": "byRegexp", "options": ".*wind_avg.*"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}, {"id": "displayName", "value": "Average"}]},
+          {"matcher": {"id": "byRegexp", "options": ".*wind_lull.*"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}, {"id": "displayName", "value": "Lull"}]}
+        ]
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "none"},
+        "legend": {"displayMode": "list", "placement": "bottom", "calcs": ["max", "mean", "lastNotNull"]}
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Pressure",
+      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"pressure_mb\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pressurembar",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "color": {"mode": "fixed", "fixedColor": "purple"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {"mode": "single", "sort": "none"},
+        "legend": {"displayMode": "hidden", "placement": "bottom", "calcs": []}
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["tempest", "weather"],
+  "templating": {"list": []},
+  "time": {"from": "now-3h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Tempest — Basic",
+  "uid": "tempest-basic",
+  "version": 1,
+  "weekStart": ""
+}

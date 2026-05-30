@@ -1,0 +1,15 @@
+apiVersion: 1
+
+# Infinity datasource for the project status page. Reads JSON over HTTPS from
+# raw.githubusercontent.com (no auth needed — repo is public). Each panel in the
+# status-page dashboard sets its own URL on the query, so this datasource just
+# carries shared config.
+datasources:
+  - name: uptime-status
+    uid: uptime_status
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    isDefault: false
+    editable: true
+    jsonData:
+      global_queries: []

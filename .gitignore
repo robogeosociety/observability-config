@@ -1,0 +1,24 @@
+# This git repo (rooted at the /Volumes/dev workspace) intentionally tracks ONLY
+# the observability stack config: grafana/ and influxdb/. Everything else in the
+# workspace is ignored so unrelated projects are never accidentally committed.
+/*
+!/.gitignore
+!/README.md
+!/grafana/
+!/influxdb/
+
+# --- within the tracked dirs: never commit secrets, data, logs, or deps ---
+**/.env
+**/.env.*
+!**/.env.example
+
+# grafana
+grafana/playwright/node_modules/
+grafana/playwright/test-results/
+
+# influxdb (data snapshots + runtime log — regenerated, not config)
+influxdb/backups/
+influxdb/bridge.log
+
+# logs anywhere
+**/*.log

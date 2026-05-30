@@ -1,0 +1,495 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Status",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 6},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+        "type": "json",
+        "source": "url",
+        "format": "table",
+        "url": "https://raw.githubusercontent.com/tommyroar/tommyroar.github.io/main/data/uptime-summary.json",
+        "url_options": {"method": "GET", "data": ""},
+        "root_selector": "projects",
+        "columns": [
+          {"selector": "project", "text": "project", "type": "string"},
+          {"selector": "current_up", "text": "up", "type": "number"}
+        ]
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "green", "value": 1}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "reduceOptions": {"calcs": ["last"], "fields": "/^up$/", "values": true}
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Latency (ms)",
+      "gridPos": {"x": 0, "y": 6, "w": 24, "h": 6},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+        "type": "json",
+        "source": "url",
+        "format": "table",
+        "url": "https://raw.githubusercontent.com/tommyroar/tommyroar.github.io/main/data/uptime-summary.json",
+        "url_options": {"method": "GET", "data": ""},
+        "root_selector": "projects",
+        "columns": [
+          {"selector": "project", "text": "project", "type": "string"},
+          {"selector": "current_latency_ms", "text": "latency", "type": "number"}
+        ]
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 1000},
+            {"color": "orange", "value": 3000},
+            {"color": "red", "value": 8000}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "reduceOptions": {"calcs": ["last"], "fields": "/^latency$/", "values": true}
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Uptime — last 24h",
+      "gridPos": {"x": 0, "y": 12, "w": 8, "h": 6},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+        "type": "json",
+        "source": "url",
+        "format": "table",
+        "url": "https://raw.githubusercontent.com/tommyroar/tommyroar.github.io/main/data/uptime-summary.json",
+        "url_options": {"method": "GET", "data": ""},
+        "root_selector": "projects",
+        "columns": [
+          {"selector": "project", "text": "project", "type": "string"},
+          {"selector": "uptime_24h", "text": "pct", "type": "number"}
+        ]
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "orange", "value": 95},
+            {"color": "yellow", "value": 99},
+            {"color": "green", "value": 99.9}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "vertical",
+        "textMode": "value_and_name",
+        "reduceOptions": {"calcs": ["last"], "fields": "/^pct$/", "values": true}
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Uptime — last 7d",
+      "gridPos": {"x": 8, "y": 12, "w": 8, "h": 6},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+        "type": "json",
+        "source": "url",
+        "format": "table",
+        "url": "https://raw.githubusercontent.com/tommyroar/tommyroar.github.io/main/data/uptime-summary.json",
+        "url_options": {"method": "GET", "data": ""},
+        "root_selector": "projects",
+        "columns": [
+          {"selector": "project", "text": "project", "type": "string"},
+          {"selector": "uptime_7d", "text": "pct", "type": "number"}
+        ]
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "orange", "value": 95},
+            {"color": "yellow", "value": 99},
+            {"color": "green", "value": 99.9}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "vertical",
+        "textMode": "value_and_name",
+        "reduceOptions": {"calcs": ["last"], "fields": "/^pct$/", "values": true}
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Uptime — last 30d",
+      "gridPos": {"x": 16, "y": 12, "w": 8, "h": 6},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+        "type": "json",
+        "source": "url",
+        "format": "table",
+        "url": "https://raw.githubusercontent.com/tommyroar/tommyroar.github.io/main/data/uptime-summary.json",
+        "url_options": {"method": "GET", "data": ""},
+        "root_selector": "projects",
+        "columns": [
+          {"selector": "project", "text": "project", "type": "string"},
+          {"selector": "uptime_30d", "text": "pct", "type": "number"}
+        ]
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "orange", "value": 95},
+            {"color": "yellow", "value": 99},
+            {"color": "green", "value": 99.9}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "vertical",
+        "textMode": "value_and_name",
+        "reduceOptions": {"calcs": ["last"], "fields": "/^pct$/", "values": true}
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Incidents (last 7d)",
+      "gridPos": {"x": 0, "y": 18, "w": 24, "h": 8},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+        "type": "json",
+        "source": "url",
+        "format": "table",
+        "url": "https://raw.githubusercontent.com/tommyroar/tommyroar.github.io/main/data/uptime-summary.json",
+        "url_options": {"method": "GET", "data": ""},
+        "root_selector": "incidents_7d",
+        "columns": [
+          {"selector": "project", "text": "Project", "type": "string"},
+          {"selector": "started_at", "text": "Started", "type": "timestamp"},
+          {"selector": "ended_at", "text": "Ended", "type": "timestamp"},
+          {"selector": "duration_min", "text": "Duration (min)", "type": "number"}
+        ]
+      }],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto"}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Duration (min)"},
+           "properties": [{"id": "unit", "value": "m"}]}
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {"show": false, "reducer": ["sum"], "fields": ""}
+      }
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Collectors (data freshness)",
+      "gridPos": {"x": 0, "y": 26, "w": 24, "h": 1},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "tempest",
+      "gridPos": {"x": 0, "y": 27, "w": 8, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"weather\")\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> group()\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "orange", "value": 120},
+            {"color": "red", "value": 300}
+          ]},
+          "noValue": "STALE"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "transit-tracker",
+      "gridPos": {"x": 8, "y": 27, "w": 8, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "transit_tracker"},
+        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\")\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> group()\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "orange", "value": 90},
+            {"color": "red", "value": 240}
+          ]},
+          "noValue": "STALE"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "zigbee",
+      "gridPos": {"x": 16, "y": 27, "w": 8, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "zigbee_archive"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "zigbee_archive"},
+        "query": "import \"array\"\n\nreal = from(bucket: \"zigbee_archive\")\n  |> range(start: -30d)\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> group()\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])\n\nplaceholder = array.from(rows: [{ _value: 999999.0 }])\n\nunion(tables: [real, placeholder])\n  |> sort(columns: [\"_value\"])\n  |> limit(n: 1)"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "orange", "value": 120},
+            {"color": "red", "value": 600}
+          ]},
+          "mappings": [
+            {"type": "value", "options": {"999999": {"text": "STALE", "color": "red"}}}
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Dev Deployments & Tailscale Serves (this machine)",
+      "gridPos": {"x": 0, "y": 33, "w": 24, "h": 1},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Deployments — live summary",
+      "gridPos": {"x": 0, "y": 34, "w": 24, "h": 4},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+        "type": "json",
+        "source": "url",
+        "format": "table",
+        "url": "http://host.docker.internal:8077/dev-status.json",
+        "url_options": {"method": "GET", "data": ""},
+        "root_selector": "",
+        "columns": [
+          {"selector": "up", "text": "up", "type": "number"},
+          {"selector": "down", "text": "down", "type": "number"},
+          {"selector": "total", "text": "total", "type": "number"}
+        ]
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "fixed", "fixedColor": "text"},
+          "mappings": []
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "up"},
+           "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]},
+          {"matcher": {"id": "byName", "options": "down"},
+           "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+          {"matcher": {"id": "byName", "options": "total"},
+           "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]}
+        ]
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": true}
+      }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Routes & backends",
+      "gridPos": {"x": 0, "y": 38, "w": 24, "h": 14},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "uptime_status"},
+        "type": "json",
+        "source": "url",
+        "format": "table",
+        "url": "http://host.docker.internal:8077/dev-status.json",
+        "url_options": {"method": "GET", "data": ""},
+        "root_selector": "deployments",
+        "columns": [
+          {"selector": "up", "text": "Status", "type": "number"},
+          {"selector": "name", "text": "Name", "type": "string"},
+          {"selector": "url", "text": "URL", "type": "string"},
+          {"selector": "target", "text": "Backend", "type": "string"},
+          {"selector": "port", "text": "Port", "type": "number"},
+          {"selector": "source", "text": "Source", "type": "string"},
+          {"selector": "latency_ms", "text": "Latency", "type": "number"}
+        ]
+      }],
+      "transformations": [
+        {"id": "sortBy", "options": {"fields": {}, "sort": [{"field": "Status", "desc": true}, {"field": "Name"}]}}
+      ],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto", "filterable": true}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Status"},
+           "properties": [
+             {"id": "custom.width", "value": 90},
+             {"id": "mappings", "value": [
+               {"type": "value", "options": {"1": {"text": "UP", "color": "green", "index": 0}, "0": {"text": "DOWN", "color": "red", "index": 1}}}
+             ]},
+             {"id": "custom.cellOptions", "value": {"type": "color-background", "mode": "basic"}},
+             {"id": "color", "value": {"mode": "thresholds"}},
+             {"id": "thresholds", "value": {"mode": "absolute", "steps": [
+               {"color": "red", "value": null}, {"color": "green", "value": 1}
+             ]}}
+           ]},
+          {"matcher": {"id": "byName", "options": "Name"},
+           "properties": [
+             {"id": "links", "value": [
+               {"title": "Open ${__data.fields.URL}", "url": "${__data.fields.URL}", "targetBlank": true}
+             ]}
+           ]},
+          {"matcher": {"id": "byName", "options": "Latency"},
+           "properties": [{"id": "unit", "value": "ms"}, {"id": "decimals", "value": 1}, {"id": "custom.width", "value": 100}]},
+          {"matcher": {"id": "byName", "options": "Port"},
+           "properties": [{"id": "custom.width", "value": 80}]},
+          {"matcher": {"id": "byName", "options": "Source"},
+           "properties": [{"id": "custom.width", "value": 90}]}
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {"show": false, "reducer": ["sum"], "fields": ""}
+      }
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["status", "uptime"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Project Status",
+  "uid": "status-page",
+  "version": 3,
+  "weekStart": ""
+}
