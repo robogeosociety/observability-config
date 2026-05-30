@@ -7,6 +7,7 @@ Grafana actually loaded.
 
 import json
 import pathlib
+import urllib.request
 
 import pytest
 import yaml
@@ -14,6 +15,7 @@ import yaml
 PROVISIONING = pathlib.Path(__file__).parent.parent / "provisioning"
 DASH_DIR = PROVISIONING / "dashboards"
 DS_DIR = PROVISIONING / "datasources"
+GRAFANA_URL = "http://localhost:3001"
 
 pytestmark = pytest.mark.integration
 
@@ -63,3 +65,17 @@ def test_influxdb_datasource_health_ok(ds, grafana_get):
     status, body = grafana_get(f"/api/datasources/uid/{ds['uid']}/health")
     assert status == 200
     assert body.get("status") == "OK", f"{ds['uid']} health: {body.get('message')}"
+
+
+def test_image_renderer_produces_png(grafana_get, grafana_auth):
+    """The grafana-image-renderer sidecar renders a single panel to PNG.
+    (grafana_get dependency makes this skip if Grafana itself is down.)"""
+    # fixed past window with real data; epoch ms (the /render API wants ms, not ISO)
+    url = (f"{GRAFANA_URL}/render/d-solo/tempest-basic/x"
+           "?panelId=7&from=1780148242000&to=1780159042000&width=600&height=300")
+    req = urllib.request.Request(url, headers={"Authorization": grafana_auth})
+    with urllib.request.urlopen(req, timeout=40) as r:
+        assert r.status == 200
+        head = r.read(8)
+    assert head.startswith(b"\x89PNG\r\n\x1a\n"), \
+        "renderer did not return a PNG — is the renderer container up + GF_RENDERING_SERVER_URL set?"

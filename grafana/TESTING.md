@@ -47,9 +47,31 @@ once).
 - InfluxDB: healthy, the org exists, and every bucket a datasource points at exists.
 
 **Tier 3 — e2e (Playwright, real browser)**
-- Tempest dashboard renders without panel errors / "No data".
-- Status page renders, the dev-status collector serves its contract, and the
-  Routes & backends table is populated (the `realitycapture` row is visible).
+- Tempest dashboard renders without panel errors / "No data"; the Pressure panel
+  mounts a canvas (guards the legacy-legend blank-panel bug).
+- Status page renders, the dev-status collector serves its contract, the Routes &
+  backends table is populated, and the live-summary stat shows readable numbers.
+- **Visual regression** (`visual.spec.ts`): panels are screenshotted via Grafana
+  `d-solo` over a **fixed past time range** (immutable InfluxDB data → deterministic
+  images) and diffed against committed baselines with `toHaveScreenshot`. This is
+  what catches the *canvas-drawn* regressions DOM assertions can't see — blank
+  panels, collapsed axes, unreadable stats. Baselines live in
+  `playwright/visual.spec.ts-snapshots/` (machine-specific; regenerate after an
+  intentional change with `npx playwright test visual.spec.ts --update-snapshots`).
+
+## Troubleshooting tools
+
+- **grafana-image-renderer** (compose service `renderer`): server-side panel PNGs,
+  the fastest way to eyeball one panel deterministically (no login/scroll/lazy-render):
+
+  ```sh
+  source .env; AUTH="$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD"
+  # from/to are epoch MS (not ISO); panelId from the dashboard JSON
+  curl -s -u "$AUTH" -o /tmp/panel.png \
+    "http://localhost:3001/render/d-solo/<uid>/x?panelId=7&from=<ms>&to=<ms>&width=1000&height=500"
+  ```
+
+- **Grafana MCP** (`mcp/grafana`): typed API tools for Claude Code — see `mcp/README.md`.
 
 ## CI
 

@@ -30,6 +30,12 @@ services:
       GF_AUTH_GOOGLE_ALLOW_SIGN_UP: "true"
       GF_AUTH_GOOGLE_SKIP_ORG_ROLE_SYNC: "true"
       GF_USERS_AUTO_ASSIGN_ORG_ROLE: "Admin"
+      # Server-side panel rendering (PNG via /render/...). Grafana calls the
+      # renderer, which loads panels back from Grafana via the callback URL.
+      GF_RENDERING_SERVER_URL: "http://renderer:8081/render"
+      GF_RENDERING_CALLBACK_URL: "http://grafana:3000/"
+    depends_on:
+      - renderer
     networks:
       - default
       - influxdb_default
@@ -39,6 +45,19 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  # Server-side panel renderer. Produces deterministic PNGs of single panels
+  # (Grafana /render/d-solo/...), used for ad-hoc troubleshooting and the visual
+  # regression tier. Pinned by digest for reproducibility.
+  renderer:
+    image: grafana/grafana-image-renderer:latest@sha256:a30a68c2de11a1aad5733452536ac50fbc2f3958e6d0aa046ef9eb56db7c6a6d
+    container_name: grafana-renderer
+    restart: unless-stopped
+    environment:
+      ENABLE_METRICS: "false"
+      RENDERING_MODE: "default"
+    networks:
+      - default
 
 volumes:
   grafana_data:

@@ -3,3 +3,7 @@ test-results/
 playwright-report/
 *.png
 *.webm
+
+# but DO track committed visual-regression baselines
+!*.spec.ts-snapshots/
+!*.spec.ts-snapshots/*.png
