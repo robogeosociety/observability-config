@@ -86,10 +86,19 @@ GROUP BY day, agency ORDER BY day
    + datasource provisioning (`grafana/provisioning/datasources/cloudflare-ae.yml`).
 4. [x] `collector-history.json` scaffolded — info panel + coverage table + sites
    OK/failed timeseries (uid `collector-history`).
-2. [ ] mint the `Account Analytics: Read` token → `CF_ANALYTICS_TOKEN` in `grafana/.env`.
-5. [ ] deploy/merge so the running Grafana reads this provisioning, then verify the
-   query panels render real run data (live verification still pending — they read
-   *No data* until the token + plugin are live; the ClickHouse query/macro shapes
-   may need a tweak against the real AE endpoint).
+2. [x] `Account Analytics: Read` token minted + in the live `grafana/.env` as
+   `CF_ANALYTICS_TOKEN`. Verified against the AE SQL API (returns real rows).
+5. [x] **Verified live end-to-end** — temporarily provisioned the datasource +
+   dashboard into the running Grafana (plugin installed into the container) and
+   rendered both query panels against the real AE endpoint: coverage table
+   (e.g. `2026-05-31`: 15 attempts / 14 ok / 1 failed / 807 ms avg) and the sites
+   OK/failed timeseries both show real data. The ClickHouse query/macro shapes
+   (`$timeFilter`, `$timeSeries`) work as-is — **no query changes needed**. Temp
+   provisioning was then removed; the plugin stays staged in the container volume.
+6. [ ] **Permanent deploy** — merge this PR (and #2) so the primary worktree the
+   running Grafana reads gets `cloudflare-ae.yml` + `collector-history.json` and the
+   compose `GF_INSTALL_PLUGINS`/`CF_ANALYTICS_TOKEN` passthrough. (Token already in
+   the live `.env`; plugin already installed — so post-merge it comes up live with
+   no extra steps.)
 
 Deployed Mac-system work (PR #2) is unaffected — separate worktree/branch.
