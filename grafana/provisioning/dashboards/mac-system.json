@@ -19,11 +19,16 @@
           "uid": "system"
         },
         "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"system\", tag: \"host\")",
-        "refresh": 2,
+        "refresh": 1,
         "sort": 1,
         "multi": true,
         "includeAll": true,
-        "allValue": ".*"
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": ["tommys-mac-mini"],
+          "value": ["tommys-mac-mini"]
+        }
       },
       {
         "name": "mount",
@@ -33,12 +38,17 @@
           "type": "influxdb",
           "uid": "system"
         },
-        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"system\", tag: \"path\", predicate: (r) => r._measurement == \"disk\")",
-        "refresh": 2,
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"system\", tag: \"path\", predicate: (r) => r._measurement == \"disk\" and (r.path == \"/\" or r.path == \"/System/Volumes/Data\" or r.path =~ /^\\/Volumes\\// or r.path =~ /^\\/Users\\//))",
+        "refresh": 1,
         "sort": 1,
         "multi": true,
         "includeAll": true,
-        "allValue": ".*"
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": ["/", "/System/Volumes/Data", "/Volumes/dev"],
+          "value": ["/", "/System/Volumes/Data", "/Volumes/dev"]
+        }
       },
       {
         "name": "iface",
@@ -48,12 +58,17 @@
           "type": "influxdb",
           "uid": "system"
         },
-        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"system\", tag: \"interface\", predicate: (r) => r._measurement == \"net\")",
-        "refresh": 2,
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"system\", tag: \"interface\", predicate: (r) => r._measurement == \"net\" and r.interface =~ /^en[0-9]+$/)",
+        "refresh": 1,
         "sort": 1,
         "multi": true,
         "includeAll": true,
-        "allValue": ".*"
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": ["en0", "en1"],
+          "value": ["en0", "en1"]
+        }
       }
     ]
   },
@@ -821,7 +836,7 @@
             "type": "influxdb",
             "uid": "system"
           },
-          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"disk\" and (r._field == \"used_percent\" or r._field == \"used\" or r._field == \"free\" or r._field == \"total\"))\n  |> filter(fn: (r) => r.host =~ /${host:regex}/)\n  |> filter(fn: (r) => r.path =~ /${mount:regex}/)\n  |> last()\n  |> pivot(rowKey: [\"path\", \"device\", \"fstype\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"path\", \"device\", \"used\", \"free\", \"total\", \"used_percent\"])\n  |> group()\n  |> sort(columns: [\"used_percent\"], desc: true)"
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"disk\" and (r._field == \"used_percent\" or r._field == \"used\" or r._field == \"free\" or r._field == \"total\"))\n  |> filter(fn: (r) => r.host =~ /${host:regex}/)\n  |> filter(fn: (r) => r.path =~ /^(${mount:regex})$/)\n  |> last()\n  |> pivot(rowKey: [\"path\", \"device\", \"fstype\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"path\", \"device\", \"used\", \"free\", \"total\", \"used_percent\"])\n  |> group()\n  |> sort(columns: [\"used_percent\"], desc: true)"
         }
       ],
       "transformations": [
@@ -1055,7 +1070,7 @@
             "type": "influxdb",
             "uid": "system"
           },
-          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"net\" and (r._field == \"bytes_recv\" or r._field == \"bytes_sent\"))\n  |> filter(fn: (r) => r.host =~ /${host:regex}/)\n  |> filter(fn: (r) => r.interface =~ /${iface:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)"
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"net\" and (r._field == \"bytes_recv\" or r._field == \"bytes_sent\"))\n  |> filter(fn: (r) => r.host =~ /${host:regex}/)\n  |> filter(fn: (r) => r.interface =~ /^(${iface:regex})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)"
         }
       ],
       "fieldConfig": {
@@ -1117,7 +1132,7 @@
             "type": "influxdb",
             "uid": "system"
           },
-          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"net\" and (r._field == \"packets_recv\" or r._field == \"packets_sent\"))\n  |> filter(fn: (r) => r.host =~ /${host:regex}/)\n  |> filter(fn: (r) => r.interface =~ /${iface:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)"
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"net\" and (r._field == \"packets_recv\" or r._field == \"packets_sent\"))\n  |> filter(fn: (r) => r.host =~ /${host:regex}/)\n  |> filter(fn: (r) => r.interface =~ /^(${iface:regex})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)"
         }
       ],
       "fieldConfig": {
