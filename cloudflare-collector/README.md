@@ -124,19 +124,22 @@ coverage denominator.
 
 ### Datasource
 
-A second, parallel datasource provisions the official ClickHouse plugin against
-the same AE SQL API (the AE SQL endpoint is ClickHouse-dialect, queried over
-HTTPS — query in the POST body, JSON back):
+The AE SQL endpoint is ClickHouse-*dialect* but it's a SQL-over-HTTPS API (query
+in the POST body, JSON back) authed by a bearer token — **not** a ClickHouse
+server. The official `grafana-clickhouse-datasource` expects a real server
+(host/port handshake) and can't reach it (`failed to create ClickHouse client`),
+so the datasource uses the **community** plugin, which POSTs SQL to an arbitrary
+URL with a custom header:
 
 - **File:** `grafana/provisioning/datasources/campsites-ae.yml`
 - **uid:** `campsites_ae`
-- **Plugin:** `grafana-clickhouse-datasource` (the official Grafana ClickHouse
-  plugin). If it isn't already in the container, add it to `GF_INSTALL_PLUGINS`
-  in `grafana/docker-compose.yml` and recreate Grafana. (The exploration
-  `cloudflare-ae.yml` used the community `vertamedia-clickhouse-datasource`; this
-  is the supported successor and is kept separate so neither disturbs the other.)
-- **Auth:** standard ClickHouse user/password disabled; the Cloudflare token is
-  forwarded as a custom `Authorization: Bearer ${CF_ANALYTICS_TOKEN}` header.
+- **Plugin:** `vertamedia-clickhouse-datasource` (`usePOST: true`) — listed in
+  `GF_INSTALL_PLUGINS` in `grafana/docker-compose.yml`.
+- **Auth:** the Cloudflare token is forwarded as a custom
+  `Authorization: Bearer ${CF_ANALYTICS_TOKEN}` header (no ClickHouse user/password).
+- **Note:** vertamedia's `$columns`/`$timeFilter` macros expand to
+  `groupArray`/tuple SQL that AE rejects, so the dashboards use plain AE-dialect
+  SQL — quoted `INTERVAL 'N' DAY`, and conditional `SUMIf` pivots for multi-series.
 
 ### Required secret — `CF_ANALYTICS_TOKEN`
 
