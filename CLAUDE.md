@@ -42,6 +42,15 @@ outputs the S3 creds for `influxdb/.env` — see `terraform/README.md`.
   `grafana/provisioning/dashboards/`, never the UI. The provider reloads files
   every 30s; datasource or `docker-compose` changes need a container recreate
   (`docker compose up -d` from the relevant subdir).
+- **Dashboard intent is code too.** Every dashboard has an entry in
+  `grafana/dashboards.index.yaml` capturing its purpose, design rationale, and
+  TODO backlog — the "why" the JSON can't hold. Read it before changing a
+  dashboard; record follow-ups there instead of losing them. Add or remove a
+  dashboard JSON and update the index in the same change: `tests/test_dashboard_index.py`
+  fails if an entry is missing, orphaned, or drifts from the JSON's
+  title/file/datasources. (The index lives in `grafana/`, not
+  `provisioning/dashboards/`, because Grafana's provider would try to parse a
+  stray YAML there as a provider config.)
 - **Secrets** live in per-dir `.env` (gitignored, chmod 600); `.env.example`
   templates are committed. Never commit a real `.env`.
 

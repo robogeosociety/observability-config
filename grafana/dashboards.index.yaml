@@ -1,0 +1,213 @@
+# Dashboard intent index — the "why" behind each dashboard, as code.
+#
+# The JSON in provisioning/dashboards/ is the "what" (panels, queries, layout).
+# This file captures the *intent* the JSON can't: what question the dashboard
+# answers, the design rationale, and the concrete improvements we want next.
+# Read it before changing a dashboard; record follow-ups here instead of losing
+# them.
+#
+# Location note: this lives in grafana/ (NOT provisioning/dashboards/) on
+# purpose. Grafana's dashboard provider scans provisioning/dashboards/ for
+# *.yaml provider configs and would try to parse this file as one and error.
+# Keeping it a sibling of provisioning/ keeps it out of Grafana's way while
+# still version-controlled next to the dashboards it documents.
+#
+# Keyed by dashboard `uid` (must match the JSON). Each entry:
+#   title:        human title — must equal the JSON `title` (kept in sync by test)
+#   file:         filename in provisioning/dashboards/
+#   purpose:      one line — what it shows and from where
+#   datasources:  friendly names, must match what the JSON panels actually use:
+#                   influxdb         -> influxdb
+#                   infinity         -> yesoreyeram-infinity-datasource
+#                   analytics-engine -> vertamedia-clickhouse-datasource (Cloudflare AE)
+#   intent:       the design rationale / who-and-what it's for
+#   todos:        future improvements — the backlog that drives development
+#   status:       (optional) "pending" for a dashboard documented ahead of being
+#                 committed; lets the index lead the JSON without failing CI.
+#
+# test_dashboard_index.py keeps this honest: every committed dashboard JSON must
+# have an entry here, titles/files/datasources must match the JSON, and an index
+# entry with no JSON is only allowed when status: pending.
+
+backups:
+  title: Backups
+  file: backups.json
+  purpose: >-
+    Last-success age, result, and size per backup target (local InfluxDB, R2
+    offsite, Obsidian vault) from the `ops` bucket `backup` measurement.
+  datasources: [influxdb]
+  intent: >-
+    Answer "did every backup run, and is it fresh?" at a glance. Each target is
+    a last-success-age + result + size trio fed by the backup heartbeats.
+  todos:
+    - R2 offsite shows NOT CONFIGURED until the scoped R2 token from terraform/ lands in influxdb/.env
+    - Alert when a target's last-success age exceeds its backup interval
+    - Size-trend thresholds to catch silent truncation or runaway growth
+
+campsite-availability:
+  title: Campsite Availability
+  file: campsite-availability.json
+  purpose: >-
+    Historical availability, sell-out burn-down, and a Holt-Winters forecast for
+    tracked target dates, from the `campsites` InfluxDB bucket.
+  datasources: [influxdb]
+  intent: >-
+    Booking decision support — which dates and sites are trending toward sold
+    out, with a forecast of remaining availability.
+  todos:
+    - Forecast panel needs ~2 weeks of history before it is meaningful
+    - Document the split vs campsite-live-availability (this = Influx history/forecast; that = AE live snapshot)
+    - $target_date-scoped — consider a multi-date overview
+
+campsite-collector-history:
+  title: Collector History
+  file: campsite-collector-history.json
+  purpose: >-
+    Campsite scraper run health from Cloudflare Analytics Engine — runs/day,
+    sites ok/failed/empty of 61 per run, per-agency coverage, step durations,
+    top failing sites, latest capture.
+  datasources: [analytics-engine]
+  intent: >-
+    Ops/reliability view of the collector pipeline — is it running, how fully is
+    it covering the tracked sites, and what's breaking.
+  todos:
+    - '"61 sites" is hard-coded in panel titles — parameterize or derive it'
+    - AE retention is ~90d — note the ceiling on history depth
+    - Alert when runs/day drops to 0 or the failure count spikes
+
+campsite-live-availability:
+  title: Live Availability
+  file: campsite-live-availability.json
+  purpose: >-
+    Current availability snapshot from Cloudflare AE — site-nights available,
+    % reserved, fully-booked campgrounds, per-agency and per-campground latest,
+    and watched hot dates.
+  datasources: [analytics-engine]
+  intent: >-
+    The AE-native "right now" view, complementing the Influx history/forecast
+    dashboard with low-latency current state.
+  todos:
+    - Reconcile and document overlap with campsite-availability
+    - '"Watched hot dates" is a manual list — source it from collector config'
+
+mac-system:
+  title: Mac System
+  file: mac-system.json
+  purpose: >-
+    Host CPU/load/mem/swap/disk/net for the Mac mini (Telegraf -> Influx
+    `system`) plus a btop-style whole-system process treemap from the dev-status
+    collector (:8077/processes.json).
+  datasources: [influxdb, infinity]
+  intent: >-
+    btop-at-a-glance for the mini that hosts the whole stack — one screen for
+    "is the machine healthy and what's eating it."
+  todos:
+    - Per-core CPU sparklines
+    - CPU temperature / thermal panel (needs a collector that reads the SMC — no metric source yet)
+    - Memory-pressure alerting (esp. after the 2026-05-31 VM-swap watchdog panic)
+    - Treemap depends on the host collector being deployed via dev-status/deploy.sh
+
+mountain-infra:
+  title: Mountain Out — Inference Infrastructure
+  file: mountain-infra.json
+  purpose: >-
+    is-the-mountain-out collector liveness — minutes since last tick, tick/error
+    counts, success rate, tick duration, outcomes, and recent errors (Influx).
+  datasources: [influxdb]
+  intent: >-
+    Ops/liveness for the webcam-inference collector — the one Nomad-scheduled
+    production job.
+  todos:
+    - Alert when minutes-since-last-tick exceeds the schedule interval
+    - Correlate with Nomad job/alloc status
+
+mountain-status:
+  title: Mountain Out — Status
+  file: mountain-status.json
+  purpose: >-
+    The inference output itself — is the mountain out, current class, visible
+    confidence, class confidence over time, class distribution, and visibility
+    & ceiling (Influx).
+  datasources: [influxdb]
+  intent: >-
+    Product-facing result view for is-the-mountain-out — the answer, not the
+    plumbing.
+  todos:
+    - Add a latest webcam thumbnail panel
+    - Correlate predicted visibility with METAR / observed ceiling
+
+status-page:
+  title: Project Status
+  file: status-page.json
+  purpose: >-
+    Cross-project up/latency and 24h/7d/30d uptime (Influx `uptime`) plus live
+    dev deployments and tailscale-serve routes from the dev-status collector
+    (via Infinity).
+  datasources: [influxdb, infinity]
+  intent: >-
+    A single "is everything up?" pane spanning monitored services and live dev
+    deployments.
+  todos:
+    - Define the incidents panel's source
+    - Per-service alerting / SLO targets
+    - Dedupe the service list against the uptime probe config
+
+tempest-basic:
+  title: Tempest — Basic
+  file: tempest-basic.json
+  purpose: >-
+    Tempest weather-station readout — temp/humidity/pressure, wind
+    (live/avg/gust/direction), solar/UV/illuminance, rain, lightning, and
+    battery (Influx `tempest_archive`).
+  datasources: [influxdb]
+  intent: >-
+    Home weather-station dashboard — current conditions and recent trends.
+  todos:
+    - Derived comfort metrics (dew point, heat index, wind chill)
+    - A daily / period-rollup row
+
+transit-tracker-basic:
+  title: Transit Tracker — Basic
+  file: transit-tracker-basic.json
+  purpose: >-
+    OneBusAway transit-display app metrics — clients, API calls/errors/throttle,
+    cache, OBA latency, message throughput, predictions, next departures, and
+    realtime-vs-scheduled (Influx).
+  datasources: [influxdb]
+  intent: >-
+    Combined operational + product view of the transit display — health and
+    what riders see, on one dashboard.
+  todos:
+    - SLO / error-budget panels
+    - Clarify the split vs transit-tracker-monitor (what belongs where)
+
+transit-tracker-monitor:
+  title: Transit Tracker — Network Monitor
+  file: transit-tracker-monitor.json
+  purpose: >-
+    Network-topology lens on the transit proxy — OBA -> Proxy -> Displays flow,
+    clients, API calls/throttle/errors, latency, proxied messages by route, WS
+    connects, and recent trips (Influx).
+  datasources: [influxdb]
+  intent: >-
+    The topology/plumbing view that complements transit-tracker-basic — focused
+    on the proxy and its network rather than rider-facing output.
+  todos:
+    - Document the overlap with transit-tracker-basic
+    - Per-route alerting on proxied-message dropout
+
+walksheds-uptime:
+  title: Walksheds Uptime
+  file: walksheds-uptime.json
+  purpose: >-
+    Uptime/deploy status for the walksheds project from the `ops` bucket —
+    status stat plus a "Deploys" annotation off the `deploy` measurement
+    (service=walksheds).
+  datasources: [influxdb]
+  intent: >-
+    At-a-glance liveness + deploy timeline for walksheds, matching the shared
+    ops/uptime pattern used by the other project status dashboards.
+  status: pending
+  todos:
+    - Commit walksheds-uptime.json + the walksheds/ collector, then drop `status: pending`
+    - Add latency / last-success-age panels to match the status-page treatment
