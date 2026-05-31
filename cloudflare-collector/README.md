@@ -81,9 +81,15 @@ GROUP BY day, agency ORDER BY day
 
 ## Status / next steps
 
-1. [ ] (RGS) land the AE `writeDataPoint` change → dataset starts filling.
-2. [ ] mint the `Account Analytics: Read` token → `grafana/.env`.
-3. [ ] add ClickHouse plugin + datasource provisioning to Grafana.
-4. [ ] build `collector-history.json` and verify it renders real run data.
+1. [x] (RGS) land the AE `writeDataPoint` change → emitting (RGS commit `92abdba`).
+3. [x] add ClickHouse plugin (`vertamedia-clickhouse-datasource` in `GF_INSTALL_PLUGINS`)
+   + datasource provisioning (`grafana/provisioning/datasources/cloudflare-ae.yml`).
+4. [x] `collector-history.json` scaffolded — info panel + coverage table + sites
+   OK/failed timeseries (uid `collector-history`).
+2. [ ] mint the `Account Analytics: Read` token → `CF_ANALYTICS_TOKEN` in `grafana/.env`.
+5. [ ] deploy/merge so the running Grafana reads this provisioning, then verify the
+   query panels render real run data (live verification still pending — they read
+   *No data* until the token + plugin are live; the ClickHouse query/macro shapes
+   may need a tweak against the real AE endpoint).
 
 Deployed Mac-system work (PR #2) is unaffected — separate worktree/branch.
