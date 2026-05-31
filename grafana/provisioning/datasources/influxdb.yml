@@ -89,3 +89,20 @@ datasources:
     secureJsonData:
       token: ${INFLUX_GRAFANA_TOKEN}
     editable: true
+
+  # Mac host system metrics (cpu/mem/swap/disk/diskio/net/system) written every
+  # 15s by Telegraf running natively on the host — feeds the mac-system
+  # dashboard. See telegraf/README.md.
+  - name: InfluxDB - system
+    uid: system
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: home
+      defaultBucket: system
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUX_GRAFANA_TOKEN}
+    editable: true

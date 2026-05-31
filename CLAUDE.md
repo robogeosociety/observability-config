@@ -15,6 +15,12 @@ tree (Grafana bind-mounts `grafana/provisioning`). GitHub: private
   collector), `playwright/` (e2e + visual suite), `tests/` (pytest), `mcp/`
   (Grafana MCP setup).
 - `influxdb/` — InfluxDB 2.7. `docker-compose.yml`, `backup.sh` (+ `r2_upload.py`).
+- `telegraf/` — Mac host metrics collector. Telegraf runs **natively** via
+  `brew services` (not a container — a container would report the OrbStack VM,
+  not macOS), writing cpu/mem/swap/disk/diskio/net/system to the `system` bucket
+  every 15s for the `mac-system` dashboard. Config is `telegraf.conf`; `deploy.sh`
+  bakes the token from `.env` into Homebrew's config path and restarts the service.
+- `campsites/` — R2→InfluxDB ingest for the `campsites` bucket (launchd, daily).
 
 ## Backups
 
