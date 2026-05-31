@@ -22,7 +22,6 @@ services:
       CF_ANALYTICS_TOKEN: ${CF_ANALYTICS_TOKEN}
       # Same scope (Account Analytics: Read) for the campsites_ae ClickHouse
       # datasource — feeds the campsite-collector-history + live-availability dashboards.
-      CF_AE_TOKEN: ${CF_AE_TOKEN}
       GF_SERVER_ROOT_URL: "https://tommys-mac-mini.tail59a169.ts.net:3000"
       GF_AUTH_GOOGLE_ENABLED: "true"
       GF_AUTH_GOOGLE_NAME: "Google (passkey)"

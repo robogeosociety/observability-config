@@ -136,13 +136,13 @@ HTTPS — query in the POST body, JSON back):
   `cloudflare-ae.yml` used the community `vertamedia-clickhouse-datasource`; this
   is the supported successor and is kept separate so neither disturbs the other.)
 - **Auth:** standard ClickHouse user/password disabled; the Cloudflare token is
-  forwarded as a custom `Authorization: Bearer ${CF_AE_TOKEN}` header.
+  forwarded as a custom `Authorization: Bearer ${CF_ANALYTICS_TOKEN}` header.
 
-### Required secret — `CF_AE_TOKEN`
+### Required secret — `CF_ANALYTICS_TOKEN`
 
 A **read-only Cloudflare API token** scoped exactly **Account → Account
 Analytics → Read** (account `d7adee58513c1b2f770ccaac90cf114f`). Mint it in the
-Cloudflare dashboard and store it as the Grafana secret **`CF_AE_TOKEN`** in
+Cloudflare dashboard and store it as the Grafana secret **`CF_ANALYTICS_TOKEN`** in
 `grafana/.env` (gitignored; template entry in `grafana/.env.example`). The
 ClickHouse datasource reads it via `secureJsonData.httpHeaderValue1`. Until the
 secret is set, the panels render *No data* — that's expected and not a config
