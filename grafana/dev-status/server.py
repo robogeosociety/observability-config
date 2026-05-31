@@ -13,6 +13,9 @@ container can't see). On each GET it regenerates a live snapshot of:
 Grafana (in the OrbStack `grafana` container) fetches this via the Infinity
 datasource at http://host.docker.internal:8077/dev-status.json on its 1m refresh.
 
+A second route, /processes.json, serves a live process snapshot (aggregated by
+program name) for the mac-system dashboard's btop-style process treemap.
+
 Kept to the stdlib so it can run under /usr/bin/python3 in a launchd job.
 """
 
@@ -29,6 +32,11 @@ LISTEN_PORT = int(os.environ.get("DEV_STATUS_PORT", "8077"))
 TAILSCALE = "/opt/homebrew/bin/tailscale"
 VITE_PORTS = os.path.expanduser("~/.claude/vite-ports.json")
 PROBE_TIMEOUT = 1.5  # seconds
+
+# Process treemap: how many program groups to show individually before the rest
+# get rolled into a single "(other)" tile. Union of the top-N by CPU and by
+# memory, so the same snapshot reads sensibly under either sizing metric.
+PROC_TOP_N = 40
 
 # Labels for non-Vite-registry backends, keyed by port. Routes with an explicit
 # path use the path as their name first; this only fills in the gaps.
@@ -172,12 +180,99 @@ def collect():
     }
 
 
+def _friendly_name(comm):
+    """'/…/Google Chrome.app/Contents/MacOS/Google Chrome' -> 'Google Chrome'."""
+    base = os.path.basename(comm.rstrip("/")) or comm
+    return base[:40]
+
+
+def collect_processes():
+    """Live process snapshot for the treemap panel.
+
+    Aggregates `ps` output by program name (so a swarm of helper PIDs becomes one
+    tile) and returns tiles that tile the WHOLE system under either sizing metric:
+    each real program plus two synthetic tiles — '(other)' for the long tail below
+    the top-N cutoff, and '(idle / free)' for the unused remainder. `cpu` is summed
+    %CPU (0–100·cores); `mem_mb` is summed RSS. The panel sizes tiles by whichever
+    metric the dashboard variable selects, so both columns are always present.
+    """
+    ncpu = os.cpu_count() or 1
+    cpu_capacity = 100.0 * ncpu  # ps %CPU is per-core, so full machine = 100·cores
+    total_mem_mb = os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / 1048576.0
+
+    out = subprocess.run(
+        ["ps", "-axo", "pcpu=,rss=,comm="],
+        capture_output=True, text=True, timeout=8,
+    )
+    groups = {}  # name -> [cpu, mem_mb]
+    for line in out.stdout.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 3:
+            continue
+        try:
+            cpu = float(parts[0])
+            mem_mb = float(parts[1]) / 1024.0  # ps rss is KiB
+        except ValueError:
+            continue
+        name = _friendly_name(parts[2])
+        g = groups.setdefault(name, [0.0, 0.0])
+        g[0] += cpu
+        g[1] += mem_mb
+
+    all_cpu = sum(g[0] for g in groups.values())
+    all_mem = sum(g[1] for g in groups.values())
+
+    # Show the union of the top-N by CPU and the top-N by memory; everything else
+    # collapses into the "(other)" tile so the treemap stays legible.
+    by_cpu = sorted(groups, key=lambda n: groups[n][0], reverse=True)[:PROC_TOP_N]
+    by_mem = sorted(groups, key=lambda n: groups[n][1], reverse=True)[:PROC_TOP_N]
+    shown = set(by_cpu) | set(by_mem)
+
+    tiles = [
+        {"name": n, "cpu": round(groups[n][0], 1), "mem_mb": round(groups[n][1], 1),
+         "kind": "proc"}
+        for n in sorted(shown, key=lambda n: groups[n][1], reverse=True)
+    ]
+    other_n = len(groups) - len(shown)
+    if other_n > 0:
+        other_cpu = all_cpu - sum(groups[n][0] for n in shown)
+        other_mem = all_mem - sum(groups[n][1] for n in shown)
+        tiles.append({"name": f"(other · {other_n} progs)",
+                      "cpu": round(max(0.0, other_cpu), 1),
+                      "mem_mb": round(max(0.0, other_mem), 1), "kind": "other"})
+    # Unused remainder: idle CPU under the CPU metric, free RAM under the memory
+    # metric. RSS double-counts shared pages, so the mem remainder can hit 0.
+    tiles.append({"name": "(idle / free)",
+                  "cpu": round(max(0.0, cpu_capacity - all_cpu), 1),
+                  "mem_mb": round(max(0.0, total_mem_mb - all_mem), 1),
+                  "kind": "idle"})
+
+    now = datetime.now(timezone.utc)
+    return {
+        "generated_at": now.isoformat(),
+        "ncpu": ncpu,
+        "cpu_capacity": cpu_capacity,
+        "total_mem_mb": round(total_mem_mb, 1),
+        "processes": tiles,
+    }
+
+
+# Path -> snapshot builder. Unknown paths fall back to the dev-status payload so
+# existing callers (status-page dashboard hits /dev-status.json) keep working.
+ROUTES = {
+    "/processes.json": collect_processes,
+    "/dev-status.json": collect,
+}
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802
+        builder = ROUTES.get(urlsplit(self.path).path, collect)
+        empty = "processes" if builder is collect_processes else "deployments"
         try:
-            payload = json.dumps(collect()).encode()
+            payload = json.dumps(builder()).encode()
         except Exception as exc:  # last-ditch: never 500 the dashboard
-            payload = json.dumps({"error": str(exc), "deployments": []}).encode()
+            payload = json.dumps({"error": str(exc), empty: []}).encode()
             self.send_response(200)
         else:
             self.send_response(200)

@@ -11,6 +11,31 @@
   "templating": {
     "list": [
       {
+        "name": "metric",
+        "label": "Treemap size by",
+        "type": "custom",
+        "query": "CPU share : cpu,Memory (RSS) : mem_mb",
+        "options": [
+          {
+            "text": "CPU share",
+            "value": "cpu",
+            "selected": true
+          },
+          {
+            "text": "Memory (RSS)",
+            "value": "mem_mb",
+            "selected": false
+          }
+        ],
+        "current": {
+          "selected": true,
+          "text": "CPU share",
+          "value": "cpu"
+        },
+        "includeAll": false,
+        "multi": false
+      },
+      {
         "name": "host",
         "label": "Host",
         "type": "query",
@@ -26,8 +51,12 @@
         "allValue": ".*",
         "current": {
           "selected": true,
-          "text": ["tommys-mac-mini"],
-          "value": ["tommys-mac-mini"]
+          "text": [
+            "tommys-mac-mini"
+          ],
+          "value": [
+            "tommys-mac-mini"
+          ]
         }
       },
       {
@@ -46,8 +75,16 @@
         "allValue": ".*",
         "current": {
           "selected": true,
-          "text": ["/", "/System/Volumes/Data", "/Volumes/dev"],
-          "value": ["/", "/System/Volumes/Data", "/Volumes/dev"]
+          "text": [
+            "/",
+            "/System/Volumes/Data",
+            "/Volumes/dev"
+          ],
+          "value": [
+            "/",
+            "/System/Volumes/Data",
+            "/Volumes/dev"
+          ]
         }
       },
       {
@@ -66,13 +103,99 @@
         "allValue": ".*",
         "current": {
           "selected": true,
-          "text": ["en0", "en1"],
-          "value": ["en0", "en1"]
+          "text": [
+            "en0",
+            "en1"
+          ],
+          "value": [
+            "en0",
+            "en1"
+          ]
         }
       }
     ]
   },
   "panels": [
+    {
+      "id": 99,
+      "type": "row",
+      "title": "Processes",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 40,
+      "type": "volkovlabs-echarts-panel",
+      "title": "Processes \u2014 $metric (whole-system treemap)",
+      "description": "Live snapshot from the host collector (:8077/processes.json), aggregated by program. Tile area = selected metric; colour = CPU heat. '(idle / free)' fills the unused remainder so the block represents the whole machine.",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "uptime_status"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "uptime_status"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://host.docker.internal:8077/processes.json",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "processes",
+          "columns": [
+            {
+              "selector": "name",
+              "text": "name",
+              "type": "string"
+            },
+            {
+              "selector": "cpu",
+              "text": "cpu",
+              "type": "number"
+            },
+            {
+              "selector": "mem_mb",
+              "text": "mem_mb",
+              "type": "number"
+            },
+            {
+              "selector": "kind",
+              "text": "kind",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "options": {
+        "getOption": "// Business Charts v7 passes a wrapped context: data under context.panel.data,\n// helpers under context.grafana.\nconst { panel, grafana } = context;\nconst s = panel && panel.data && panel.data.series && panel.data.series[0];\nif (!s) { return { series: [] }; }\nconst col = (n) => {\n  const f = s.fields.find((x) => x.name === n);\n  if (!f) return [];\n  return f.values.toArray ? f.values.toArray() : f.values;\n};\nconst names = col('name'), cpu = col('cpu'), mem = col('mem_mb'), kind = col('kind');\nconst metric = grafana.replaceVariables('$metric');     // 'cpu' | 'mem_mb'\nconst vals = metric === 'cpu' ? cpu : mem;\n\n// btop-style CPU heat \u2014 every real tile is coloured by how hot it is, so a big\n// memory tile that's also burning CPU still glows red.\nconst heat = (c) => c < 5 ? '#2f6f3e' : c < 25 ? '#7a8b1f' : c < 60 ? '#cf7b1b' : '#c0392b';\nconst fmtMem = (m) => m >= 1024 ? (m / 1024).toFixed(1) + 'G' : m.toFixed(0) + 'M';\n\nconst items = names.map((n, i) => ({\n  name: n,\n  value: Math.max(0, vals[i] || 0),\n  itemStyle: {\n    color: kind[i] === 'idle' ? '#15181d' : kind[i] === 'other' ? '#39404d' : heat(cpu[i]),\n  },\n}));\n\nreturn {\n  backgroundColor: 'transparent',\n  tooltip: {\n    formatter: (p) => {\n      const i = names.indexOf(p.name);\n      return `<b>${p.name}</b><br/>CPU: ${cpu[i].toFixed(1)}%<br/>Mem: ${mem[i].toFixed(0)} MB`;\n    },\n  },\n  series: [{\n    type: 'treemap',\n    roam: false,\n    nodeClick: false,\n    breadcrumb: { show: false },\n    top: 2, left: 2, right: 2, bottom: 2,\n    width: 'auto', height: 'auto',\n    itemStyle: { borderColor: '#0b0c0e', borderWidth: 1, gapWidth: 1 },\n    label: {\n      show: true,\n      overflow: 'truncate',\n      color: '#eaeaea',\n      fontSize: 11,\n      formatter: (p) => {\n        const i = names.indexOf(p.name);\n        const v = metric === 'cpu' ? cpu[i].toFixed(0) + '%' : fmtMem(mem[i]);\n        return `${p.name}\\n${v}`;\n      },\n    },\n    data: items,\n  }],\n};",
+        "renderer": "canvas",
+        "theme": "default",
+        "followTheme": true,
+        "resetOptions": false,
+        "editor": {
+          "format": "auto",
+          "height": 600
+        }
+      }
+    },
     {
       "id": 100,
       "type": "row",
@@ -80,7 +203,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 14,
         "w": 24,
         "h": 1
       },
@@ -96,7 +219,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 15,
         "w": 6,
         "h": 4
       },
@@ -160,7 +283,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 1,
+        "y": 15,
         "w": 6,
         "h": 4
       },
@@ -224,7 +347,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 1,
+        "y": 15,
         "w": 6,
         "h": 4
       },
@@ -271,7 +394,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 1,
+        "y": 15,
         "w": 6,
         "h": 4
       },
@@ -317,7 +440,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 19,
         "w": 12,
         "h": 8
       },
@@ -383,7 +506,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 5,
+        "y": 19,
         "w": 12,
         "h": 8
       },
@@ -443,7 +566,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 13,
+        "y": 27,
         "w": 24,
         "h": 1
       },
@@ -459,7 +582,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 28,
         "w": 6,
         "h": 4
       },
@@ -523,7 +646,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 14,
+        "y": 28,
         "w": 6,
         "h": 4
       },
@@ -569,7 +692,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 14,
+        "y": 28,
         "w": 6,
         "h": 4
       },
@@ -615,7 +738,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 14,
+        "y": 28,
         "w": 6,
         "h": 4
       },
@@ -679,7 +802,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 32,
         "w": 12,
         "h": 8
       },
@@ -741,7 +864,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 18,
+        "y": 32,
         "w": 12,
         "h": 8
       },
@@ -809,7 +932,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 26,
+        "y": 40,
         "w": 24,
         "h": 1
       },
@@ -825,7 +948,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 41,
         "w": 12,
         "h": 9
       },
@@ -984,7 +1107,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 27,
+        "y": 41,
         "w": 12,
         "h": 9
       },
@@ -1043,7 +1166,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 50,
         "w": 24,
         "h": 1
       },
@@ -1059,7 +1182,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 51,
         "w": 12,
         "h": 8
       },
@@ -1121,7 +1244,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 37,
+        "y": 51,
         "w": 12,
         "h": 8
       },
@@ -1189,6 +1312,6 @@
   "timezone": "browser",
   "title": "Mac System",
   "uid": "mac-system",
-  "version": 1,
+  "version": 3,
   "weekStart": ""
 }
