@@ -16,6 +16,10 @@ grafana/playwright/*.png
 # influxdb (data snapshots + runtime log — regenerated, not config)
 influxdb/backups/
 influxdb/bridge.log
+# Live InfluxDB data + config now bind-mounted here from the container (its data
+# was moved onto the 2TB /Volumes/dev disk). Runtime state — never commit.
+influxdb/data/
+influxdb/config/
 
 # logs anywhere
 **/*.log
