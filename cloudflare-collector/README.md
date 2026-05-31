@@ -102,3 +102,72 @@ GROUP BY day, agency ORDER BY day
    no extra steps.)
 
 Deployed Mac-system work (PR #2) is unaffected — separate worktree/branch.
+
+---
+
+## Full AE schema + the two production dashboards (`cloudflare-worker-dashboard`)
+
+The collector grew from one AE dataset to **four**. The RGS Worker (account
+`d7adee58513c1b2f770ccaac90cf114f`, `tommyroar-dev`) now emits these Workers
+Analytics Engine datasets (authoritative contracts — AE is sampled, so weight
+every count by `SUM(_sample_interval)`):
+
+| dataset | grain | `index1` | blobs | doubles |
+|---|---|---|---|---|
+| `campsite_collector` | per site, per run | `site.id` | `blob1`=date, `blob2`=agency, `blob3`=kind, `blob4`=name, `blob5`=status (`ok`\|`failed`) | `double1`=datesCollected, `double2`=durationMs |
+| `campsite_collector_runs` | per run | `date` | `blob1`=date | `double1`=total, `double2`=ok, `double3`=failed, `double4`=empty |
+| `campsite_availability` | per site, per run | `site.id` | `blob1`=date, `blob2`=agency, `blob3`=name | `double1`=siteNightsAvailable, `double2`=siteNightsReserved, `double3`=siteNightsTotal, `double4`=datesOpen |
+| `campsite_watch` | per hot-date check | `site.id` | `blob1`=target_date, `blob2`=agency, `blob3`=name | `double1`=available, `double2`=reserved, `double3`=total |
+
+There are **61 reservable campsites** total (rec.gov + WA), so "of 61" is the
+coverage denominator.
+
+### Datasource
+
+A second, parallel datasource provisions the official ClickHouse plugin against
+the same AE SQL API (the AE SQL endpoint is ClickHouse-dialect, queried over
+HTTPS — query in the POST body, JSON back):
+
+- **File:** `grafana/provisioning/datasources/campsites-ae.yml`
+- **uid:** `campsites_ae`
+- **Plugin:** `grafana-clickhouse-datasource` (the official Grafana ClickHouse
+  plugin). If it isn't already in the container, add it to `GF_INSTALL_PLUGINS`
+  in `grafana/docker-compose.yml` and recreate Grafana. (The exploration
+  `cloudflare-ae.yml` used the community `vertamedia-clickhouse-datasource`; this
+  is the supported successor and is kept separate so neither disturbs the other.)
+- **Auth:** standard ClickHouse user/password disabled; the Cloudflare token is
+  forwarded as a custom `Authorization: Bearer ${CF_AE_TOKEN}` header.
+
+### Required secret — `CF_AE_TOKEN`
+
+A **read-only Cloudflare API token** scoped exactly **Account → Account
+Analytics → Read** (account `d7adee58513c1b2f770ccaac90cf114f`). Mint it in the
+Cloudflare dashboard and store it as the Grafana secret **`CF_AE_TOKEN`** in
+`grafana/.env` (gitignored; template entry in `grafana/.env.example`). The
+ClickHouse datasource reads it via `secureJsonData.httpHeaderValue1`. Until the
+secret is set, the panels render *No data* — that's expected and not a config
+error.
+
+### Dashboards
+
+Both are provisioned (schemaVersion 39), reference uid `campsites_ae`, and carry
+the exact AE SQL in each panel target. Counts are sampling-weighted
+(`SUM(_sample_interval)`); "latest per site" uses a recent window +
+`argMax(...)` / `GROUP BY index1`; time ranges use
+`WHERE timestamp > now() - INTERVAL <n> DAY/HOUR`.
+
+1. **`campsite-collector-history.json`** ("Collector history", uid
+   `campsite-collector-history`) — run cadence + sites ok/failed/empty of 61 over
+   time (from `campsite_collector_runs`), per-agency coverage and step-duration
+   avg/max (from `campsite_collector`), and a "top failing sites" table
+   (`WHERE blob5='failed' GROUP BY index1`).
+2. **`campsite-live-availability.json`** ("Live availability", uid
+   `campsite-live-availability`) — system-wide site-nights-available stat and
+   % reserved (latest per-site rows of `campsite_availability`), by-agency bars
+   (`GROUP BY blob2`), a fully-booked campground count (`datesOpen=0`), a
+   per-campground availability table, and a hot-date burn-down timeseries from
+   `campsite_watch` (`double1` available over time, one series per target_date).
+
+These supersede the exploration `collector-history.json` once the schema settles;
+both are left provisioned for now (distinct uids, no collision).
+

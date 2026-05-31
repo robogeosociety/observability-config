@@ -1,0 +1,36 @@
+# Cloudflare Workers Analytics Engine (AE) — the campsite collector / availability
+# datasets emitted by the robot-geographical-society collector Worker. AE's SQL
+# endpoint speaks the ClickHouse dialect, so we point the official Grafana
+# ClickHouse datasource at the AE SQL API over HTTP with a Bearer token.
+#
+# Requires:
+#   - the `grafana-clickhouse-datasource` plugin installed in the Grafana
+#     container (GF_INSTALL_PLUGINS in grafana/docker-compose.yml; recreate).
+#   - CF_AE_TOKEN in grafana/.env (gitignored): a read-only Cloudflare API token
+#     scoped Account -> Account Analytics -> Read. See cloudflare-collector/README.md.
+#
+# The AE SQL API is a plain HTTPS endpoint that takes the query in the POST body
+# and returns JSON, so we drive the ClickHouse plugin in its HTTP protocol mode
+# pointed straight at the account's analytics_engine/sql path, with the Cloudflare
+# bearer token supplied as a forwarded Authorization header.
+apiVersion: 1
+
+datasources:
+  - name: Campsites AE (Cloudflare Analytics Engine)
+    uid: campsites_ae
+    type: grafana-clickhouse-datasource
+    access: proxy
+    url: https://api.cloudflare.com/client/v4/accounts/d7adee58513c1b2f770ccaac90cf114f/analytics_engine/sql
+    jsonData:
+      # AE SQL is reached over HTTPS (SQL-over-HTTP), not the native TCP protocol.
+      protocol: http
+      secure: true
+      host: api.cloudflare.com
+      port: 443
+      path: /client/v4/accounts/d7adee58513c1b2f770ccaac90cf114f/analytics_engine/sql
+      # No ClickHouse user/password — auth is the Cloudflare bearer token below,
+      # forwarded as an Authorization header on every request.
+      httpHeaderName1: "Authorization"
+    secureJsonData:
+      httpHeaderValue1: "Bearer ${CF_AE_TOKEN}"
+    editable: true
