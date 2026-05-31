@@ -1,0 +1,265 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    { "title": "Mountain Out — Status", "type": "dashboards", "tags": ["mountain"], "asDropdown": true, "includeVars": false, "keepTime": true }
+  ],
+  "liveNow": false,
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Inference health",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Minutes since last tick",
+      "description": "Time since the most recent inference tick (cron is every 15 min). Red if stale.",
+      "datasource": { "type": "influxdb", "uid": "mountain" },
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 5 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "mountain" },
+          "query": "from(bucket: \"mountain\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"tick\" and r._field == \"ok\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (float(v: int(v: now())) - float(v: int(v: r._time))) / 60000000000.0 }))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 20 }, { "color": "red", "value": 35 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Ticks (range)",
+      "datasource": { "type": "influxdb", "uid": "mountain" },
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 5 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "mountain" },
+          "query": "from(bucket: \"mountain\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tick\" and r._field == \"ok\")\n  |> count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Errors (range)",
+      "datasource": { "type": "influxdb", "uid": "mountain" },
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 5 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "mountain" },
+          "query": "from(bucket: \"mountain\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tick\" and r._field == \"ok\" and r.status == \"error\")\n  |> count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Success rate (range)",
+      "datasource": { "type": "influxdb", "uid": "mountain" },
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 5 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "mountain" },
+          "query": "from(bucket: \"mountain\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tick\" and r._field == \"ok\")\n  |> mean()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 90 }, { "color": "green", "value": 99 } ] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Trends",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Tick duration",
+      "datasource": { "type": "influxdb", "uid": "mountain" },
+      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "mountain" },
+          "query": "from(bucket: \"mountain\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tick\" and r._field == \"duration_seconds\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": ["last", "mean", "max"] }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Tick outcomes per window",
+      "datasource": { "type": "influxdb", "uid": "mountain" },
+      "gridPos": { "x": 12, "y": 7, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "mountain" },
+          "query": "from(bucket: \"mountain\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tick\" and r._field == \"ok\")\n  |> group(columns: [\"status\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: count, createEmpty: true)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "stacking": { "mode": "normal", "group": "A" }
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*error.*" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*ok.*" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Errors",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 15, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "table",
+      "title": "Recent errors",
+      "datasource": { "type": "influxdb", "uid": "mountain" },
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 9 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "mountain" },
+          "query": "from(bucket: \"mountain\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tick\" and r._field == \"ok\" and r.status == \"error\")\n  |> keep(columns: [\"_time\", \"error_type\"])\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 100)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto", "filterable": true } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "_time" }, "properties": [ { "id": "custom.width", "value": 220 }, { "id": "displayName", "value": "Time" } ] },
+          { "matcher": { "id": "byName", "options": "error_type" }, "properties": [ { "id": "displayName", "value": "Error type" } ] }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [ { "displayName": "Time", "desc": true } ]
+      }
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["mountain", "is-the-mountain-out", "infrastructure"],
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Mountain Out — Inference Infrastructure",
+  "uid": "mountain-infra",
+  "version": 1,
+  "weekStart": ""
+}

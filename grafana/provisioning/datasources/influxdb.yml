@@ -106,3 +106,21 @@ datasources:
     secureJsonData:
       token: ${INFLUX_GRAFANA_TOKEN}
     editable: true
+
+  # Mount Rainier visibility predictions + inference-tick health, mirrored from
+  # the public is-the-mountain-out R2 bucket (history.jsonl) into the `mountain`
+  # bucket by the in-repo ingest job (mountain/ingest.py, launchd every 15 min).
+  # Feeds the mountain-status and mountain-infra dashboards. See mountain/README.md.
+  - name: InfluxDB - mountain
+    uid: mountain
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: home
+      defaultBucket: mountain
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUX_GRAFANA_TOKEN}
+    editable: true
