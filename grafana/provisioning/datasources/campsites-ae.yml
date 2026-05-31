@@ -12,6 +12,8 @@ datasources:
     url: https://api.cloudflare.com/client/v4/accounts/d7adee58513c1b2f770ccaac90cf114f/analytics_engine/sql
     jsonData:
       usePOST: true
+      dateTimeColDataType: timestamp
+      dateTimeType: "DATETIME"
       addCorsHeader: false
       httpHeaderName1: "Authorization"
     secureJsonData:

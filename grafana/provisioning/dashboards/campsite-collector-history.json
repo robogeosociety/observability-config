@@ -221,7 +221,7 @@
           "meta": {
             "timezone": "UTC"
           },
-          "query": "SELECT toStartOfDay(timestamp) AS t, blob2 AS agency, SUMIf(_sample_interval, blob5 = 'ok') AS sites_ok FROM campsite_collector WHERE timestamp > now() - INTERVAL '30' DAY GROUP BY t, agency ORDER BY t",
+          "query": "SELECT toStartOfDay(timestamp) AS t, SUMIf(_sample_interval, blob5='ok' AND blob2='nps') AS nps, SUMIf(_sample_interval, blob5='ok' AND blob2='usfs') AS usfs, SUMIf(_sample_interval, blob5='ok' AND blob2='wa-state-parks') AS wa_state_parks, SUMIf(_sample_interval, blob5='ok' AND blob2='blm') AS blm FROM campsite_collector WHERE timestamp > now() - INTERVAL '30' DAY GROUP BY t ORDER BY t",
           "extrapolate": false
         }
       ],

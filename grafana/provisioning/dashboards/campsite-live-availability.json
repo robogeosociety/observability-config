@@ -465,8 +465,8 @@
     },
     {
       "id": 7,
-      "type": "timeseries",
-      "title": "Hot-date burn-down (available over time, per target date)",
+      "type": "table",
+      "title": "Watched hot dates \u2014 current availability",
       "datasource": {
         "type": "vertamedia-clickhouse-datasource",
         "uid": "campsites_ae"
@@ -484,11 +484,11 @@
             "type": "vertamedia-clickhouse-datasource",
             "uid": "campsites_ae"
           },
-          "format": "time_series",
+          "format": "table",
           "meta": {
             "timezone": "UTC"
           },
-          "query": "SELECT timestamp AS t, blob1 AS target_date, SUM(_sample_interval * double1) / SUM(_sample_interval) AS available FROM campsite_watch WHERE timestamp > now() - INTERVAL '14' DAY GROUP BY t, target_date ORDER BY t",
+          "query": "SELECT blob1 AS target_date, argMax(blob3, timestamp) AS campsite, argMax(double1, timestamp) AS available, argMax(double3, timestamp) AS total, max(timestamp) AS last_seen FROM campsite_watch WHERE timestamp > now() - INTERVAL '14' DAY GROUP BY blob1, index1 ORDER BY target_date",
           "extrapolate": false
         }
       ],
