@@ -3,11 +3,21 @@ services:
     image: grafana/grafana-oss:11.3.0
     container_name: grafana
     restart: unless-stopped
+    # Resource caps = 50% of the OrbStack VM (4 CPU / 4096 MiB). Limits blast
+    # radius: a runaway container is OOM-killed by Docker, not allowed to thrash
+    # the whole VM into host swap (see the 2026-05-31 watchdog panic).
+    mem_limit: 2048m
+    cpus: 2.0
+    pids_limit: 512
     ports:
       - "3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./provisioning:/etc/grafana/provisioning:ro
+      # Provisioning relocated OFF the external /Volumes/dev disk to internal
+      # storage (the external disk's unmount/TCC fragility broke containers on
+      # 2026-05-31). Canonical source stays version-controlled in ./provisioning;
+      # run ./deploy-provisioning.sh to sync repo -> internal and restart grafana.
+      - /Users/tommydoerr/.observability/grafana/provisioning:/etc/grafana/provisioning:ro
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
@@ -58,6 +68,10 @@ services:
     image: grafana/grafana-image-renderer:latest@sha256:a30a68c2de11a1aad5733452536ac50fbc2f3958e6d0aa046ef9eb56db7c6a6d
     container_name: grafana-renderer
     restart: unless-stopped
+    # Resource caps = 50% of the OrbStack VM (4 CPU / 4096 MiB).
+    mem_limit: 2048m
+    cpus: 2.0
+    pids_limit: 512
     environment:
       ENABLE_METRICS: "false"
       RENDERING_MODE: "default"

@@ -3,11 +3,22 @@ services:
     image: influxdb:2.7-alpine
     container_name: influxdb
     restart: unless-stopped
+    # Resource caps = 50% of the OrbStack VM (4 CPU / 4096 MiB). Limits blast
+    # radius: a runaway container is OOM-killed by Docker, not allowed to thrash
+    # the whole VM into host swap (see the 2026-05-31 watchdog panic).
+    mem_limit: 2048m
+    cpus: 2.0
+    pids_limit: 512
     ports:
       - "8086:8086"
     volumes:
-      - influxdb_data:/var/lib/influxdb2
-      - influxdb_config:/etc/influxdb2
+      # Data + config bind-mounted to the 2 TB external /Volumes/dev disk: TSM
+      # time-series data grows large and belongs on the big disk, not the small
+      # internal one. TRADE-OFF: influxdb now REQUIRES /Volumes/dev mounted BEFORE
+      # OrbStack starts it — otherwise INIT_MODE:setup re-inits a fresh empty DB on
+      # an empty placeholder path. The boot-time /dev mount must be guaranteed.
+      - /Volumes/dev/observability/influxdb/data:/var/lib/influxdb2
+      - /Volumes/dev/observability/influxdb/config:/etc/influxdb2
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
       DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_ADMIN_USER}
@@ -22,7 +33,3 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-
-volumes:
-  influxdb_data:
-  influxdb_config:
