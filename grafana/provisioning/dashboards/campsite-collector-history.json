@@ -1,0 +1,172 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "templating": {"list": []},
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "About",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 6},
+      "options": {
+        "mode": "markdown",
+        "content": "# Collector history — Cloudflare Workers Analytics Engine\n\nRun history + health for the **campsite-availability collector** Cloudflare Worker (repo `robot-geographical-society`). Reads the **AE SQL API** (ClickHouse dialect) via the `campsites_ae` ClickHouse datasource. Counts are sampling-weighted (`SUM(_sample_interval)`); there are **61** reservable campsites.\n\n- Cadence + ok/failed/empty of 61: `campsite_collector_runs`\n- Per-agency coverage + step durations: `campsite_collector`\n- Top failing sites: `campsite_collector WHERE blob5='failed'`\n\nPanels read *No data* until the `CF_AE_TOKEN` secret (Account → Account Analytics → Read) is set and the nightly collector run emits. Account `d7adee58513c1b2f770ccaac90cf114f`."
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Runs per day",
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+      "gridPos": {"x": 0, "y": 6, "w": 8, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+          "queryType": "sql",
+          "rawSql": "SELECT toStartOfDay(timestamp) AS t, SUM(_sample_interval) AS runs FROM campsite_collector_runs WHERE timestamp > now() - INTERVAL 30 DAY GROUP BY t ORDER BY t",
+          "format": 1,
+          "meta": {"timezone": "UTC"}
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "min": 0,
+          "custom": {"drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1},
+          "color": {"mode": "fixed", "fixedColor": "blue"}
+        },
+        "overrides": []
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}, "legend": {"showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": []}}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Sites ok / failed / empty of 61 per run",
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+      "gridPos": {"x": 8, "y": 6, "w": 16, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS t, SUM(_sample_interval * double2) / SUM(_sample_interval) AS ok, SUM(_sample_interval * double3) / SUM(_sample_interval) AS failed, SUM(_sample_interval * double4) / SUM(_sample_interval) AS empty FROM campsite_collector_runs WHERE timestamp > now() - INTERVAL 30 DAY GROUP BY t ORDER BY t",
+          "format": 1,
+          "meta": {"timezone": "UTC"}
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "min": 0, "max": 61,
+          "custom": {"drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "stacking": {"mode": "normal", "group": "A"}},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "ok"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]},
+          {"matcher": {"id": "byName", "options": "failed"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+          {"matcher": {"id": "byName", "options": "empty"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]}
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}, "legend": {"showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"]}}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Per-agency coverage (sites ok per run)",
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+      "gridPos": {"x": 0, "y": 14, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+          "queryType": "sql",
+          "rawSql": "SELECT toStartOfDay(timestamp) AS t, blob2 AS agency, SUMIf(_sample_interval, blob5 = 'ok') AS sites_ok FROM campsite_collector WHERE timestamp > now() - INTERVAL 30 DAY GROUP BY t, agency ORDER BY t",
+          "format": 1,
+          "meta": {"timezone": "UTC"}
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 12, "showPoints": "auto", "spanNulls": true},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}, "legend": {"showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": ["last"]}}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Step duration avg / max (ms)",
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+      "gridPos": {"x": 12, "y": 14, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+          "queryType": "sql",
+          "rawSql": "SELECT toStartOfDay(timestamp) AS t, SUM(_sample_interval * double2) / SUM(_sample_interval) AS avg_ms, MAX(double2) AS max_ms FROM campsite_collector WHERE timestamp > now() - INTERVAL 30 DAY GROUP BY t ORDER BY t",
+          "format": 1,
+          "meta": {"timezone": "UTC"}
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms", "min": 0,
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "auto", "spanNulls": true},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "avg_ms"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]},
+          {"matcher": {"id": "byName", "options": "max_ms"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "purple"}}]}
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}, "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["last", "max"]}}
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Top failing sites (last 30d)",
+      "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+      "gridPos": {"x": 0, "y": 22, "w": 24, "h": 9},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "grafana-clickhouse-datasource", "uid": "campsites_ae"},
+          "queryType": "sql",
+          "rawSql": "SELECT index1 AS site_id, any(blob4) AS name, any(blob2) AS agency, SUM(_sample_interval) AS failures, MAX(timestamp) AS last_failure FROM campsite_collector WHERE timestamp > now() - INTERVAL 30 DAY AND blob5 = 'failed' GROUP BY index1 ORDER BY failures DESC LIMIT 50",
+          "format": 1,
+          "meta": {"timezone": "UTC"}
+        }
+      ],
+      "transformations": [],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto", "filterable": true}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "site_id"}, "properties": [{"id": "displayName", "value": "Site ID"}, {"id": "custom.width", "value": 120}]},
+          {"matcher": {"id": "byName", "options": "name"}, "properties": [{"id": "displayName", "value": "Campsite"}, {"id": "custom.width", "value": 240}]},
+          {"matcher": {"id": "byName", "options": "agency"}, "properties": [{"id": "displayName", "value": "Agency"}, {"id": "custom.width", "value": 110}]},
+          {"matcher": {"id": "byName", "options": "failures"}, "properties": [{"id": "displayName", "value": "Failures"}, {"id": "custom.cellOptions", "value": {"type": "color-background", "mode": "gradient"}}, {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "yellow", "value": null}, {"color": "red", "value": 3}]}}]},
+          {"matcher": {"id": "byName", "options": "last_failure"}, "properties": [{"id": "displayName", "value": "Last failure"}]}
+        ]
+      },
+      "options": {"showHeader": true, "sortBy": [{"displayName": "Failures", "desc": true}], "footer": {"show": false}, "cellHeight": "sm"}
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 39,
+  "tags": ["cloudflare", "campsites", "collector", "analytics-engine"],
+  "time": {"from": "now-30d", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Collector History",
+  "uid": "campsite-collector-history",
+  "version": 1,
+  "weekStart": ""
+}
