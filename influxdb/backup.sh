@@ -34,11 +34,14 @@ HOST_TARBALL="${BACKUP_ROOT}/influx-${STAMP}.tar.gz"
 emit() {
   curl -s -XPOST \
     "${INFLUX_URL}/api/v2/write?org=${INFLUX_ORG}&bucket=${OPS_BUCKET}&precision=s" \
-    -H "Authorization: Token ${INFLUX_ADMIN_TOKEN}" \
+    -H "Authorization: Token ${INFLUX_OPS_TOKEN:-$INFLUX_ADMIN_TOKEN}" \
     --data-binary "$1" >/dev/null 2>&1 || true
 }
+HOSTTAG="$(hostname -s 2>/dev/null || echo unknown)"
 fail() {
   emit "backup,target=local success=0i"
+  # Generic collector heartbeat for the Collectors dashboard (see COLLECTORS.md).
+  emit "collector,source=backup,kind=batch,host=${HOSTTAG} success=0i,interval_s=86400i"
   echo "[$(date)] backup FAILED: $1"
   exit 1
 }
@@ -57,6 +60,7 @@ start=$SECONDS
 SIZE=$(stat -f%z "$HOST_TARBALL")
 DUR=$(( SECONDS - start ))
 emit "backup,target=local success=1i,bytes=${SIZE}i,duration_s=${DUR}i"
+emit "collector,source=backup,kind=batch,host=${HOSTTAG} success=1i,duration_s=${DUR}i,rows=1i,interval_s=86400i"
 echo "[$(date)] local backup ok: $HOST_TARBALL (${SIZE} bytes, ${DUR}s)"
 
 # Optional offsite copy to Cloudflare R2 (activated by adding R2_* to .env).

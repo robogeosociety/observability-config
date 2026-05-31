@@ -57,6 +57,28 @@ def influx_write(lines):
                 raise SystemExit(f"InfluxDB write HTTP {resp.status}")
     return len(lines)
 
+
+def heartbeat(source, kind, success, duration_s, rows, interval_s):
+    """Best-effort collector heartbeat → ops bucket (see COLLECTORS.md)."""
+    import socket
+    url = os.environ.get("INFLUX_URL", "http://localhost:8086").rstrip("/")
+    org = os.environ.get("INFLUX_ORG", "home")
+    token = os.environ.get("INFLUX_OPS_TOKEN") or os.environ.get("INFLUX_ADMIN_TOKEN")
+    if not token:
+        print("no INFLUX_OPS_TOKEN — skipping heartbeat", file=sys.stderr)
+        return
+    host = socket.gethostname().split(".")[0]
+    line = (f"collector,source={_esc(source)},kind={_esc(kind)},host={_esc(host)} "
+            f"success={1 if success else 0}i,duration_s={duration_s:.3f},"
+            f"rows={int(rows)}i,interval_s={int(interval_s)}i")
+    try:
+        endpoint = f"{url}/api/v2/write?org={org}&bucket=ops&precision=s"
+        req = urllib.request.Request(endpoint, data=line.encode(), method="POST",
+            headers={"Authorization": f"Token {token}", "Content-Type": "text/plain; charset=utf-8"})
+        urllib.request.urlopen(req, timeout=15).close()
+    except Exception as e:  # heartbeat must never fail the run
+        print(f"heartbeat failed (non-fatal): {e}", file=sys.stderr)
+
 # --- R2 ---------------------------------------------------------------------
 
 def _load_env(p: Path):
@@ -89,9 +111,6 @@ def main():
     s3 = _r2()
     objs = s3.list_objects_v2(Bucket=bucket, Prefix=prefix).get("Contents", [])
     print(f"{len(objs)} summaries under {prefix}", file=sys.stderr)
-    if not objs:
-        print("nothing to ingest (Worker run yet for this date?)", file=sys.stderr)
-        return
 
     lines, n = [], 0
     for o in objs:
@@ -105,7 +124,16 @@ def main():
         print("\n".join(lines[:6]))
         print(f"... ({len(lines)} total, dry-run)", file=sys.stderr)
         return
-    print(f"wrote {influx_write(lines)} points → InfluxDB 'campsites'", file=sys.stderr)
+
+    # Real run: write points, then emit a collector heartbeat regardless of outcome
+    # (0 rows when the Worker hasn't run for this date yet is still a success).
+    t0 = time.time(); written = 0; ok = False
+    try:
+        written = influx_write(lines)
+        print(f"wrote {written} points → InfluxDB 'campsites'", file=sys.stderr)
+        ok = True
+    finally:
+        heartbeat("campsites", "batch", ok, time.time() - t0, written, 86400)
 
 
 if __name__ == "__main__":
