@@ -11,11 +11,34 @@ Infrastructure-as-code for the home observability stack running on
 
 ## Layout
 
-The repo lives at `/Volumes/dev/observability/` and the live config *is* the
-repo working tree — Grafana's `./provisioning` bind mount, the InfluxDB backup
-LaunchAgent, and the test `.env` paths all point here. Edit in place, commit,
-push. (Run `docker compose up -d` from `grafana/` / `influxdb/` after changes
-that affect the containers.)
+The repo lives at `/Volumes/dev/observability/` and is the version-controlled
+source of truth. Grafana provisioning is **no longer bind-mounted from `/Volumes`**
+(the external disk's unmount/TCC fragility broke containers on 2026-05-31); Grafana
+now mounts an internal-disk copy at `~/.observability/grafana/provisioning`. Edit
+`grafana/provisioning/` here, then run `grafana/deploy-provisioning.sh` to sync
+repo → internal and reload. Datasource/token/`docker-compose` changes still need a
+`docker compose up -d` recreate from the relevant subdir.
+
+## Coordination & deployment
+
+Multiple projects on this machine contribute dashboards concurrently, so the repo
+has a coordination layer (full design in **[COORDINATION-PLAN.md](COORDINATION-PLAN.md)**;
+operational details in **[coordination/README.md](coordination/README.md)**):
+
+- **Two contribution lanes.** *Idea* — drop a `status: pending` index entry. *PR* — a
+  full dashboard (JSON + datasource + intent) via a normal PR. Concurrent additions are
+  made conflict-free by moving toward one-file-per-dashboard (`dashboards.index.d/`,
+  `datasources/_projects/`) so nobody edits a shared file (Phase 1+).
+- **Merges go through GitHub's merge queue** on `main` (required `hermetic` check, PR
+  required) — enable with `coordination/enable-merge-queue.sh`. No direct pushes to `main`.
+- **Deploys are scheduled, not raced.** A launchd coordinator (`com.tommy.observability-coordinator`,
+  every 2 min, running off an internal-disk clone) drains a queue and runs the one
+  serialized step — sync provisioning, restart Grafana, **verify health, roll back on
+  failure** — behind an atomic `mkdir` mutex. Both the scheduler and an interactive
+  `deploy-provisioning.sh` take that same mutex, so they can't collide. Set it up with
+  `coordination/install.sh`; enqueue a deploy with `coordination/enqueue.sh deploy "<reason>"`.
+- **Stretch:** per-dashboard **blue-green deploys** — stage changed dashboards under a
+  `-green` uid, verify render + query, and only then promote (COORDINATION-PLAN.md §13).
 
 ## Secrets
 

@@ -18,5 +18,5 @@ jobs:
       - run: pip install pytest pyyaml
       - name: Tier 1 — unit + static
         run: >
-          pytest grafana/tests grafana/dev-status grafana/claude-usage-collector influxdb/tests
+          pytest grafana/tests grafana/dev-status grafana/claude-usage-collector coordination influxdb/tests
           -m "not integration" --import-mode=importlib -q

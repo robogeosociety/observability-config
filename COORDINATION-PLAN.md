@@ -5,7 +5,10 @@ or **a full dashboard PR (JSON + datasource + intent)** at the same time as othe
 projects, without colliding — plus a scheduler and queue that serialize the few
 steps that genuinely cannot run in parallel.
 
-Status: **proposal** (this doc only). Implementation is phased in §10.
+Status: **Phase 0 implemented** in this PR (`coordination/` — the deploy scheduler +
+mutex + queue); later phases and the blue-green stretch goal (§13) remain proposed.
+Decisions confirmed: deploy **scheduling** is the priority, and the GitHub **merge
+queue** is a go (§6, enabled by `coordination/enable-merge-queue.sh`).
 
 ---
 
@@ -261,9 +264,13 @@ These turn "logical collisions" into red CI instead of silent runtime breakage.
 
 ## 10. Phased rollout
 
-- **Phase 0 — deploy serializer (highest ROI, smallest change).** Add `coordination/`
-  with the mutex, `worker.sh` (deploy lane only), and the launchd job on an internal clone.
-  Immediately removes the deploy/recreate race. No format changes.
+- **Phase 0 — deploy serializer (highest ROI, smallest change). ✅ implemented in this PR.**
+  `coordination/` ships the `mkdir` mutex (`mutex.sh`), the queue + drainer (`worker.sh`,
+  deploy lane only, with post-deploy health verification + rollback), an atomic `enqueue.sh`,
+  an `install.sh` that stands up the internal-disk clone and the launchd job, and
+  `enable-merge-queue.sh`. `deploy-provisioning.sh` now takes the same mutex so an
+  interactive preview-deploy can't race the scheduler. No dashboard/datasource format
+  changes yet.
 - **Phase 1 — conf.d index.** Introduce `dashboards.index.d/`; loader reads both; migrate
   existing entries; add duplicate-uid CI check. Kills the #1 git conflict.
 - **Phase 2 — datasources `_projects/` + `buckets.yaml` reconcile.** Per-project datasource
@@ -284,16 +291,60 @@ These turn "logical collisions" into red CI instead of silent runtime breakage.
 - **One datasource/index file edited via a YAML-merge tool.** Rejected: still a shared-file
   write; conf.d is simpler and git-native.
 
-## 12. Risks & open questions
+## 12. Risks & decisions
 
-- **Two source copies** (`/Volumes` human checkout + internal coordinator clone) can drift if
-  someone deploys by hand from `/Volumes`. Mitigation: make `deploy-provisioning.sh` a thin
-  wrapper that *enqueues a deploy job* instead of deploying directly, so all deploys funnel
-  through the daemon.
-- **Auto-merge scope** for the idea lane — restrict to pure `status: pending` doc additions?
-  (Recommended yes; full PRs always get human review.)
-- **GitHub merge queue** requires branch protection settings on the private repo — confirm
-  that's acceptable.
-- **`buckets.yaml` as the bucket source of truth** means the daemon needs an admin Influx
-  token in its internal-disk env (chmod 600), like the backup job already does.
+- **Two deploy paths, one lock.** Interactive `deploy-provisioning.sh` (preview *local*
+  `/Volumes` edits, run by a human) and the coordinator (deploy *merged main* from the
+  internal clone) now both take the `coordination/` mutex, so they can never race the
+  provisioning dir or the Grafana container. Preview-from-`/Volumes` stays available
+  precisely so you don't have to commit to see a change live.
+- **Merge queue — decided: yes.** `coordination/enable-merge-queue.sh` creates a `main`
+  ruleset (active enforcement, required `hermetic` check, PR required, merge queue on).
+  After enabling, **all changes to `main` go through a PR + the queue — no direct pushes.**
+  It's a governance switch, so it's a separate explicit step, not auto-run.
+- **Auto-merge scope** for the idea lane — restrict to pure `status: pending` doc additions
+  (full PRs always get human review). *Recommended; deferred to Phase 3.*
+- **`buckets.yaml` as bucket source of truth** (Phase 2) means the daemon needs an admin
+  Influx token in its internal-disk env (chmod 600), like the backup job already does.
 - Worktrees live under `/Volumes/dev/.wt/` — add to `.gitignore` and clean on task end.
+
+## 13. Stretch goal — blue-green dashboard deploys with verification
+
+Phase 0 verifies the *instance* is healthy after a deploy and rolls the whole provisioning
+dir back if not. The stretch goal makes verification **per-dashboard and pre-promotion**, so
+production never serves a broken dashboard even briefly.
+
+**Why a true blue-green is awkward here:** there's one Grafana instance, and dashboards are
+provisioned by `uid`. So "green" isn't a second server — it's the changed dashboards
+provisioned under a **staging identity** (a `Staging` folder + `-green` uid suffix) that real
+users don't navigate to.
+
+**Flow (inside the coordinator's deploy lock):**
+1. **Stage (green).** For each *changed* dashboard JSON, write a transformed copy into a
+   `staging/` provider folder with `uid → <uid>-green`, datasources untouched. rsync +
+   reload. Production (`blue`) is still the live `<uid>` — untouched.
+2. **Verify green.** Reuse the primitives this repo already proved out:
+   - **Datasource health** — `/api/datasources/uid/<ds>/health` returns OK.
+   - **Render** — `grafana-image-renderer` `GET /render/d-solo/<uid>-green/...` per panel
+     returns a non-trivial PNG (size over a floor, not an error card).
+   - **Query** — `/api/ds/query` for each panel returns frames with no error and (for
+     panels expected to have data) at least one non-null point in the window.
+   A per-dashboard `verify.yaml` can declare expectations (panels that may legitimately be
+   empty, min bytes, query row floors) so verification isn't brittle.
+3. **Promote or abort.**
+   - All green probes pass → promote: swap the canonical `<uid>` provisioning file to the
+     new JSON, reload, then delete the `-green` staging copy. Blue is now the new version.
+   - Any probe fails → **abort**: leave blue (current prod) exactly as-is, drop the deploy
+     job to `failed/` with the probe report, and leave green in `Staging` for inspection.
+4. **Post-promote guard.** Re-run the instance health check (Phase 0); on failure, restore
+   from the `provisioning.prev` snapshot.
+
+**Properties:** prod is only ever swapped to a dashboard that already rendered and queried
+clean; a bad JSON, a dangling datasource ref, or an empty-by-mistake panel is caught in green
+and never promoted. Verification is deterministic (renderer PNGs + `ds/query`), so it runs
+headless under the launchd worker. **Cost:** a transform/stage step and N renderer calls per
+changed dashboard per deploy — bounded by *changed* dashboards, not the whole set.
+
+**Build order:** lands after Phase 1 (conf.d makes "which dashboards changed" a clean
+file-diff) as **Phase 4**; the verification harness can reuse `grafana/playwright/` and the
+renderer wiring already in the repo.
