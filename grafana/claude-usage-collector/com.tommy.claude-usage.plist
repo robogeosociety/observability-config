@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd job for the Claude Code usage collector. This is a TEMPLATE: deploy.sh
+  copies it to ~/Library/LaunchAgents/ and substitutes __INFLUX_CLAUDE_USAGE_TOKEN__
+  with the value from influxdb/.env (the token must NOT be committed). The deployed
+  copy carries the token because launchd is TCC-blocked from reading the /Volumes
+  .env at runtime; deploy.sh runs from the interactive shell, which can.
+
+  collector.py is pure stdlib, so /usr/bin/python3 needs no venv/uv.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tommy.claude-usage</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/tommydoerr/.local/share/claude-usage-collector/collector.py</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>INFLUX_URL</key>
+        <string>http://localhost:8086</string>
+        <key>INFLUX_ORG</key>
+        <string>home</string>
+        <key>INFLUX_CLAUDE_USAGE_BUCKET</key>
+        <string>claude_code</string>
+        <key>INFLUX_CLAUDE_USAGE_TOKEN</key>
+        <string>__INFLUX_CLAUDE_USAGE_TOKEN__</string>
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/tommydoerr/Library/Logs/claude-usage-collector.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tommydoerr/Library/Logs/claude-usage-collector.log</string>
+</dict>
+</plist>

@@ -249,3 +249,29 @@ ha-pi-system:
   todos:
     - Enable more System Monitor entities (per-mount disks, more interfaces) if wanted — they default to disabled_by integration
     - 'CPU temp is °F (HA System Monitor reports °F); panel set accordingly'
+
+claude-usage:
+  title: Claude Code — Token Usage
+  file: claude-usage.json
+  purpose: >-
+    Claude Code token usage on this Mac — tokens by hour (stacked by class),
+    highest-usage sessions, and cache-vs-real split — from the `claude_code`
+    InfluxDB bucket fed by grafana/claude-usage-collector/ parsing
+    ~/.claude/projects/**/*.jsonl message `usage` blocks.
+  datasources: [influxdb]
+  intent: >-
+    Answer "how many tokens is Claude Code burning, and is caching working?"
+    Cost is deliberately OUT of scope — transcripts carry no cost and a per-model
+    price table silently rots, so we track raw token counts only. Tokens are shown
+    as four distinct classes (cache-read dominates real sessions), never one
+    number — that's what the cache-vs-real panel exists to surface. Full design
+    (bucket, collector cursor/idempotency, schema, panels) is in
+    grafana/SPEC-claude-usage.md. The collector follows the dev-status rule (edit
+    in-repo, deploy.sh copies to the internal disk, launchd runs it) because
+    launchd is TCC-blocked from /Volumes.
+  todos:
+    - "Activate: create the `claude_code` bucket + INFLUX_CLAUDE_USAGE_TOKEN in influxdb/.env, grant the Grafana read token access, deploy.sh + backfill"
+    - More panels — tokens by model, cost-free spend by project, web search/fetch use, avg tokens/message
+    - Headline stat row (tokens today / this month, cache-hit ratio, messages/day)
+    - Revisit `session` tag cardinality if it ever balloons (fine for single-user now)
+    - Heartbeat to the `ops` bucket so collector liveness shows on the Backups/status pattern

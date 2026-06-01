@@ -124,3 +124,21 @@ datasources:
     secureJsonData:
       token: ${INFLUX_GRAFANA_TOKEN}
     editable: true
+
+  # Claude Code per-message token usage written every 5 min by the in-repo
+  # collector (grafana/claude-usage-collector/, launchd com.tommy.claude-usage),
+  # parsed from ~/.claude transcripts. Feeds the claude-usage dashboard.
+  # See claude-usage-collector/README.md and SPEC-claude-usage.md.
+  - name: InfluxDB - claude_code
+    uid: claude_code
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: home
+      defaultBucket: claude_code
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUX_GRAFANA_TOKEN}
+    editable: true
