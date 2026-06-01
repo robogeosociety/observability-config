@@ -232,3 +232,19 @@ ha-system:
     - No Telegraf data flows yet — stand up the Telegraf add-on on the HA host writing host="homeassistant" to the `system` bucket
     - Per-core CPU once the collector reports it
     - Add a memory-pressure / swap alert
+
+orbstack-containers:
+  title: OrbStack — Container Monitoring
+  file: orbstack-containers.json
+  purpose: >-
+    Per-container CPU/mem/net/blkio for the OrbStack Docker containers from
+    Telegraf's `inputs.docker` (docker_container_* measurements) in the `system`
+    bucket — reading the OrbStack socket as the host user.
+  datasources: [influxdb]
+  intent: >-
+    Visibility into the containers that run the stack (influxdb, grafana,
+    renderer) so an outage or a runaway container is seen, not silent — the
+    monitoring half of the 2026-05-31 InfluxDB-down incident response.
+  todos:
+    - Alert when the influxdb container is down / unreachable
+    - Surface per-container restart counts and OOM-kills
