@@ -1,5 +1,7 @@
 {
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -10,19 +12,33 @@
     {
       "id": 1,
       "type": "nodeGraph",
-      "title": "Network topology — OBA → Proxy → Displays",
-      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 10},
-      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
+      "title": "Network topology \u2014 OBA \u2192 Proxy \u2192 Displays",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 10
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
       "description": "Static pipeline topology with live node/edge labels pulled from the latest InfluxDB points. Replaces the retired /monitor SVG topology.",
       "targets": [
         {
           "refId": "nodes",
-          "datasource": {"type": "influxdb", "uid": "transit_tracker"},
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
           "query": "import \"array\"\napiCalls = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"api_calls_total\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nclients = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"active_clients\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nthrottle = from(bucket: \"transit_tracker\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"throttle_rate\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nrefresh = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"refresh_interval\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\napiCallsV = if length(arr: apiCalls) > 0 then apiCalls[0] else 0.0\nclientsV = if length(arr: clients) > 0 then clients[0] else 0.0\nthrottleV = if length(arr: throttle) > 0 then throttle[0] else 0.0\nrefreshV = if length(arr: refresh) > 0 then refresh[0] else 30.0\narray.from(rows: [\n  {id: \"oba\", title: \"OneBusAway API\", subTitle: \"upstream provider\", mainStat: \"calls: \" + string(v: int(v: apiCallsV)), secondaryStat: \"throttle: \" + string(v: throttleV) + \"%\"},\n  {id: \"proxy\", title: \"Transit Proxy\", subTitle: \":8000\", mainStat: \"clients: \" + string(v: int(v: clientsV)), secondaryStat: \"refresh: \" + string(v: int(v: refreshV)) + \"s\"},\n  {id: \"displays\", title: \"Displays\", subTitle: \"ESP32 / simulator\", mainStat: \"active: \" + string(v: int(v: clientsV)), secondaryStat: \"\"},\n])"
         },
         {
           "refId": "edges",
-          "datasource": {"type": "influxdb", "uid": "transit_tracker"},
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
           "query": "import \"array\"\nrefresh = from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"refresh_interval\" and r._field == \"value\")\n  |> last()\n  |> findColumn(fn: (key) => true, column: \"_value\")\nrefreshV = if length(arr: refresh) > 0 then refresh[0] else 30.0\narray.from(rows: [\n  {id: \"e1\", source: \"oba\", target: \"proxy\", mainStat: \"poll / \" + string(v: int(v: refreshV)) + \"s\"},\n  {id: \"e2\", source: \"proxy\", target: \"displays\", mainStat: \"schedule push\"},\n])"
         }
       ],
@@ -32,189 +48,471 @@
       "id": 2,
       "type": "stat",
       "title": "Active Clients",
-      "gridPos": {"x": 12, "y": 0, "w": 3, "h": 5},
-      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"active_clients\" and r._field == \"value\")\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"active_clients\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short", "decimals": 0,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "red", "value": null},
-            {"color": "orange", "value": 1},
-            {"color": "green", "value": 2}
-          ]}
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
     },
     {
       "id": 3,
       "type": "stat",
       "title": "API Calls / min",
-      "gridPos": {"x": 15, "y": 0, "w": 3, "h": 5},
-      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"api_calls_total\" and r._field == \"value\")\n  |> derivative(unit: 1m, nonNegative: true)\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 15,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"api_calls_total\" and r._field == \"value\")\n  |> derivative(unit: 1m, nonNegative: true)\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short", "decimals": 1,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "red", "value": null},
-            {"color": "orange", "value": 0.5},
-            {"color": "green", "value": 2}
-          ]}
+          "unit": "short",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.5
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
     },
     {
       "id": 4,
       "type": "stat",
       "title": "Throttle Rate",
-      "gridPos": {"x": 18, "y": 0, "w": 3, "h": 5},
-      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"throttle_rate\" and r._field == \"value\")\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"throttle_rate\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent", "decimals": 1,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "green", "value": null},
-            {"color": "orange", "value": 1},
-            {"color": "red", "value": 5}
-          ]}
+          "unit": "percent",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
     },
     {
       "id": 5,
       "type": "stat",
       "title": "API Errors (1h)",
-      "gridPos": {"x": 21, "y": 0, "w": 3, "h": 5},
-      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"api_errors_total\" and r._field == \"value\")\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 21,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"api_errors_total\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short", "decimals": 0,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "green", "value": null},
-            {"color": "orange", "value": 1},
-            {"color": "red", "value": 10}
-          ]}
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
     },
     {
       "id": 6,
       "type": "timeseries",
       "title": "OBA API latency",
-      "gridPos": {"x": 12, "y": 5, "w": 12, "h": 5},
-      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"api_latency_ms\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
-      }],
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"service_gauge\" and r.name == \"api_latency_ms\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
-          "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "spanNulls": true},
-          "color": {"mode": "fixed", "fixedColor": "blue"}
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
         },
         "overrides": []
       },
-      "options": {"tooltip": {"mode": "single", "sort": "none"}, "legend": {"displayMode": "list", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"]}}
+      "options": {
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "id": 7,
       "type": "timeseries",
       "title": "Proxied messages / minute (by route)",
-      "gridPos": {"x": 0, "y": 10, "w": 12, "h": 8},
-      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group(columns: [\"route_id\", \"route_name\"])\n  |> aggregateWindow(every: 1m, fn: count, createEmpty: false)"
-      }],
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group(columns: [\"route_id\", \"route_name\"])\n  |> aggregateWindow(every: 1m, fn: count, createEmpty: false)"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "custom": {"drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}},
-          "color": {"mode": "palette-classic"}
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
-      "options": {"tooltip": {"mode": "multi", "sort": "desc"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["sum", "lastNotNull"]}}
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "id": 8,
       "type": "timeseries",
       "title": "WebSocket client connects / disconnects (per min)",
-      "gridPos": {"x": 12, "y": 10, "w": 12, "h": 8},
-      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": {"type": "influxdb", "uid": "transit_tracker"},
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
           "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"ws_connections_total\" and r._field == \"value\")\n  |> derivative(unit: 1m, nonNegative: true)\n  |> set(key: \"_field\", value: \"connects/min\")"
         },
         {
           "refId": "B",
-          "datasource": {"type": "influxdb", "uid": "transit_tracker"},
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
           "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"service_counter\" and r.name == \"ws_disconnections_total\" and r._field == \"value\")\n  |> derivative(unit: 1m, nonNegative: true)\n  |> set(key: \"_field\", value: \"disconnects/min\")"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 15, "showPoints": "auto", "spanNulls": true},
-          "color": {"mode": "palette-classic"}
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
-      "options": {"tooltip": {"mode": "multi", "sort": "none"}, "legend": {"displayMode": "list", "placement": "bottom", "calcs": ["sum", "lastNotNull"]}}
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "id": 9,
       "type": "table",
       "title": "Recent proxied trips (last schedule pushes)",
-      "gridPos": {"x": 0, "y": 18, "w": 24, "h": 10},
-      "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\")\n  |> pivot(\n       rowKey: [\"_time\", \"route_id\", \"route_name\", \"stop_id\", \"headsign\", \"is_realtime\"],\n       columnKey: [\"_field\"],\n       valueColumn: \"_value\"\n     )\n  |> map(fn: (r) => ({ r with arrival_time_ms: int(v: r.arrival_time_s) * 1000 }))\n  |> keep(columns: [\"_time\", \"route_name\", \"stop_id\", \"headsign\", \"is_realtime\", \"arrival_time_ms\"])\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 100)"
-      }],
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\")\n  |> pivot(\n       rowKey: [\"_time\", \"route_id\", \"route_name\", \"stop_id\", \"headsign\", \"is_realtime\"],\n       columnKey: [\"_field\"],\n       valueColumn: \"_value\"\n     )\n  |> map(fn: (r) => ({ r with arrival_time_ms: int(v: r.arrival_time_s) * 1000 }))\n  |> keep(columns: [\"_time\", \"route_name\", \"stop_id\", \"headsign\", \"is_realtime\", \"arrival_time_ms\"])\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 100)"
+        }
+      ],
       "transformations": [
         {
           "id": "organize",
           "options": {
             "excludeByName": {},
-            "indexByName": {"_time": 0, "route_name": 1, "headsign": 2, "arrival_time_ms": 3, "is_realtime": 4, "stop_id": 5},
+            "indexByName": {
+              "_time": 0,
+              "route_name": 1,
+              "headsign": 2,
+              "arrival_time_ms": 3,
+              "is_realtime": 4,
+              "stop_id": 5
+            },
             "renameByName": {
               "_time": "Broadcast time",
               "route_name": "Route",
@@ -227,30 +525,393 @@
         }
       ],
       "fieldConfig": {
-        "defaults": {"custom": {"align": "auto"}},
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "ETA"}, "properties": [{"id": "unit", "value": "dateTimeAsLocal"}]},
-          {"matcher": {"id": "byName", "options": "RT?"}, "properties": [
-            {"id": "custom.cellOptions", "value": {"type": "color-background"}},
-            {"id": "mappings", "value": [
-              {"type": "value", "options": {"true": {"text": "live", "color": "green", "index": 0}}},
-              {"type": "value", "options": {"false": {"text": "scheduled", "color": "blue", "index": 1}}}
-            ]}
-          ]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ETA"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RT?"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "true": {
+                        "text": "live",
+                        "color": "green",
+                        "index": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "false": {
+                        "text": "scheduled",
+                        "color": "blue",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         ]
       },
-      "options": {"showHeader": true, "sortBy": [{"displayName": "Broadcast time", "desc": true}], "cellHeight": "sm"}
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Broadcast time",
+            "desc": true
+          }
+        ],
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Realtime Coverage",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Live vs scheduled trips / interval",
+      "description": "Broadcast trips split by the is_realtime tag. A growing 'scheduled' band = OBA realtime coverage gaps (sign falls back to GTFS schedule).",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group(columns: [\"is_realtime\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({ r with is_realtime: if r.is_realtime == \"true\" then \"live\" else \"scheduled\" }))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "live"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "scheduled"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Realtime coverage %",
+      "description": "live / (live + scheduled) over the window. A persistent dip flags an upstream OBA feed gap.",
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group()\n  |> reduce(\n       identity: {live: 0, total: 0},\n       fn: (r, accumulator) => ({\n         live: accumulator.live + (if r.is_realtime == \"true\" then 1 else 0),\n         total: accumulator.total + 1\n       }))\n  |> map(fn: (r) => ({ _time: now(), _value: if r.total > 0 then float(v: r.live) / float(v: r.total) * 100.0 else 0.0 }))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "green",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Per-stop realtime breakdown (which stops never get live)",
+      "description": "Trip count per stop split by is_realtime. A stop that is 100% scheduled (e.g. Judkins Park 40_E01) never receives OBA realtime.",
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group(columns: [\"stop_id\", \"route_name\", \"is_realtime\"])\n  |> count()\n  |> group()\n  |> pivot(rowKey: [\"stop_id\", \"route_name\"], columnKey: [\"is_realtime\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with live: if exists r.true then r.true else 0, scheduled: if exists r.false then r.false else 0 }))\n  |> map(fn: (r) => ({ r with coverage_pct: if (r.live + r.scheduled) > 0 then float(v: r.live) / float(v: r.live + r.scheduled) * 100.0 else 0.0 }))\n  |> keep(columns: [\"stop_id\", \"route_name\", \"live\", \"scheduled\", \"coverage_pct\"])\n  |> sort(columns: [\"coverage_pct\"])"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "stop_id": 0,
+              "route_name": 1,
+              "live": 2,
+              "scheduled": 3,
+              "coverage_pct": 4
+            },
+            "renameByName": {
+              "stop_id": "Stop",
+              "route_name": "Route",
+              "live": "Live",
+              "scheduled": "Scheduled",
+              "coverage_pct": "Coverage %"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coverage %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 60
+                    },
+                    {
+                      "color": "green",
+                      "value": 85
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Coverage %",
+            "desc": false
+          }
+        ],
+        "footer": {
+          "show": false
+        },
+        "cellHeight": "sm"
+      }
     }
   ],
   "refresh": "10s",
   "schemaVersion": 39,
-  "tags": ["transit_tracker", "transit", "monitor"],
-  "templating": {"list": []},
-  "time": {"from": "now-30m", "to": "now"},
+  "tags": [
+    "transit_tracker",
+    "transit",
+    "monitor"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Transit Tracker — Network Monitor",
+  "title": "Transit Tracker \u2014 Network Monitor",
   "uid": "transit-tracker-monitor",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
