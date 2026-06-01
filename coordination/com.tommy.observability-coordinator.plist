@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd job for the observability coordinator. install.sh substitutes
+  __COORD_WORKER__ with the worker.sh path inside the INTERNAL-disk clone
+  (~/.observability/coordinator/repo/coordination/worker.sh) — launchd cannot
+  exec from /Volumes (TCC, exit 78). The worker only touches ~/.observability
+  and the docker socket, so it's launchd-legal.
+
+  PATH includes OrbStack's bin (docker), Homebrew, and /usr/bin (git) since the
+  launchd-managed agent inherits a minimal PATH.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tommy.observability-coordinator</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>__COORD_WORKER__</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/tommydoerr/.orbstack/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>120</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/tommydoerr/Library/Logs/observability-coordinator.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tommydoerr/Library/Logs/observability-coordinator.log</string>
+</dict>
+</plist>
