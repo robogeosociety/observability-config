@@ -207,7 +207,23 @@ walksheds-uptime:
   intent: >-
     At-a-glance liveness + deploy timeline for walksheds, matching the shared
     ops/uptime pattern used by the other project status dashboards.
-  status: pending
   todos:
-    - Commit walksheds-uptime.json + the walksheds/ collector, then drop `status: pending`
     - Add latency / last-success-age panels to match the status-page treatment
+
+ha-system:
+  title: Home Assistant — System
+  file: ha-system.json
+  purpose: >-
+    Host CPU/load/mem/swap/disk/net for the Home Assistant box from Telegraf's
+    cpu/mem/swap/disk/diskio/net/system measurements in the `system` bucket,
+    filtered by the $host/$mount/$iface variables (host defaults to
+    "homeassistant").
+  datasources: [influxdb]
+  intent: >-
+    A mac-system clone scoped to the HA host — one screen for "is the HA box
+    healthy." Drops the Mac-only process treemap (that pulled from the Mac's
+    local dev-status collector, which the HA host doesn't run).
+  todos:
+    - No Telegraf data flows yet — stand up the Telegraf add-on on the HA host writing host="homeassistant" to the `system` bucket
+    - Per-core CPU once the collector reports it
+    - Add a memory-pressure / swap alert
