@@ -63,10 +63,11 @@ emit "backup,target=local success=1i,bytes=${SIZE}i,duration_s=${DUR}i"
 emit "collector,source=backup,kind=batch,host=${HOSTTAG} success=1i,duration_s=${DUR}i,rows=1i,interval_s=86400i"
 echo "[$(date)] local backup ok: $HOST_TARBALL (${SIZE} bytes, ${DUR}s)"
 
-# Optional offsite copy to Cloudflare R2 (activated by adding R2_* to .env).
-if [[ -n "${R2_ACCOUNT_ID:-}" && -n "${R2_ACCESS_KEY_ID:-}" && -n "${R2_BUCKET:-}" ]]; then
-  if uv run --no-project --with boto3 python "${SCRIPT_DIR}/r2_upload.py" \
-       put "$HOST_TARBALL" "influx-${STAMP}.tar.gz"; then
+# Optional offsite copy to Cloudflare R2 (activated by adding R2 creds to .env).
+# Auth is a single CLOUDFLARE_API_TOKEN (Workers R2 Storage:Edit) — r2_upload.py
+# shells out to wrangler, so no S3 access-key pair and no boto3 are needed.
+if [[ -n "${CLOUDFLARE_API_TOKEN:-}" && -n "${R2_BUCKET:-}" ]]; then
+  if python3 "${SCRIPT_DIR}/r2_upload.py" put "$HOST_TARBALL" "influx-${STAMP}.tar.gz"; then
     emit "backup,target=r2 success=1i,bytes=${SIZE}i"
     echo "[$(date)] uploaded to r2://${R2_BUCKET}/influx-${STAMP}.tar.gz"
   else

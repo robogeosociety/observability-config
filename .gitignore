@@ -19,3 +19,6 @@ influxdb/bridge.log
 
 # logs anywhere
 **/*.log
+
+# wrangler local cache (created when r2_upload.py / backup.sh shell out to wrangler)
+**/.wrangler/
