@@ -14,7 +14,10 @@ without racing the one live Grafana. Design rationale and the later phases are i
 | `worker.sh` | drains the queue, deploys `main` from the internal clone, **verifies Grafana health, rolls back on failure**. Runs under launchd. |
 | `install.sh` | clones the repo to the internal disk and loads the launchd job. |
 | `com.tommy.observability-coordinator.plist` | launchd template (2-min interval). |
-| `enable-merge-queue.sh` | one-shot: enable the GitHub merge queue + required `hermetic` check on `main`. |
+
+> Merges go through normal squash PRs gated by the required `hermetic` check — **no merge
+> queue** (it needs GitHub Pro or a public repo, and merge ordering is low-stakes for a solo
+> repo; the deploy serializer below covers the real collision risk).
 
 ## Runtime layout (internal disk — launchd can't touch `/Volumes`)
 
@@ -33,17 +36,11 @@ so a scheduled deploy only ever ships merged, reviewed config. To preview an
 *uncommitted* local edit, run `../grafana/deploy-provisioning.sh` (it takes the same
 mutex, so it can't race the scheduler).
 
-## Setup (run once, after this lands on `main`)
+## Setup (run once)
 
 ```sh
-./install.sh                       # internal clone + launchd job
-./enable-merge-queue.sh            # dry-run: review the ruleset
-./enable-merge-queue.sh --apply    # enable merge queue on main (governance change)
+./install.sh    # internal clone + launchd job (com.tommy.observability-coordinator)
 ```
-
-> **Note:** the merge queue needs **GitHub Pro or a public repo** (rulesets aren't
-> available on private free repos — the API returns 403). Deferred until then; the
-> deploy serializer + required CI cover the runtime collision risk in the meantime.
 
 ## Trigger a deploy
 
