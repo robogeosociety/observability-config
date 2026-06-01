@@ -112,7 +112,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "celsius",
+          "unit": "fahrenheit",
           "decimals": 1,
           "color": {
             "mode": "thresholds"
@@ -126,11 +126,11 @@
               },
               {
                 "color": "orange",
-                "value": 70
+                "value": 158
               },
               {
                 "color": "red",
-                "value": 85
+                "value": 176
               }
             ]
           }
@@ -637,7 +637,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "celsius",
+          "unit": "fahrenheit",
           "decimals": 1,
           "color": {
             "mode": "thresholds"
@@ -651,11 +651,11 @@
               },
               {
                 "color": "orange",
-                "value": 70
+                "value": 158
               },
               {
                 "color": "red",
-                "value": 85
+                "value": 176
               }
             ]
           }
