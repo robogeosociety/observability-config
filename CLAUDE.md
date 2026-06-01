@@ -5,8 +5,15 @@ Infrastructure-as-code for the home observability stack on `tommys-mac-mini`:
 file-provisioned. This file holds context that isn't derivable from the code.
 
 Repo lives at `/Volumes/dev/observability/`; the live config **is** the working
-tree (Grafana bind-mounts `grafana/provisioning`). GitHub: private
-`tommyroar/observability-config`.
+tree. GitHub: private `tommyroar/observability-config`.
+
+**Grafana provisioning is no longer bind-mounted from `/Volumes`.** After the
+2026-05-31 external-disk unmount broke containers, Grafana now mounts an
+**internal-disk copy** at `~/.observability/grafana/provisioning`. The repo's
+`grafana/provisioning/` stays the version-controlled source of truth — edit it
+here, then run **`grafana/deploy-provisioning.sh`** to rsync repo → internal and
+reload Grafana. (Same internal-disk pattern as the dev-status collector and the
+Telegraf config.)
 
 ## Layout
 
