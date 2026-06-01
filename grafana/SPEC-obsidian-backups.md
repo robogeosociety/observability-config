@@ -1,6 +1,11 @@
 # SPEC — `obsidian-backups` dashboard (proposal)
 
-Status: **proposal** (index entry is `status: pending`; no JSON yet).
+Status: **built** (`obsidian-backups.json`, uid `obsidian-backups`). Shipped in a
+graceful, forward-compatible form: it groups by the `vault` tag, but that tag isn't
+live yet, so today it renders the single Obsidian backup as one `tbd` series and
+fans out into camping/gear/dev/home automatically once the fan-out script tags its
+heartbeat. The spec's "files changed per run" panel is dropped until a `changed`
+field is emitted (only `bytes`/`success`/`duration_s` exist today).
 
 ## Why
 
