@@ -215,24 +215,6 @@ walksheds-uptime:
   todos:
     - Add latency / last-success-age panels to match the status-page treatment
 
-ha-system:
-  title: Home Assistant — System
-  file: ha-system.json
-  purpose: >-
-    Host CPU/load/mem/swap/disk/net for the Home Assistant box from Telegraf's
-    cpu/mem/swap/disk/diskio/net/system measurements in the `system` bucket,
-    filtered by the $host/$mount/$iface variables (host defaults to
-    "homeassistant").
-  datasources: [influxdb]
-  intent: >-
-    A mac-system clone scoped to the HA host — one screen for "is the HA box
-    healthy." Drops the Mac-only process treemap (that pulled from the Mac's
-    local dev-status collector, which the HA host doesn't run).
-  todos:
-    - No Telegraf data flows yet — stand up the Telegraf add-on on the HA host writing host="homeassistant" to the `system` bucket
-    - Per-core CPU once the collector reports it
-    - Add a memory-pressure / swap alert
-
 orbstack-containers:
   title: OrbStack — Container Monitoring
   file: orbstack-containers.json
@@ -265,6 +247,5 @@ ha-pi-system:
     and HAOS add-on containers can't route to the mini over Tailscale, so HA's
     built-in forwarder (over the LAN IP) is the data path that actually works.
   todos:
-    - Verify processor_temperature unit (reads ~110 — likely needs °C vs raw scaling)
     - Enable more System Monitor entities (per-mount disks, more interfaces) if wanted — they default to disabled_by integration
-    - Reconcile with the Telegraf-based ha-system dashboard (keep one, or document the split)
+    - 'CPU temp is °F (HA System Monitor reports °F); panel set accordingly'
