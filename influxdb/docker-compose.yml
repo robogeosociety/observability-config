@@ -3,13 +3,33 @@ services:
     image: influxdb:2.7-alpine
     container_name: influxdb
     restart: unless-stopped
+    # Resource caps = 50% of the OrbStack VM (4 CPU / 4096 MiB). Limits blast
+    # radius: a runaway container is OOM-killed by Docker, not allowed to thrash
+    # the whole VM into host swap (see the 2026-05-31 watchdog panic).
+    mem_limit: 2048m
+    cpus: 2.0
+    pids_limit: 512
     ports:
       - "8086:8086"
     volumes:
-      - influxdb_data:/var/lib/influxdb2
-      - influxdb_config:/etc/influxdb2
+      # Data + config live on the 2 TB external /Volumes/dev disk — the durable
+      # drive — because TSM time-series data grows large and belongs there, not
+      # on the small internal disk. This REQUIRES /Volumes/dev mounted before
+      # OrbStack starts the container.
+      - /Volumes/dev/observability/influxdb/data:/var/lib/influxdb2
+      - /Volumes/dev/observability/influxdb/config:/etc/influxdb2
     environment:
-      DOCKER_INFLUXDB_INIT_MODE: setup
+      # NOTE: DOCKER_INFLUXDB_INIT_MODE is intentionally NOT set.
+      # The DB is already initialized on the bind path above; setup is a one-time
+      # bootstrap. Leaving INIT_MODE=setup is a data-loss trap: if /Volumes/dev is
+      # NOT mounted when the container starts (e.g. after the watchdog unmount this
+      # hardens against), the bind path is empty and setup would re-init a FRESH
+      # EMPTY DB. With INIT_MODE unset, an empty path instead makes influxd boot
+      # into "setup required" and refuse writes — collectors fail loudly and
+      # recoverably, and real data returns intact once the disk remounts.
+      # The INIT_* vars below are inert without INIT_MODE; kept so a DELIBERATE
+      # re-init (disaster recovery on a fresh disk) is a one-line change: add
+      # `DOCKER_INFLUXDB_INIT_MODE: setup`.
       DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_ADMIN_USER}
       DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_ADMIN_PASSWORD}
       DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG}
@@ -22,7 +42,3 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-
-volumes:
-  influxdb_data:
-  influxdb_config:
