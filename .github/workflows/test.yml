@@ -16,6 +16,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pytest pyyaml
+      # coordination/ scripts are zsh (repo convention); the tests shell out to them.
+      - run: sudo apt-get update && sudo apt-get install -y zsh
       - name: Tier 1 — unit + static
         run: >
           pytest grafana/tests grafana/dev-status grafana/claude-usage-collector coordination influxdb/tests

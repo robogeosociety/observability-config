@@ -5,12 +5,20 @@ COORD_DEPLOY=0 (the worker skips the git/rsync/docker/curl side effects and just
 exercises the lock + queue lifecycle). Mirrors the dev-status/collector approach.
 """
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
 
+import pytest
+
 HERE = Path(__file__).parent
-ZSH = "/bin/zsh"
+ZSH = shutil.which("zsh") or "/bin/zsh"
+
+pytestmark = pytest.mark.skipif(
+    not (shutil.which("zsh") or Path("/bin/zsh").exists()),
+    reason="zsh not available — coordination scripts are zsh",
+)
 
 
 def _run(script, *args, coord_home, deploy="0", extra_env=None, check=True):
