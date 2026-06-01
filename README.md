@@ -29,10 +29,9 @@ operational details in **[coordination/README.md](coordination/README.md)**):
   full dashboard (JSON + datasource + intent) via a normal PR. Concurrent additions are
   made conflict-free by moving toward one-file-per-dashboard (`dashboards.index.d/`,
   `datasources/_projects/`) so nobody edits a shared file (Phase 1+).
-- **Merges** run a required `hermetic` check on every PR. A GitHub **merge queue** on
-  `main` is ready to enable (`coordination/enable-merge-queue.sh`) but **deferred** —
-  rulesets/merge-queue need GitHub Pro or a public repo, and this repo is private/free.
-  Until then the deploy serializer below covers the actual runtime collision risk.
+- **Merges** go through normal squash PRs gated by the required `hermetic` check. (No
+  merge queue — it needs GitHub Pro or a public repo, and merge *ordering* is a low-stakes
+  race for a solo repo; the deploy serializer below covers the real collision risk.)
 - **Deploys are scheduled, not raced.** A launchd coordinator (`com.tommy.observability-coordinator`,
   every 2 min, running off an internal-disk clone) drains a queue and runs the one
   serialized step — sync provisioning, restart Grafana, **verify health, roll back on
@@ -41,6 +40,56 @@ operational details in **[coordination/README.md](coordination/README.md)**):
   `coordination/install.sh`; enqueue a deploy with `coordination/enqueue.sh deploy "<reason>"`.
 - **Stretch:** per-dashboard **blue-green deploys** — stage changed dashboards under a
   `-green` uid, verify render + query, and only then promote (COORDINATION-PLAN.md §13).
+
+### How a change reaches the live dashboards
+
+```mermaid
+flowchart TD
+    subgraph M["this Mac"]
+      P1[project A]
+      P2[project B]
+    end
+    P1 -->|Idea lane| IDEA["index entry<br/>(status: pending)"]
+    P2 -->|PR lane| WT["git worktree<br/>JSON + datasource + intent"]
+    IDEA --> PR[GitHub PR]
+    WT --> PR
+    PR -->|"required hermetic CI"| MAIN[(main)]
+    MAIN -->|"enqueue.sh deploy"| Q["coordinator queue"]
+    DEV["deploy-provisioning.sh<br/>(preview local edits)"] -.->|same mutex| W
+    Q --> W["worker — launchd, every 2m"]
+    W --> DEPLOY{"deploy under mutex:<br/>rsync provisioning<br/>restart Grafana<br/>verify health"}
+    DEPLOY -->|healthy| LIVE([Grafana live])
+    DEPLOY -->|unhealthy| RB["roll back to prev<br/>job → failed/"]
+```
+
+### The serialized deploy step
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Src as enqueue.sh / CI
+    participant Q as queue/
+    participant W as worker (launchd)
+    participant L as mutex (mkdir)
+    participant G as Grafana
+    Src->>Q: drop deploy job (atomic tmp+rename)
+    W->>L: acquire lock
+    alt held by a live owner
+        L-->>W: busy → exit, retry next tick
+    else acquired
+        W->>W: git reset --hard origin/main (internal clone)
+        W->>G: rsync provisioning + docker restart
+        W->>G: GET /api/health
+        alt healthy
+            G-->>W: 200 OK
+            W->>Q: job → done/
+        else unhealthy
+            W->>G: restore provisioning.prev + restart
+            W->>Q: job → failed/
+        end
+        W->>L: release lock
+    end
+```
 
 ## Secrets
 

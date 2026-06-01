@@ -5,10 +5,10 @@ or **a full dashboard PR (JSON + datasource + intent)** at the same time as othe
 projects, without colliding — plus a scheduler and queue that serialize the few
 steps that genuinely cannot run in parallel.
 
-Status: **Phase 0 implemented** in this PR (`coordination/` — the deploy scheduler +
-mutex + queue); later phases and the blue-green stretch goal (§13) remain proposed.
-Decisions confirmed: deploy **scheduling** is the priority, and the GitHub **merge
-queue** is a go (§6, enabled by `coordination/enable-merge-queue.sh`).
+Status: **Phase 0 implemented and live** (`coordination/` — the deploy scheduler + mutex
++ queue, running under launchd); later phases and the blue-green stretch goal (§13) remain
+proposed. Decisions confirmed: deploy **scheduling** is the priority; **no merge queue** —
+merges go through normal squash PRs gated by the required `hermetic` check (§6).
 
 ---
 
@@ -58,7 +58,7 @@ of collision this plan exists to kill:
 |---|---|---|
 | Static (git) | shared `dashboards.index.yaml`, `datasources/influxdb.yml` | **conf.d split** — one file per dashboard/datasource (§5.1, §5.2) |
 | Working tree | local agents sharing the `/Volumes` checkout | **worktree-per-task** (§5.3) |
-| Merge ordering | two PRs touching `main` | **GitHub merge queue** — reused, not rebuilt (§6) |
+| Merge ordering | two PRs touching `main` | **normal squash PRs + required CI** — no merge queue (§6) |
 | Runtime singleton | deploy / `docker` recreate / provisioning rsync | **single coordinator daemon + mutex** (§5.4) |
 | Logical (tokens/buckets) | per-bucket Grafana read token | **declarative `buckets.yaml` + reconcile** (§5.5) |
 
@@ -71,8 +71,8 @@ the irreducibly-shared *mutations* through one lock.**
    editing a shared one. Disjoint new files merge cleanly in git.
 2. **Worktree-per-task** — each local agent/project works in its own `git worktree`, so
    no two share a checkout or stomp `main`.
-3. **GitHub for merges** — normal PRs; branch protection + (optional) GitHub merge queue
-   order them. CI stays hermetic.
+3. **GitHub for merges** — normal squash PRs gated by the required `hermetic` check; no
+   merge queue (see §6). CI stays hermetic.
 4. **One coordinator daemon** (launchd, internal-disk clone) — owns the serialized tail:
    deploy provisioning, recreate Grafana on datasource changes, reconcile tokens. Guarded
    by an atomic mutex so ticks/manual runs never overlap.
@@ -264,13 +264,12 @@ These turn "logical collisions" into red CI instead of silent runtime breakage.
 
 ## 10. Phased rollout
 
-- **Phase 0 — deploy serializer (highest ROI, smallest change). ✅ implemented in this PR.**
+- **Phase 0 — deploy serializer (highest ROI, smallest change). ✅ implemented and live.**
   `coordination/` ships the `mkdir` mutex (`mutex.sh`), the queue + drainer (`worker.sh`,
   deploy lane only, with post-deploy health verification + rollback), an atomic `enqueue.sh`,
-  an `install.sh` that stands up the internal-disk clone and the launchd job, and
-  `enable-merge-queue.sh`. `deploy-provisioning.sh` now takes the same mutex so an
-  interactive preview-deploy can't race the scheduler. No dashboard/datasource format
-  changes yet.
+  and an `install.sh` that stands up the internal-disk clone and the launchd job.
+  `deploy-provisioning.sh` now takes the same mutex so an interactive preview-deploy can't
+  race the scheduler. No dashboard/datasource format changes yet.
 - **Phase 1 — conf.d index.** Introduce `dashboards.index.d/`; loader reads both; migrate
   existing entries; add duplicate-uid CI check. Kills the #1 git conflict.
 - **Phase 2 — datasources `_projects/` + `buckets.yaml` reconcile.** Per-project datasource
@@ -284,8 +283,8 @@ These turn "logical collisions" into red CI instead of silent runtime breakage.
   *contribution* (not just deploy) throttles parallelism and still produces git conflicts on
   the shared file. conf.d removes the conflict at the source; the lock should guard only the
   true singleton (deploy).
-- **A custom local merge queue.** Rejected: GitHub branch protection + merge queue already
-  do this, with review and CI. Don't reinvent it.
+- **A custom local merge queue.** Rejected: normal squash PRs + the required `hermetic`
+  check already order merges well enough for a solo repo; don't reinvent a queue.
 - **Run the daemon against the `/Volumes` checkout.** Impossible under launchd (TCC exit 78);
   hence the internal clone.
 - **One datasource/index file edited via a YAML-merge tool.** Rejected: still a shared-file
@@ -298,13 +297,11 @@ These turn "logical collisions" into red CI instead of silent runtime breakage.
   internal clone) now both take the `coordination/` mutex, so they can never race the
   provisioning dir or the Grafana container. Preview-from-`/Volumes` stays available
   precisely so you don't have to commit to see a change live.
-- **Merge queue — decided yes, but deferred (plan limit).** `coordination/enable-merge-queue.sh`
-  creates a `main` ruleset (active enforcement, required `hermetic` check, PR required, merge
-  queue on). **Blocked for now:** GitHub rulesets/merge-queue require GitHub Pro or a public
-  repo, and this repo is private/free (the API returns 403). The script is correct and ready
-  to run once that condition is met (upgrade or make public). Until then, required CI on every
-  PR + the deploy serializer (§5.4) cover the real collision risk; merge *ordering* is a
-  low-stakes race for a solo repo.
+- **Merge queue — decided against.** GitHub rulesets/merge-queue require GitHub Pro or a
+  public repo (private/free returns 403), and merge *ordering* is a low-stakes race for a
+  solo repo. Merges go through normal squash PRs gated by the required `hermetic` check; the
+  deploy serializer (§5.4) covers the real runtime collision risk. (Revisit only if the repo
+  goes Pro/public *and* contention actually appears.)
 - **Auto-merge scope** for the idea lane — restrict to pure `status: pending` doc additions
   (full PRs always get human review). *Recommended; deferred to Phase 3.*
 - **`buckets.yaml` as bucket source of truth** (Phase 2) means the daemon needs an admin
@@ -321,6 +318,17 @@ production never serves a broken dashboard even briefly.
 provisioned by `uid`. So "green" isn't a second server — it's the changed dashboards
 provisioned under a **staging identity** (a `Staging` folder + `-green` uid suffix) that real
 users don't navigate to.
+
+```mermaid
+flowchart LR
+    CH["changed dashboard JSON"] --> STAGE["stage as uid-green<br/>(Staging folder)"]
+    STAGE --> VERIFY{"verify green:<br/>ds health + render + query"}
+    VERIFY -->|all pass| PROMOTE["promote:<br/>swap canonical uid,<br/>delete green"]
+    VERIFY -->|any fail| ABORT["abort:<br/>prod (blue) untouched<br/>job → failed/"]
+    PROMOTE --> GUARD{"instance health"}
+    GUARD -->|ok| DONE([live])
+    GUARD -->|fail| RESTORE["restore provisioning.prev"]
+```
 
 **Flow (inside the coordinator's deploy lock):**
 1. **Stage (green).** For each *changed* dashboard JSON, write a transformed copy into a
