@@ -298,10 +298,13 @@ These turn "logical collisions" into red CI instead of silent runtime breakage.
   internal clone) now both take the `coordination/` mutex, so they can never race the
   provisioning dir or the Grafana container. Preview-from-`/Volumes` stays available
   precisely so you don't have to commit to see a change live.
-- **Merge queue — decided: yes.** `coordination/enable-merge-queue.sh` creates a `main`
-  ruleset (active enforcement, required `hermetic` check, PR required, merge queue on).
-  After enabling, **all changes to `main` go through a PR + the queue — no direct pushes.**
-  It's a governance switch, so it's a separate explicit step, not auto-run.
+- **Merge queue — decided yes, but deferred (plan limit).** `coordination/enable-merge-queue.sh`
+  creates a `main` ruleset (active enforcement, required `hermetic` check, PR required, merge
+  queue on). **Blocked for now:** GitHub rulesets/merge-queue require GitHub Pro or a public
+  repo, and this repo is private/free (the API returns 403). The script is correct and ready
+  to run once that condition is met (upgrade or make public). Until then, required CI on every
+  PR + the deploy serializer (§5.4) cover the real collision risk; merge *ordering* is a
+  low-stakes race for a solo repo.
 - **Auto-merge scope** for the idea lane — restrict to pure `status: pending` doc additions
   (full PRs always get human review). *Recommended; deferred to Phase 3.*
 - **`buckets.yaml` as bucket source of truth** (Phase 2) means the daemon needs an admin

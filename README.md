@@ -29,8 +29,10 @@ operational details in **[coordination/README.md](coordination/README.md)**):
   full dashboard (JSON + datasource + intent) via a normal PR. Concurrent additions are
   made conflict-free by moving toward one-file-per-dashboard (`dashboards.index.d/`,
   `datasources/_projects/`) so nobody edits a shared file (Phase 1+).
-- **Merges go through GitHub's merge queue** on `main` (required `hermetic` check, PR
-  required) — enable with `coordination/enable-merge-queue.sh`. No direct pushes to `main`.
+- **Merges** run a required `hermetic` check on every PR. A GitHub **merge queue** on
+  `main` is ready to enable (`coordination/enable-merge-queue.sh`) but **deferred** —
+  rulesets/merge-queue need GitHub Pro or a public repo, and this repo is private/free.
+  Until then the deploy serializer below covers the actual runtime collision risk.
 - **Deploys are scheduled, not raced.** A launchd coordinator (`com.tommy.observability-coordinator`,
   every 2 min, running off an internal-disk clone) drains a queue and runs the one
   serialized step — sync provisioning, restart Grafana, **verify health, roll back on

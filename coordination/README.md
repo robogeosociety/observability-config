@@ -41,6 +41,10 @@ mutex, so it can't race the scheduler).
 ./enable-merge-queue.sh --apply    # enable merge queue on main (governance change)
 ```
 
+> **Note:** the merge queue needs **GitHub Pro or a public repo** (rulesets aren't
+> available on private free repos — the API returns 403). Deferred until then; the
+> deploy serializer + required CI cover the runtime collision risk in the meantime.
+
 ## Trigger a deploy
 
 ```sh
