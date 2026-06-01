@@ -270,8 +270,8 @@ claude-usage:
     in-repo, deploy.sh copies to the internal disk, launchd runs it) because
     launchd is TCC-blocked from /Volumes.
   todos:
-    - "Activate: create the `claude_code` bucket + INFLUX_CLAUDE_USAGE_TOKEN in influxdb/.env, grant the Grafana read token access, deploy.sh + backfill"
-    - More panels — tokens by model, cost-free spend by project, web search/fetch use, avg tokens/message
+    - Live since 2026-06-01 — `claude_code` bucket + collector (launchd com.tommy.claude-usage, 5 min) active; backfilled ~18.6k points
+    - More panels — tokens by model, tokens by project, web search/fetch use, avg tokens/message
     - Headline stat row (tokens today / this month, cache-hit ratio, messages/day)
     - Revisit `session` tag cardinality if it ever balloons (fine for single-user now)
     - Heartbeat to the `ops` bucket so collector liveness shows on the Backups/status pattern
