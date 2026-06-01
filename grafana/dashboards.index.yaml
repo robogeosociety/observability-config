@@ -279,22 +279,22 @@ claude-usage:
 obsidian-backups:
   title: Obsidian Backups — per vault
   file: obsidian-backups.json
-  status: pending
   purpose: >-
     Per-vault Obsidian backup freshness, result, and size from the `ops` bucket
-    `backup` measurement (target=obsidian) once the fan-out backup tags each
-    heartbeat with `vault` (camping/gear/dev/home).
+    `backup` measurement (target=obsidian) — last-success age, size trend, and a
+    last-run table, grouped by the `vault` tag.
   datasources: [influxdb]
   intent: >-
     Drill-down companion to the top-level Backups dashboard. The Obsidian vault
     is being split into multiple vaults backed up by a fan-out script that emits
     a per-vault heartbeat; the single "Obsidian vault" stat on `backups` can't
-    show WHICH vault went stale. This proposes a per-vault freshness/size view.
-    Full design in grafana/SPEC-obsidian-backups.md. Proposal only — JSON lands
-    once the fan-out heartbeat (vault tag) is live; see the obsidian-tbd repo's
-    migration note + automations/.
+    show WHICH vault went stale. Built to be forward-compatible: it groups by the
+    `vault` tag, but the tag isn't live yet, so today the single Obsidian backup
+    shows as one tile/row labelled `tbd` — it fans out into camping/gear/dev/home
+    automatically once the fan-out script tags its heartbeat. Full design in
+    grafana/SPEC-obsidian-backups.md.
   todos:
-    - Build the JSON once the fan-out backup emits the `vault`-tagged heartbeat
-    - Decide separate dashboard vs. a per-vault repeating row on backups.json
+    - Heartbeat lacks the `vault` tag yet — shows one `tbd` series until the fan-out backup script tags per-vault (obsidian-tbd repo automations/)
+    - No `changed`-files field is emitted yet — the spec's "files changed per run" panel is dropped until it is
     - Alert when any vault's last-success age exceeds the backup interval
     - Size-trend thresholds per vault to catch silent truncation
