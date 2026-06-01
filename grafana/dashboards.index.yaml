@@ -248,3 +248,23 @@ orbstack-containers:
   todos:
     - Alert when the influxdb container is down / unreachable
     - Surface per-container restart counts and OOM-kills
+
+ha-pi-system:
+  title: Home Assistant Pi — System
+  file: ha-pi-system.json
+  purpose: >-
+    Host CPU/load/temp/memory/swap/disk/network for the Home Assistant Raspberry
+    Pi, sourced from HA's System Monitor integration forwarded to the
+    `home_assistant` bucket (measurement `sensor.system_monitor_*`, field
+    `value`) via HA's InfluxDB integration.
+  datasources: [influxdb]
+  intent: >-
+    The HA-native counterpart to mac-system. Unlike the Telegraf-fed ha-system
+    dashboard (which expects cpu/mem measurements in the `system` bucket), this
+    reads HA's own System Monitor entity schema — because the Pi has no Telegraf
+    and HAOS add-on containers can't route to the mini over Tailscale, so HA's
+    built-in forwarder (over the LAN IP) is the data path that actually works.
+  todos:
+    - Verify processor_temperature unit (reads ~110 — likely needs °C vs raw scaling)
+    - Enable more System Monitor entities (per-mount disks, more interfaces) if wanted — they default to disabled_by integration
+    - Reconcile with the Telegraf-based ha-system dashboard (keep one, or document the split)
