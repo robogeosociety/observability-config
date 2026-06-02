@@ -1,0 +1,27 @@
+apiVersion: 1
+
+# Discord contact point for stack-availability alerts.
+#
+# Grafana's native `discord` integration posts a formatted embed (color-coded
+# firing/resolved, with the alert summary + labels + runbook annotation as
+# fields) to a channel webhook. No extra app — the alert lands in a Discord
+# channel you already watch, with a searchable history.
+#
+# The webhook URL is the secret (anyone with it can post to the channel), so it
+# comes from $__env{DISCORD_WEBHOOK_URL}, which grafana/docker-compose.yml passes
+# through from grafana/.env (gitignored). Create it in Discord:
+#   Server Settings -> Integrations -> Webhooks -> New Webhook -> pick a channel
+#   (e.g. #alerts) -> Copy Webhook URL.
+#
+# Resolve messages are ON: Discord's embed differentiates firing (red) from
+# resolved (green), so a recovery ping is clear rather than misleading.
+contactPoints:
+  - orgId: 1
+    name: discord
+    receivers:
+      - uid: discord-ops
+        type: discord
+        settings:
+          url: $__env{DISCORD_WEBHOOK_URL}
+          use_discord_username: false
+        disableResolveMessage: false
