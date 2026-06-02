@@ -37,6 +37,13 @@ once).
   and **every panel's datasource uid resolves to a provisioned datasource**.
 - Datasource YAML: valid, required fields, unique uids, Flux for InfluxDB.
 - Provider: **`allowUiUpdates: false`** is locked in.
+- Campsites dashboards (`test_campsites_dashboards_static.py`): the *nodata*
+  regression guards — every time-axis (`timeseries`/`trend`) panel binds to the
+  dashboard picker (ClickHouse `$timeFilter`/`$timeSeries`, Flux
+  `v.timeRangeStart`) and never hardcodes its own window; ClickHouse targets that
+  use the time macros declare `dateTimeColDataType`; and a single-value query
+  variable feeding an `== "${var}"` filter is data-scoped so it can't default to a
+  dataless edge value.
 - `backup.sh`: shell syntax + presence of safety flags, backup/cp/prune steps,
   and that the token comes from the env (never hardcoded).
 
@@ -44,6 +51,11 @@ once).
 - Collector: spawns a real instance on an ephemeral port, checks the HTTP/JSON contract.
 - Grafana: each dashboard is provisioned (read-only) and matches its file; every
   datasource exists; InfluxDB datasource health is OK.
+- Campsites panels (`test_campsites_integration.py`): resolves each dashboard's
+  template variables to Grafana's default selection, interpolates them into every
+  panel query, and runs it through `/api/ds/query` over the dashboard's default
+  range **and** `now-24h` — failing any panel that comes back *No data* (a query
+  that errors, e.g. an unconfigured AE token, is skipped, not failed).
 - InfluxDB: healthy, the org exists, and every bucket a datasource points at exists.
 
 **Tier 3 — e2e (Playwright, real browser)**

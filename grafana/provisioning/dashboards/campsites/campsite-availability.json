@@ -1,0 +1,1248 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "templating": {
+    "list": [
+      {
+        "name": "agency",
+        "label": "Agency",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "campsites"
+        },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"campsites\", tag: \"agency\")",
+        "multi": true,
+        "includeAll": true,
+        "refresh": 2,
+        "sort": 1
+      },
+      {
+        "name": "campsite",
+        "label": "Campsite",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "campsites"
+        },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"campsites\", tag: \"name\")",
+        "multi": true,
+        "includeAll": true,
+        "refresh": 2,
+        "sort": 1
+      },
+      {
+        "name": "target_date",
+        "label": "Target date (night)",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "campsites"
+        },
+        "query": "import \"date\"\nimport \"influxdata/influxdb/schema\"\npad = (n) => if n < 10 then \"0\" + string(v: n) else string(v: n)\ntoday = string(v: date.year(t: now())) + \"-\" + pad(n: date.month(t: now())) + \"-\" + pad(n: date.monthDay(t: now()))\nschema.tagValues(bucket: \"campsites\", tag: \"target_date\") |> filter(fn: (r) => r._value >= today)",
+        "multi": false,
+        "includeAll": false,
+        "refresh": 2,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "About",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "# Campsite availability\n\nTwo lenses on the same campsite scrape:\n\n- **Right now \u2014 all nights (live)** \u2014 current system-wide state from Cloudflare Analytics Engine (`campsites_ae`), refreshed continuously: site-nights available/reserved summed across every tracked night, fully-booked campgrounds, per-agency split, per-campground latest, and watched hot dates. Independent of the date/agency filters.\n- **For a chosen night (`$target_date`) \u2014 history** \u2014 the daily InfluxDB snapshot (`campsites` bucket). Pick a night (+ optional agency/campsite) for its latest split and how it filled up over time (burn-down / forecast).\n\nThe time picker drives the history trend; the live section is always *now*."
+      }
+    },
+    {
+      "id": 2,
+      "type": "row",
+      "title": "Right now \u2014 all nights (live \u00b7 Cloudflare AE)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Site-nights available \u2014 all nights",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "query": "SELECT SUM(available) AS site_nights_available FROM (SELECT index1, argMax(double1, timestamp) AS available FROM campsite_availability WHERE timestamp > now() - INTERVAL '48' HOUR GROUP BY index1)",
+          "extrapolate": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "% reserved \u2014 all nights",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 6,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "query": "SELECT IF(SUM(total) > 0, SUM(reserved) / SUM(total) * 100, 0.0) AS pct_reserved FROM (SELECT index1, argMax(double2, timestamp) AS reserved, argMax(double3, timestamp) AS total FROM campsite_availability WHERE timestamp > now() - INTERVAL '48' HOUR GROUP BY index1)",
+          "extrapolate": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Fully-booked campgrounds (datesOpen=0)",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "query": "SELECT COUNT() AS fully_booked FROM (SELECT index1, argMax(double4, timestamp) AS dates_open FROM campsite_availability WHERE timestamp > now() - INTERVAL '48' HOUR GROUP BY index1) WHERE dates_open = 0",
+          "extrapolate": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "Site-nights available by agency",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 6,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "query": "SELECT agency, SUM(available) AS site_nights_available, SUM(reserved) AS site_nights_reserved FROM (SELECT index1, argMax(blob2, timestamp) AS agency, argMax(double1, timestamp) AS available, argMax(double2, timestamp) AS reserved FROM campsite_availability WHERE timestamp > now() - INTERVAL '48' HOUR GROUP BY index1) GROUP BY agency ORDER BY site_nights_available DESC",
+          "extrapolate": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "showValue": "auto",
+        "stacking": "none",
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Per-campground availability (latest)",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 14,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "query": "SELECT name, agency, available, reserved, total, dates_open, IF(total > 0, reserved / total * 100, 0.0) AS pct_reserved FROM (SELECT index1, argMax(blob3, timestamp) AS name, argMax(blob2, timestamp) AS agency, argMax(double1, timestamp) AS available, argMax(double2, timestamp) AS reserved, argMax(double3, timestamp) AS total, argMax(double4, timestamp) AS dates_open FROM campsite_availability WHERE timestamp > now() - INTERVAL '48' HOUR GROUP BY index1) ORDER BY available ASC",
+          "extrapolate": false
+        }
+      ],
+      "transformations": [],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Campsite"
+              },
+              {
+                "id": "custom.width",
+                "value": 220
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "agency"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Agency"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "available"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Avail"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "green",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reserved"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Reserved"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Total"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dates_open"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Dates open"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pct_reserved"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "% reserved"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Avail",
+            "desc": false
+          }
+        ],
+        "footer": {
+          "show": false
+        },
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Watched hot dates \u2014 current availability",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 12,
+        "w": 10,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "query": "SELECT blob1 AS target_date, argMax(blob3, timestamp) AS campsite, argMax(double1, timestamp) AS available, argMax(double3, timestamp) AS total, max(timestamp) AS last_seen FROM campsite_watch WHERE timestamp > now() - INTERVAL '14' DAY GROUP BY blob1, index1 ORDER BY target_date",
+          "extrapolate": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "asc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "min"
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "For a chosen night \u2014 $target_date (history \u00b7 InfluxDB)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Available sites",
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"availability\" and r.target_date == \"${target_date}\")\n  |> filter(fn: (r) => contains(value: r.agency, set: ${agency:json}))\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r._field == \"available\")\n  |> last()\n  |> group()\n  |> sum()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Booked sites",
+      "gridPos": {
+        "x": 6,
+        "y": 25,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"availability\" and r.target_date == \"${target_date}\")\n  |> filter(fn: (r) => contains(value: r.agency, set: ${agency:json}))\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r._field == \"reserved\")\n  |> last()\n  |> group()\n  |> sum()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Total sites tracked",
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"availability\" and r.target_date == \"${target_date}\")\n  |> filter(fn: (r) => contains(value: r.agency, set: ${agency:json}))\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r._field == \"total\")\n  |> last()\n  |> group()\n  |> sum()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 13,
+      "type": "gauge",
+      "title": "Booked %",
+      "gridPos": {
+        "x": 18,
+        "y": 25,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"availability\" and r.target_date == \"${target_date}\")\n  |> filter(fn: (r) => contains(value: r.agency, set: ${agency:json}))\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r._field == \"reserved\" or r._field == \"total\")\n  |> last()\n  |> pivot(rowKey: [\"name\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> reduce(fn: (r, accumulator) => ({ reserved: accumulator.reserved + r.reserved, total: accumulator.total + r.total }), identity: { reserved: 0, total: 0 })\n  |> map(fn: (r) => ({ _value: if r.total > 0 then float(v: r.reserved) / float(v: r.total) * 100.0 else 0.0 }))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Trend \u2014 $target_date",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Available vs Booked over time (sum across selection)",
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"availability\" and r.target_date == \"${target_date}\")\n  |> filter(fn: (r) => contains(value: r.agency, set: ${agency:json}))\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r._field == \"available\" or r._field == \"reserved\")\n  |> group(columns: [\"_field\", \"_time\"])\n  |> sum()\n  |> group(columns: [\"_field\"])\n  |> sort(columns: [\"_time\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "available"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Available"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reserved"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Booked"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last"
+          ]
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Booked sites by agency over time (stacked)",
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"availability\" and r.target_date == \"${target_date}\" and r._field == \"reserved\")\n  |> filter(fn: (r) => contains(value: r.agency, set: ${agency:json}))\n  |> group(columns: [\"agency\", \"_time\"])\n  |> sum()\n  |> group(columns: [\"agency\"])\n  |> sort(columns: [\"_time\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "spanNulls": true
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last"
+          ]
+        }
+      }
+    },
+    {
+      "id": 17,
+      "type": "row",
+      "title": "Per-campsite \u2014 $target_date (latest snapshot)",
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 18,
+      "type": "table",
+      "title": "Available / booked per campsite",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 12
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"availability\" and r.target_date == \"${target_date}\")\n  |> filter(fn: (r) => contains(value: r.agency, set: ${agency:json}))\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r._field == \"available\" or r._field == \"reserved\" or r._field == \"total\")\n  |> last()\n  |> pivot(rowKey: [\"name\", \"agency\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with booked_pct: if r.total > 0 then float(v: r.reserved) / float(v: r.total) * 100.0 else 0.0 }))\n  |> group()\n  |> keep(columns: [\"name\", \"agency\", \"available\", \"reserved\", \"total\", \"booked_pct\"])\n  |> sort(columns: [\"booked_pct\"], desc: true)"
+        }
+      ],
+      "transformations": [],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Campsite"
+              },
+              {
+                "id": "custom.width",
+                "value": 240
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "agency"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Agency"
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "available"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Available"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "green",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reserved"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Booked"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Total"
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "booked_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Booked %"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 70
+                    },
+                    {
+                      "color": "red",
+                      "value": 90
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Booked %",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": true,
+          "reducer": [
+            "sum"
+          ],
+          "fields": [
+            "available",
+            "reserved",
+            "total"
+          ]
+        }
+      }
+    }
+  ],
+  "refresh": "30m",
+  "schemaVersion": 39,
+  "tags": [
+    "campsites",
+    "availability"
+  ],
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Campsite Availability",
+  "uid": "campsite-availability",
+  "version": 1,
+  "weekStart": ""
+}
