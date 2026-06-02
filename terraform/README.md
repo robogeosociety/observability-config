@@ -1,14 +1,21 @@
-# terraform — R2 backup credentials
+# terraform — R2 credentials
 
-Manages the Cloudflare R2 pieces for the InfluxDB offsite backup so the token is
-**reproducible** instead of hand-pasted:
+Manages the Cloudflare R2 access tokens as code so they're **reproducible**
+instead of hand-pasted (and so "do it again for the next bucket" is one resource,
+not a dashboard click-through):
 
 - `cloudflare_r2_bucket.influxdb_backups` — the `influxdb-backups` bucket
   (already exists, so it's **imported** on first apply).
 - `cloudflare_api_token.influxdb_backups_rw` — an R2 S3-API token scoped to
-  Object Read & Write on **only** that bucket.
+  Object Read & Write on **only** that bucket → `influxdb/.env`.
+- `cloudflare_api_token.campsite_raw_ro` (`campsites.tf`) — an R2 S3-API token
+  scoped to Object **Read** on **only** the `campsite-raw` bucket → `campsites/.env`.
+  This is the unattended-ingest credential: scoped + long-lived (CF API tokens
+  stay valid until revoked — no OAuth refresh/browser/shared-state to break the
+  launchd job). The bucket is owned by the collector Worker project, so it's
+  referenced for scoping but not managed here.
 
-Outputs the S3 credentials (sensitive) to drop into `influxdb/.env`.
+Outputs the S3 credentials (sensitive) for the respective `.env` files.
 
 > Validated with `terraform validate` against cloudflare provider v5.19.1, but
 > **not applied** here (no Cloudflare API token on the machine). Run `plan`
@@ -59,3 +66,29 @@ cd ../influxdb && uv run --with boto3 python r2_upload.py check   # write probe
 ```
 
 The **Backups** Grafana dashboard's R2 panels turn from "NOT CONFIGURED" to live.
+
+## Wire the campsites read creds into campsites/.env
+
+The same `apply` also creates the read-only `campsite-raw` token. Drop its S3
+creds into `campsites/.env` so the daily ingest can read R2 with a scoped,
+non-expiring credential (no wrangler OAuth):
+
+```sh
+cd terraform
+cat >> ../campsites/.env <<EOF
+R2_ACCOUNT_ID=$(terraform output -raw r2_account_id)
+R2_ACCESS_KEY_ID=$(terraform output -raw campsite_r2_access_key_id)
+R2_SECRET_ACCESS_KEY=$(terraform output -raw campsite_r2_secret_access_key)
+R2_CAMPSITE_BUCKET=$(terraform output -raw campsite_bucket)
+EOF
+```
+
+Then a real ingest + the LaunchAgent:
+
+```sh
+cd ../campsites
+uv run --no-project --with boto3 python ingest.py --dry-run   # confirm R2 read
+uv run --no-project --with boto3 python ingest.py --date 2026-06-02   # backfill a date
+cp com.tommydoerr.campsite-ingest.plist ~/Library/LaunchAgents/ && \
+  launchctl load ~/Library/LaunchAgents/com.tommydoerr.campsite-ingest.plist
+```

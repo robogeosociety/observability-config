@@ -15,3 +15,9 @@ variable "bucket_name" {
   type        = string
   default     = "influxdb-backups"
 }
+
+variable "campsite_bucket_name" {
+  description = "R2 bucket the campsite collector Worker writes summaries to (read-only ingest)."
+  type        = string
+  default     = "campsite-raw"
+}
