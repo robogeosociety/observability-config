@@ -81,8 +81,11 @@ def heartbeat(source, kind, success, duration_s, rows, interval_s):
         print("no INFLUX_OPS_TOKEN — skipping heartbeat", file=sys.stderr)
         return
     host = socket.gethostname().split(".")[0]
+    # duration_s is an INTEGER on the shared `collector` measurement (the
+    # coordinator/backup heartbeats set the type first); a float here is a type
+    # conflict → 422. Match it.
     line = (f"collector,source={_esc(source)},kind={_esc(kind)},host={_esc(host)} "
-            f"success={1 if success else 0}i,duration_s={duration_s:.3f},"
+            f"success={1 if success else 0}i,duration_s={int(duration_s)}i,"
             f"rows={int(rows)}i,interval_s={int(interval_s)}i")
     try:
         endpoint = f"{url}/api/v2/write?org={org}&bucket=ops&precision=s"
