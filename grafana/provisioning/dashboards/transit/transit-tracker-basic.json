@@ -604,7 +604,7 @@
       "targets": [{
         "refId": "A",
         "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\" and r.headsign == \"Downtown Redmond\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 1000.0 }))"
+        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\" and r.headsign == \"Downtown Redmond\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) * 1000.0 }))"
       }],
       "fieldConfig": {
         "defaults": {
@@ -632,7 +632,7 @@
       "targets": [{
         "refId": "A",
         "datasource": {"type": "influxdb", "uid": "transit_tracker"},
-        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\" and r.headsign == \"Lynnwood via Seattle\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 1000.0 }))"
+        "query": "from(bucket: \"transit_tracker\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\" and r.headsign == \"Lynnwood via Seattle\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) * 1000.0 }))"
       }],
       "fieldConfig": {
         "defaults": {
