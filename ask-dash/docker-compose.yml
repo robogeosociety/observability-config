@@ -1,0 +1,23 @@
+services:
+  ask-dash-bot:
+    build: .
+    container_name: ask-dash-bot
+    restart: unless-stopped
+    # Small footprint — it's an idle socket + occasional API calls.
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    env_file: .env
+    environment:
+      # Override the localhost defaults from .env: inside the OrbStack network the
+      # bot reaches both services by container name (grafana joins influxdb_default).
+      INFLUX_URL: "http://influxdb:8086"
+      GRAFANA_URL: "http://grafana:3000"
+    networks:
+      - influxdb_default
+
+networks:
+  # Shared external network created by influxdb/docker-compose.yml; grafana joins
+  # it too, so both `influxdb` and `grafana` resolve here.
+  influxdb_default:
+    external: true
