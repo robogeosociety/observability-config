@@ -1,19 +1,20 @@
 #!/usr/bin/env zsh
 # Full-page dashboard screenshot for a PR.
 #
-# Convention: a PR that adds or changes a dashboard attaches a full-page
-# screenshot of the affected dashboard(s) so the reviewer sees the rendered
-# result, not just JSON. This renders the whole dashboard (kiosk = no nav chrome)
-# via the grafana-image-renderer sidecar and writes it under pr-screenshots/.
+# Convention (required for any dashboard PR — see AGENTS.md): a PR that adds or
+# changes a dashboard attaches a full-page screenshot of the affected dashboard(s)
+# so the reviewer sees the rendered result, not just JSON. This renders the whole
+# dashboard (kiosk = no nav chrome) via the grafana-image-renderer sidecar and
+# writes it under pr-screenshots/.
 #
 # Usage:
 #   ./screenshot-dashboard.sh <uid> [extra-query]
 # e.g.
 #   ./screenshot-dashboard.sh campsite-availability 'var-target_date=2026-07-04&var-agency=$__all&var-campsite=$__all'
 #
-# Then reference grafana/playwright/pr-screenshots/<uid>.png in the PR body
-# (commit it on the branch; or drag-drop it into the PR composer for guaranteed
-# inline rendering on a private repo — see AGENTS.md).
+# Then commit grafana/playwright/pr-screenshots/<uid>.png and embed it in the PR
+# body via the branch raw URL — it renders inline for repo members on this private
+# repo (verified). Pin variables to a selection that has data.
 set -euo pipefail
 
 uid=${1:?usage: screenshot-dashboard.sh <uid> [extra-query]}
