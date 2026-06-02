@@ -33,7 +33,7 @@ REQUIRED_FIELDS = ("title", "file", "purpose", "datasources", "intent", "todos")
 
 
 def _dashboards():
-    return sorted(DASHBOARD_DIR.glob("*.json"))
+    return sorted(DASHBOARD_DIR.rglob("*.json"))
 
 
 def _load_json(path):
@@ -111,8 +111,10 @@ def test_entry_is_complete_and_in_sync(dashboard_path):
     assert entry["title"] == dashboard["title"], (
         f"{uid}: index title {entry['title']!r} != JSON title {dashboard['title']!r}"
     )
-    assert entry["file"] == dashboard_path.name, (
-        f"{uid}: index file {entry['file']!r} != {dashboard_path.name!r}"
+    rel = str(dashboard_path.relative_to(DASHBOARD_DIR))
+    assert entry["file"] == rel, (
+        f"{uid}: index file {entry['file']!r} != {rel!r} "
+        f"(file is folder-relative — dashboards live in domain subdirs)"
     )
 
     assert isinstance(entry["datasources"], list)

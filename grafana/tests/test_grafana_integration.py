@@ -19,7 +19,7 @@ GRAFANA_URL = "http://localhost:3001"
 
 pytestmark = pytest.mark.integration
 
-DASHBOARDS = sorted(DASH_DIR.glob("*.json"))
+DASHBOARDS = sorted(DASH_DIR.rglob("*.json"))
 DASH_IDS = [f.name for f in DASHBOARDS]
 
 

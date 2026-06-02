@@ -15,7 +15,7 @@ PROVISIONING = pathlib.Path(__file__).parent.parent / "provisioning"
 DASH_DIR = PROVISIONING / "dashboards"
 DS_DIR = PROVISIONING / "datasources"
 
-DASHBOARDS = sorted(DASH_DIR.glob("*.json"))
+DASHBOARDS = sorted(DASH_DIR.rglob("*.json"))
 IDS = [f.name for f in DASHBOARDS]
 
 

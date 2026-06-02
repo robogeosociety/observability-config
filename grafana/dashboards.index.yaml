@@ -12,9 +12,15 @@
 # Keeping it a sibling of provisioning/ keeps it out of Grafana's way while
 # still version-controlled next to the dashboards it documents.
 #
+# Dashboards are organized into domain folders under provisioning/dashboards/
+# (infra/ ops/ campsites/ transit/ weather/ dev/); Grafana derives a folder per
+# subdir (provider.yml `foldersFromFilesStructure: true`). Every dashboard change
+# also appends an entry to `changelog.jsonl` (validated by test_changelog.py).
+#
 # Keyed by dashboard `uid` (must match the JSON). Each entry:
 #   title:        human title — must equal the JSON `title` (kept in sync by test)
-#   file:         filename in provisioning/dashboards/
+#   file:         path UNDER provisioning/dashboards/, incl. the domain folder
+#                 (e.g. infra/mac-system.json)
 #   purpose:      one line — what it shows and from where
 #   datasources:  friendly names, must match what the JSON panels actually use:
 #                   influxdb         -> influxdb
@@ -53,7 +59,7 @@
 
 backups:
   title: Backups
-  file: backups.json
+  file: ops/backups.json
   purpose: >-
     Last-success age, result, and size per backup target (local InfluxDB, R2
     offsite, Obsidian vault) from the `ops` bucket `backup` measurement.
@@ -73,32 +79,9 @@ backups:
     - Alert when a target's last-success age exceeds its backup interval
     - Size-trend thresholds to catch silent truncation or runaway growth
 
-campsite-availability:
-  title: Campsite Availability
-  file: campsite-availability.json
-  purpose: >-
-    Historical availability, sell-out burn-down, and a Holt-Winters forecast for
-    tracked target dates, from the `campsites` InfluxDB bucket.
-  datasources: [influxdb]
-  source:
-    repo: tommyroar/observability-config
-    ref: main
-    paths: [campsites/]
-    produces: { bucket: campsites, via: launchd-ingest }
-    cadence: 24h
-    status: active
-    note: in-repo ingest mirrors a public R2 dump produced by an upstream scraper Worker
-  intent: >-
-    Booking decision support — which dates and sites are trending toward sold
-    out, with a forecast of remaining availability.
-  todos:
-    - Forecast panel needs ~2 weeks of history before it is meaningful
-    - Document the split vs campsite-live-availability (this = Influx history/forecast; that = AE live snapshot)
-    - $target_date-scoped — consider a multi-date overview
-
 campsite-availability-metrics:
   title: Campsite Availability Metrics
-  file: campsite-availability-metrics.json
+  file: campsites/campsite-availability-metrics.json
   purpose: >-
     Available vs booked split per campsite for a target date — totals, booked %,
     the available/booked trend, booked-by-agency, and a per-campsite table — from
@@ -120,7 +103,7 @@ campsite-availability-metrics:
 
 campsite-collector-history:
   title: Collector History
-  file: campsite-collector-history.json
+  file: campsites/campsite-collector-history.json
   purpose: >-
     Collector pipeline health from Cloudflare Analytics Engine plus R2 storage —
     collection rate + 30d total, per-agency coverage, step durations, top failing
@@ -140,7 +123,7 @@ campsite-collector-history:
 
 campsite-live-availability:
   title: Live Availability
-  file: campsite-live-availability.json
+  file: campsites/campsite-live-availability.json
   purpose: >-
     Current availability snapshot from Cloudflare AE — site-nights available,
     % reserved, fully-booked campgrounds, per-agency and per-campground latest,
@@ -159,7 +142,7 @@ campsite-live-availability:
 
 mac-system:
   title: Mac System
-  file: mac-system.json
+  file: infra/mac-system.json
   purpose: >-
     Host CPU/load/mem/swap/disk/net for the Mac mini (Telegraf -> Influx
     `system`) plus a btop-style whole-system process treemap from the dev-status
@@ -183,7 +166,7 @@ mac-system:
 
 status-page:
   title: Project Status
-  file: status-page.json
+  file: ops/status-page.json
   purpose: >-
     Cross-project up/latency and 24h/7d/30d uptime (Influx `uptime`) plus live
     dev deployments and tailscale-serve routes from the dev-status collector
@@ -206,7 +189,7 @@ status-page:
 
 tempest-basic:
   title: Tempest — Basic
-  file: tempest-basic.json
+  file: weather/tempest-basic.json
   purpose: >-
     Tempest weather-station readout — temp/humidity/pressure, wind
     (live/avg/gust/direction), solar/UV/illuminance, rain, lightning, and
@@ -224,7 +207,7 @@ tempest-basic:
 
 transit-tracker-basic:
   title: Transit Tracker — Basic
-  file: transit-tracker-basic.json
+  file: transit/transit-tracker-basic.json
   purpose: >-
     OneBusAway transit-display app metrics — clients, API calls/errors/throttle,
     cache, OBA latency, message throughput, predictions, next departures, and
@@ -244,7 +227,7 @@ transit-tracker-basic:
 
 transit-tracker-monitor:
   title: Transit Tracker — Network Monitor
-  file: transit-tracker-monitor.json
+  file: transit/transit-tracker-monitor.json
   purpose: >-
     Network-topology lens on the transit proxy — OBA -> Proxy -> Displays flow,
     clients, API calls/throttle/errors, latency, proxied messages by route, WS
@@ -269,7 +252,7 @@ transit-tracker-monitor:
 
 walksheds-uptime:
   title: Walksheds Uptime
-  file: walksheds-uptime.json
+  file: ops/walksheds-uptime.json
   purpose: >-
     Uptime/deploy status for the walksheds project from the `ops` bucket —
     status stat plus a "Deploys" annotation off the `deploy` measurement
@@ -287,7 +270,7 @@ walksheds-uptime:
 
 orbstack-containers:
   title: OrbStack — Container Monitoring
-  file: orbstack-containers.json
+  file: infra/orbstack-containers.json
   purpose: >-
     Per-container CPU/mem/net/blkio for the OrbStack Docker containers from
     Telegraf's `inputs.docker` (docker_container_* measurements) in the `system`
@@ -310,7 +293,7 @@ orbstack-containers:
 
 ha-pi-system:
   title: Home Assistant Pi — System
-  file: ha-pi-system.json
+  file: infra/ha-pi-system.json
   purpose: >-
     Host CPU/load/temp/memory/swap/disk/network for the Home Assistant Raspberry
     Pi, sourced from HA's System Monitor integration forwarded to the
@@ -333,7 +316,7 @@ ha-pi-system:
 
 claude-usage:
   title: Claude Code — Token Usage
-  file: claude-usage.json
+  file: dev/claude-usage.json
   purpose: >-
     Claude Code token usage on this Mac — tokens by hour (stacked by class),
     highest-usage sessions, and cache-vs-real split — from the `claude_code`
@@ -367,7 +350,7 @@ claude-usage:
 
 obsidian-backups:
   title: Obsidian Backups — per vault
-  file: obsidian-backups.json
+  file: ops/obsidian-backups.json
   purpose: >-
     Per-vault Obsidian backup freshness, result, and size from the `ops` bucket
     `backup` measurement (target=obsidian) — last-success age, size trend, and a
