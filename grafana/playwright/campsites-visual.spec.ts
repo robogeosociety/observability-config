@@ -54,11 +54,11 @@ const PANELS = [
   { dash: 'campsite-collector-history', id: 2, name: 'collector-collections' },
   { dash: 'campsite-collector-history', id: 3, name: 'collector-fleet-coverage' },
   { dash: 'campsite-collector-history', id: 21, name: 'collector-rate' },
-  // availability-metrics — the scoped-default-date fix (trends need a pinned date)
-  { dash: 'campsite-availability-metrics', id: 7, name: 'availability-avail-vs-booked', vars: AVAIL_VARS },
-  { dash: 'campsite-availability-metrics', id: 8, name: 'availability-booked-by-agency', vars: AVAIL_VARS },
-  // live-availability — categorical agency barchart
-  { dash: 'campsite-live-availability', id: 5, name: 'live-site-nights-by-agency' },
+  // campsite-availability (merged) — history section, trends need a pinned date
+  { dash: 'campsite-availability', id: 15, name: 'availability-avail-vs-booked', vars: AVAIL_VARS },
+  { dash: 'campsite-availability', id: 16, name: 'availability-booked-by-agency', vars: AVAIL_VARS },
+  // campsite-availability (merged) — live section, categorical agency barchart
+  { dash: 'campsite-availability', id: 6, name: 'live-site-nights-by-agency' },
 ];
 
 test.describe('Campsites visual regression (relative now-7d)', () => {

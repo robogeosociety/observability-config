@@ -79,14 +79,16 @@ backups:
     - Alert when a target's last-success age exceeds its backup interval
     - Size-trend thresholds to catch silent truncation or runaway growth
 
-campsite-availability-metrics:
-  title: Campsite Availability Metrics
-  file: campsites/campsite-availability-metrics.json
+campsite-availability:
+  title: Campsite Availability
+  file: campsites/campsite-availability.json
   purpose: >-
-    Available vs booked split per campsite for a target date — totals, booked %,
-    the available/booked trend, booked-by-agency, and a per-campsite table — from
-    the `campsites` InfluxDB bucket.
-  datasources: [influxdb]
+    Campsite availability in two sections: a live system-wide snapshot from
+    Cloudflare AE (site-nights available, % reserved, fully-booked campgrounds,
+    per-agency, per-campground latest, watched hot dates) and a per-night history
+    from the `campsites` InfluxDB bucket (totals, booked %, the available/booked
+    trend, booked-by-agency, per-campsite table for a chosen target date).
+  datasources: [analytics-engine, influxdb]
   source:
     repo: tommyroar/observability-config
     ref: main
@@ -94,19 +96,28 @@ campsite-availability-metrics:
     produces: { bucket: campsites, via: launchd-ingest }
     cadence: 24h
     status: active
-    note: in-repo ingest mirrors a public R2 dump produced by an upstream scraper Worker
+    note: >-
+      Primary source is the in-repo daily ingest into the `campsites` InfluxDB
+      bucket (the history section). The live section reads the Cloudflare
+      Analytics Engine dataset (external, same upstream scraper Worker as
+      campsite-collector-history) for low-latency current state.
   intent: >-
-    At-a-glance available/booked counts and which campsites are closest to fully
-    booked — complements the burn-down/forecast view.
+    One home for both availability lenses — "how booked is everything right now"
+    (live/AE, all nights) and "how is a chosen night filling up" (history/Influx,
+    burn-down + forecast). Merged from campsite-availability-metrics +
+    campsite-live-availability (2026-06-02) to end their documented overlap.
   notes:
     - >-
-      The target_date variable is filtered to today-and-future (computed in-Flux
-      from now(), since this Flux build lacks date.format) and sorted ascending,
-      so the dashboard opens on the soonest upcoming night. Past dates have a
-      single straggler snapshot — defaulting to the earliest value (2026-05-01)
-      made the trend panels (v.timeRange-scoped) render empty, which read as nodata.
+      Mixed-datasource dashboard. The target_date/agency/campsite variables drive
+      ONLY the history (Influx) section; the live (AE) section is system-wide and
+      ignores them. target_date is filtered to today-and-future (computed in-Flux
+      from now(), this Flux build lacks date.format) and sorted ascending, so the
+      history section opens on the soonest upcoming night rather than an empty
+      past date. The time picker drives the history trend; the live section is "now".
   todos:
-    - Daily granularity (ingest cadence); a sub-day view would need the AE/live path
+    - Optionally wire the agency filter into the live (AE) section too
+    - '"Watched hot dates" is a manual list — source it from collector config'
+    - Daily granularity on the history side; sub-day would need the AE/live path
 
 campsite-collector-history:
   title: Collector History
@@ -137,25 +148,6 @@ campsite-collector-history:
     - Continuous model — legacy run panels retired; '140' is hard-coded, could derive it
     - AE retention is ~90d — note the ceiling on history depth
     - Staleness alerting now lives in campsite-collector-freshness.yml (Discord)
-
-campsite-live-availability:
-  title: Live Availability
-  file: campsites/campsite-live-availability.json
-  purpose: >-
-    Current availability snapshot from Cloudflare AE — site-nights available,
-    % reserved, fully-booked campgrounds, per-agency and per-campground latest,
-    and watched hot dates.
-  datasources: [analytics-engine]
-  source:
-    produces: { dataset: analytics-engine, via: cf-analytics-engine }
-    status: external
-    note: same upstream campsite scraper Worker as campsite-collector-history; repo TBD
-  intent: >-
-    The AE-native "right now" view, complementing the Influx history/forecast
-    dashboard with low-latency current state.
-  todos:
-    - Reconcile and document overlap with campsite-availability
-    - '"Watched hot dates" is a manual list — source it from collector config'
 
 mac-system:
   title: Mac System
