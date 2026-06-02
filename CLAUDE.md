@@ -7,6 +7,10 @@ file-provisioned. This file holds context that isn't derivable from the code.
 Repo lives at `/Volumes/dev/observability/`; the live config **is** the working
 tree. GitHub: private `tommyroar/observability-config`.
 
+> **Making a change?** Read `AGENTS.md` first — the conventions for editing this
+> repo and opening PRs (store-as-code, the deploy coordinator, the `/Volumes`+TCC
+> rules, secrets). This file is the architecture; `AGENTS.md` is the rules.
+
 **Grafana provisioning is no longer bind-mounted from `/Volumes`.** After the
 2026-05-31 external-disk unmount broke containers, Grafana now mounts an
 **internal-disk copy** at `~/.observability/grafana/provisioning`. The repo's
