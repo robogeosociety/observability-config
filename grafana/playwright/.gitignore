@@ -7,3 +7,7 @@ playwright-report/
 # but DO track committed visual-regression baselines
 !*.spec.ts-snapshots/
 !*.spec.ts-snapshots/*.png
+
+# and the full-page dashboard screenshots attached to dashboard PRs
+!pr-screenshots/
+!pr-screenshots/*.png

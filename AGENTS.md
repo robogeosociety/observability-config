@@ -105,6 +105,21 @@ need the live stack (`grafana/run-tests.sh integration|e2e`) and are the
 maintainer's to run. Adding a panel with a new visualization? Add it to the visual
 spec in the same PR.
 
+**Attach a full-page screenshot.** Any PR that adds or changes a dashboard
+includes a full-page render of the affected dashboard(s) in the PR body — the
+reviewer should see the rendered result, not just JSON. Generate it with
+`grafana/playwright/screenshot-dashboard.sh <uid> '<pinned-vars>'` (renders the
+whole dashboard via the renderer sidecar, kiosk mode, to
+`grafana/playwright/pr-screenshots/<uid>.png`, which is committed). Reference it in
+the body with the branch raw URL
+(`https://github.com/<owner>/<repo>/blob/<branch>/grafana/playwright/pr-screenshots/<uid>.png?raw=true`).
+Note: GitHub's camo proxy can't fetch a **private** repo's committed images, so an
+inline embed may show broken for reviewers — the committed file is always visible
+in the PR's *Files changed* tab, and drag-dropping the PNG into the web PR composer
+(uploads to the `user-attachments` CDN) is the only way to guarantee inline
+rendering. Pin dashboard variables to a date/selection that has data so the
+screenshot isn't a misleading empty render.
+
 ## Context to write correct config (the maintainer applies it, not you)
 
 - **`/Volumes` + launchd = TCC block.** Any launchd job that reads `/Volumes`
