@@ -46,12 +46,24 @@ outputs the S3 creds for `influxdb/.env` — see `terraform/README.md`.
 
 File-provisioned Grafana alerting lives in `grafana/provisioning/alerting/`
 (contact points, root notification policy, rules) — deployed by the same
-`deploy-provisioning.sh` sync as dashboards. The one rule today is the
-**InfluxDB availability** alert (issue #11): it counts a cheap telegraf series
-(`cpu`/`usage_idle`/`cpu-total`) in the `system` bucket over the last 5m and
-pages when that drops below 1. Both `noDataState` and `execErrState` are
-`Alerting`, so a telegraf gap (InfluxDB up, no writes) **and** a query error
-(InfluxDB down/unreachable) surface within minutes instead of going silent.
+`deploy-provisioning.sh` sync as dashboards. The rules, all routed to the same
+Discord contact point:
+
+- **InfluxDB availability** (`influxdb-availability.yml`, issue #11) — counts a
+  cheap telegraf series (`cpu`/`usage_idle`/`cpu-total`) in the `system` bucket
+  over 5m, pages below 1. Both `noDataState` and `execErrState` are `Alerting`,
+  so a telegraf gap (InfluxDB up, no writes) **and** a query error (InfluxDB
+  down/unreachable) surface within minutes instead of going silent.
+- **Backup stale** (`backup-stale.yml`) — no successful `target=local` backup
+  heartbeat in the `ops` bucket for 26h (`noDataState=Alerting`).
+- **Disk filling** (`disk-space.yml`) — `system` disk `used_percent` for
+  `/Volumes/dev` over 85%.
+- **Container OOM-killed** (`container-oom.yml`) — telegraf `docker_container_status`
+  `oomkilled==true` (the runaway-container failure mode the mem_limits bound).
+
+The three secondary rules set `execErrState=OK` (plus `noDataState=OK` for the
+latter two) so an InfluxDB outage pages **once** (via the availability rule), not
+four times.
 
 Notification is **Discord** via Grafana's native `discord` contact point, which
 posts a color-coded embed (firing red / resolved green) with the alert summary,
