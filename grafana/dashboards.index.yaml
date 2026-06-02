@@ -134,10 +134,9 @@ campsite-collector-history:
     Ops/reliability view of the collector pipeline — is it running, how fully is
     it covering the tracked sites, and what's breaking.
   todos:
-    - '"61 sites" is hard-coded in panel titles — parameterize or derive it'
+    - Continuous model — legacy run panels retired; '140' is hard-coded, could derive it
     - AE retention is ~90d — note the ceiling on history depth
-    - Alert when runs/day drops to 0 or the failure count spikes
-    - Fill source.repo once the scraper Worker repo is linked
+    - Staleness alerting now lives in campsite-collector-freshness.yml (Discord)
 
 campsite-live-availability:
   title: Live Availability
