@@ -24,13 +24,13 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "# Collector history \u2014 Cloudflare Workers Analytics Engine\n\nRun history + health for the **campsite-availability collector** Cloudflare Worker (repo `robot-geographical-society`). Reads the **AE SQL API** (ClickHouse dialect) via the `campsites_ae` ClickHouse datasource. Counts are sampling-weighted (`SUM(_sample_interval)`); there are **61** reservable campsites.\n\n- Cadence + ok/failed/empty of 61: `campsite_collector_runs`\n- Per-agency coverage + step durations: `campsite_collector`\n- Top failing sites: `campsite_collector WHERE blob5='failed'`\n\nPanels read *No data* until the `CF_AE_TOKEN` secret (Account \u2192 Account Analytics \u2192 Read) is set and the nightly collector run emits. Account `d7adee58513c1b2f770ccaac90cf114f`."
+        "content": "# Collector history — Cloudflare Workers Analytics Engine\n\nRun history + health for the **campsite-availability collector** Cloudflare Worker (repo `robot-geographical-society`). Reads the **AE SQL API** (ClickHouse dialect) via the `campsites_ae` ClickHouse datasource. The deadline-driven CollectorLoop collects each of the **140** sites within a 2-day SLA (continuous, no fixed runs). Counts are sampling-weighted (`SUM(_sample_interval)`).\n\n- Collections/day, rate & fleet coverage: `campsite_collector` (one row per collection, `blob5`=ok/failed)\n- Step durations: `campsite_collector` `double2`\n- Top failing sites: `campsite_collector WHERE blob5='failed'`\n\nPanels read *No data* until the `CF_AE_TOKEN` secret (Account → Account Analytics → Read) is set and the deadline-driven CollectorLoop emits. Account `d7adee58513c1b2f770ccaac90cf114f`.\n\n**Throughput & storage**: collection rate + 30d total from `campsite_collector`; R2 stored bytes + object count from the Cloudflare GraphQL API (`r2StorageAdaptiveGroups`, bucket `campsite-raw`)."
       }
     },
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Runs per day",
+      "title": "Collections per day (ok / failed)",
       "datasource": {
         "type": "vertamedia-clickhouse-datasource",
         "uid": "campsites_ae"
@@ -52,7 +52,7 @@
           "meta": {
             "timezone": "UTC"
           },
-          "query": "SELECT toStartOfDay(timestamp) AS t, SUM(_sample_interval) AS runs FROM campsite_collector_runs WHERE timestamp > now() - INTERVAL '30' DAY GROUP BY t ORDER BY t",
+          "query": "SELECT toStartOfDay(timestamp) AS t, SUMIf(_sample_interval, blob5='ok') AS ok, SUMIf(_sample_interval, blob5='failed') AS failed FROM campsite_collector WHERE timestamp > now() - INTERVAL '30' DAY GROUP BY t ORDER BY t",
           "extrapolate": false
         }
       ],
@@ -63,65 +63,6 @@
           "custom": {
             "drawStyle": "bars",
             "fillOpacity": 60,
-            "lineWidth": 1
-          },
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": false,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        }
-      }
-    },
-    {
-      "id": 3,
-      "type": "timeseries",
-      "title": "Sites ok / failed / empty of 61 per run",
-      "datasource": {
-        "type": "vertamedia-clickhouse-datasource",
-        "uid": "campsites_ae"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 6,
-        "w": 16,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "vertamedia-clickhouse-datasource",
-            "uid": "campsites_ae"
-          },
-          "format": "time_series",
-          "meta": {
-            "timezone": "UTC"
-          },
-          "query": "SELECT timestamp AS t, SUM(_sample_interval * double2) / SUM(_sample_interval) AS ok, SUM(_sample_interval * double3) / SUM(_sample_interval) AS failed, SUM(_sample_interval * double4) / SUM(_sample_interval) AS empty FROM campsite_collector_runs WHERE timestamp > now() - INTERVAL '30' DAY GROUP BY t ORDER BY t",
-          "extrapolate": false
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "min": 0,
-          "max": 61,
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70,
             "lineWidth": 1,
             "stacking": {
               "mode": "normal",
@@ -162,21 +103,6 @@
                 }
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "empty"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "orange"
-                }
-              }
-            ]
           }
         ]
       },
@@ -191,15 +117,74 @@
           "placement": "bottom",
           "calcs": [
             "last",
-            "max"
+            "sum"
           ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Fleet coverage per day (distinct sites of 140)",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 6,
+        "w": 16,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "time_series",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "query": "SELECT toStartOfDay(timestamp) AS t, uniqExactIf(index1, blob5='ok') AS sites_collected FROM campsite_collector WHERE timestamp > now() - INTERVAL '30' DAY GROUP BY t ORDER BY t",
+          "extrapolate": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 140,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 1
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": []
         }
       }
     },
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Per-agency coverage (sites ok per run)",
+      "title": "Per-agency collections per day",
       "datasource": {
         "type": "vertamedia-clickhouse-datasource",
         "uid": "campsites_ae"
@@ -503,7 +488,7 @@
     {
       "id": 7,
       "type": "stat",
-      "title": "Latest capture",
+      "title": "Latest collection",
       "gridPos": {
         "x": 12,
         "y": 0,
@@ -522,7 +507,7 @@
             "uid": "campsites_ae"
           },
           "format": "table",
-          "query": "SELECT max(timestamp) AS last_run, argMax(double1, timestamp) AS total, argMax(double2, timestamp) AS ok, argMax(double3, timestamp) AS failed, argMax(double4, timestamp) AS empty FROM campsite_collector_runs WHERE timestamp > now() - INTERVAL '7' DAY"
+          "query": "SELECT max(timestamp) AS last_collection, SUMIf(_sample_interval, blob5='ok' AND timestamp > now() - INTERVAL '1' DAY) AS ok_24h, SUMIf(_sample_interval, blob5='failed' AND timestamp > now() - INTERVAL '1' DAY) AS failed_24h, uniqExactIf(index1, blob5='ok' AND timestamp > now() - INTERVAL '2' DAY) AS sites_2d FROM campsite_collector WHERE timestamp > now() - INTERVAL '7' DAY"
         }
       ],
       "options": {
@@ -558,12 +543,12 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "last_run"
+              "options": "last_collection"
             },
             "properties": [
               {
                 "id": "displayName",
-                "value": "Last run"
+                "value": "Last collection"
               },
               {
                 "id": "color",
@@ -577,9 +562,32 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "failed"
+              "options": "ok_24h"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "OK (24h)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failed_24h"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Failed (24h)"
+              },
               {
                 "id": "color",
                 "value": {
@@ -607,9 +615,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "empty"
+              "options": "sites_2d"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "Sites (2d) / 140"
+              },
               {
                 "id": "color",
                 "value": {
@@ -622,12 +634,16 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "text",
+                      "color": "red",
                       "value": null
                     },
                     {
-                      "color": "yellow",
-                      "value": 1
+                      "color": "orange",
+                      "value": 100
+                    },
+                    {
+                      "color": "green",
+                      "value": 140
                     }
                   ]
                 }
@@ -635,6 +651,261 @@
             ]
           }
         ]
+      }
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Throughput & R2 storage",
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Collection rate (collections / hour)",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "time_series",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "query": "SELECT toStartOfHour(timestamp) AS t, SUM(_sample_interval) AS collections FROM campsite_collector WHERE timestamp > now() - INTERVAL '7' DAY AND blob5 = 'ok' GROUP BY t ORDER BY t",
+          "extrapolate": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 1
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Total collections (30d)",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "query": "SELECT SUM(_sample_interval) AS collections FROM campsite_collector WHERE timestamp > now() - INTERVAL '30' DAY AND blob5 = 'ok'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "R2 stored (bytes)",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "cloudflare_graphql"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 32,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare_graphql"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "url": "https://api.cloudflare.com/client/v4/graphql",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"query\":\"{viewer{accounts(filter:{accountTag:\\\"d7adee58513c1b2f770ccaac90cf114f\\\"}){r2StorageAdaptiveGroups(limit:1,filter:{datetime_geq:\\\"${__from:date:iso}\\\",bucketName:\\\"campsite-raw\\\"},orderBy:[datetime_DESC]){max{objectCount payloadSize}dimensions{datetime}}}}}\"}"
+          },
+          "root_selector": "data.viewer.accounts[0].r2StorageAdaptiveGroups[0].max",
+          "columns": [
+            {
+              "selector": "payloadSize",
+              "text": "bytes",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "R2 objects (records)",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "cloudflare_graphql"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 32,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare_graphql"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "url": "https://api.cloudflare.com/client/v4/graphql",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"query\":\"{viewer{accounts(filter:{accountTag:\\\"d7adee58513c1b2f770ccaac90cf114f\\\"}){r2StorageAdaptiveGroups(limit:1,filter:{datetime_geq:\\\"${__from:date:iso}\\\",bucketName:\\\"campsite-raw\\\"},orderBy:[datetime_DESC]){max{objectCount payloadSize}dimensions{datetime}}}}}\"}"
+          },
+          "root_selector": "data.viewer.accounts[0].r2StorageAdaptiveGroups[0].max",
+          "columns": [
+            {
+              "selector": "objectCount",
+              "text": "objects",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
       }
     }
   ],
