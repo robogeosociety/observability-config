@@ -32,6 +32,11 @@ Telegraf config.)
   every 15s for the `mac-system` dashboard. Config is `telegraf.conf`; `deploy.sh`
   bakes the token from `.env` into Homebrew's config path and restarts the service.
 - `campsites/` — R2→InfluxDB ingest for the `campsites` bucket (launchd, daily).
+  Reads R2 via the existing `wrangler login` OAuth session (Cloudflare R2 API
+  over **curl**) — no S3 key/token. Runs `python3` from the **internal disk**
+  (`deploy.sh` → `~/.local/share/campsite-ingest/`) because a launchd-spawned
+  `python3`/`uv` hangs on both /Volumes reads (TCC) and its own TLS. Staleness →
+  `campsite-collector-stale` Discord alert.
 - `ask-dash/` — read-only natural-language Q&A over the stack. Shared tool core
   (`ask_dash/tools.py`) exposed two ways: a Discord gateway bot (`/ask`, the
   long-running OrbStack container) and an MCP server for Claude CLI sessions

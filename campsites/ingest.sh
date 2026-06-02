@@ -2,13 +2,15 @@
 # Daily R2 → InfluxDB ingest of campsite availability summaries.
 # Runs via LaunchAgent com.tommydoerr.campsite-ingest, after the raw-collection
 # Worker cron (13:00 UTC). Requires Full Disk Access on /bin/zsh (reads /Volumes
-# + campsites/.env). Reads R2 via the wrangler OAuth session (no S3 key) — needs
-# uv, and node/npx on PATH for wrangler token refresh.
+# + campsites/.env). Reads R2 via the wrangler OAuth session (no S3 key).
+#
+# Stdlib-only python3 (NOT `uv run` — uv's own TLS hangs under launchd's
+# background session); HTTPS to Cloudflare goes through curl (CPython's TLS hangs
+# there too), InfluxDB writes are plain-HTTP localhost. node/npx is only needed if
+# the OAuth token has expired (wrangler refresh).
 set -uo pipefail
-# Include ~/.local/bin (uv) + /opt/homebrew/bin (node/npx) — launchd's minimal
-# PATH omits both (the scheduled run would die on `command not found`).
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 SCRIPT_DIR="${0:A:h}"
 echo "[$(date)] campsite ingest starting"
-uv run --no-project python "${SCRIPT_DIR}/ingest.py" "$@"
+python3 -u "${SCRIPT_DIR}/ingest.py" "$@"
 echo "[$(date)] campsite ingest done (exit $?)"

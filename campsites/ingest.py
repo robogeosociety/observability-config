@@ -15,9 +15,13 @@ mint or paste. The access token (~1h) is auto-refreshed via `wrangler whoami` on
 a 401; if the session is truly dead the run fails and the campsite-collector-stale
 alert fires (run `wrangler login` to fix). Stdlib only.
 
-Run via uv (self-contained, no project):
-    uv run --no-project python ingest.py
-    uv run --no-project python ingest.py --date 2026-06-01 --dry-run
+Stdlib only — no deps:
+    python3 ingest.py
+    python3 ingest.py --date 2026-06-01 --dry-run
+The launchd job runs `python3` from the INTERNAL disk (deploy.sh): under launchd's
+background session, `uv run`/CPython TLS hangs and reading the script off /Volumes
+hits the TCC block and hangs — so the runner lives on the internal disk and all
+HTTPS goes through curl.
 """
 
 import argparse
@@ -123,18 +127,26 @@ def _refresh_wrangler():
 
 
 def _cf(path: str, raw: bool = False, _retried: bool = False):
-    """GET the Cloudflare API with the wrangler OAuth token; refresh + retry once on 401/403."""
-    req = urllib.request.Request(f"{CF_API}/{path}",
-                                 headers={"Authorization": f"Bearer {_wrangler_token()}"})
+    """GET the Cloudflare API via curl. (CPython's HTTPS/TLS hangs under launchd's
+    session — curl doesn't.) Refresh the OAuth token + retry once on 401/403."""
+    import tempfile
+    fd, tmp = tempfile.mkstemp()
+    os.close(fd)
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            data = r.read()
-    except urllib.error.HTTPError as e:
-        if e.code in (401, 403) and not _retried:
+        r = subprocess.run(
+            ["curl", "-sS", "--max-time", "45", "-o", tmp, "-w", "%{http_code}",
+             f"{CF_API}/{path}", "-H", f"Authorization: Bearer {_wrangler_token()}"],
+            capture_output=True, timeout=60)
+        code = r.stdout.decode().strip()
+        if code in ("401", "403") and not _retried:
             _refresh_wrangler()
             return _cf(path, raw, _retried=True)
-        raise
-    return data if raw else json.loads(data)
+        if not code.startswith("2"):
+            raise SystemExit(f"CF API {path} -> HTTP {code or 'none'}: {r.stderr.decode()[:200]}")
+        data = Path(tmp).read_bytes()
+        return data if raw else json.loads(data)
+    finally:
+        os.unlink(tmp)
 
 
 def _acct() -> str:

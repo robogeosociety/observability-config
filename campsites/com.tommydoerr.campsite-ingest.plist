@@ -4,10 +4,13 @@
 <dict>
     <key>Label</key>
     <string>com.tommydoerr.campsite-ingest</string>
+    <!-- Runs the INTERNAL-disk copy (deploy.sh installs it): launchd-spawned
+         python can't read /Volumes (TCC blocks the script-file open and hangs),
+         so the script + .env live on the internal disk. -->
     <key>ProgramArguments</key>
     <array>
         <string>/bin/zsh</string>
-        <string>/Volumes/dev/observability/campsites/ingest.sh</string>
+        <string>/Users/tommydoerr/.local/share/campsite-ingest/ingest.sh</string>
     </array>
     <!-- 07:30 local — ~90 min after the collector Worker cron (13:00 UTC / 06:00 PDT). -->
     <key>StartCalendarInterval</key>
