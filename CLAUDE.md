@@ -28,6 +28,11 @@ Telegraf config.)
   every 15s for the `mac-system` dashboard. Config is `telegraf.conf`; `deploy.sh`
   bakes the token from `.env` into Homebrew's config path and restarts the service.
 - `campsites/` — R2→InfluxDB ingest for the `campsites` bucket (launchd, daily).
+- `ask-dash/` — read-only natural-language Q&A over the stack. Shared tool core
+  (`ask_dash/tools.py`) exposed two ways: a Discord gateway bot (`/ask`, the
+  long-running OrbStack container) and an MCP server for Claude CLI sessions
+  (`mcp_server.py`, for scripted weekly summaries). Uses a read-only Influx token
+  (all buckets) + the Grafana viewer token. Secrets in `ask-dash/.env`.
 
 ## Backups
 
