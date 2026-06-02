@@ -97,7 +97,13 @@ to a defined contact point).
   Grafana UI is read-only for provisioned dashboards. Edit the JSON in
   `grafana/provisioning/dashboards/`, never the UI. The provider reloads files
   every 30s; datasource or `docker-compose` changes need a container recreate
-  (`docker compose up -d` from the relevant subdir).
+  (`docker compose up -d` from the relevant subdir). Dashboards live in **domain
+  subdirs** (`infra/ ops/ campsites/ transit/ weather/ dev/`) — Grafana makes a
+  folder per subdir (`foldersFromFilesStructure: true`), and the index `file:` is
+  the folder-relative path.
+- **Dashboard changes are logged.** Every add/remove/move/update appends one line
+  to `grafana/changelog.jsonl` (`{ts, pr, summary, changes:[{dashboard, action}]}`);
+  `tests/test_changelog.py` keeps it well-formed and chronological.
 - **Dashboard intent is code too.** Every dashboard has an entry in
   `grafana/dashboards.index.yaml` capturing its purpose, design rationale, and
   TODO backlog — the "why" the JSON can't hold. Read it before changing a

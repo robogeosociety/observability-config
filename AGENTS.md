@@ -49,9 +49,13 @@ the files must be correct as-merged:
 - **Store-as-code.** Dashboards, datasources, alerting, and Telegraf are
   file-provisioned. Edit the files; the UI is read-only.
 - **Dashboard ↔ index parity.** Edit JSON in `grafana/provisioning/dashboards/`
-  and update `grafana/dashboards.index.yaml` in the *same* PR —
-  `tests/test_dashboard_index.py` enforces title/file/datasource parity and fails
-  on orphans.
+  (under the right domain subdir — `infra/ ops/ campsites/ transit/ weather/ dev/`,
+  one Grafana folder per subdir) and update `grafana/dashboards.index.yaml` in the
+  *same* PR — `tests/test_dashboard_index.py` enforces title / folder-relative
+  `file` / datasource parity and fails on orphans.
+- **Log dashboard changes.** Append one line to `grafana/changelog.jsonl` for any
+  dashboard add/remove/move/update (`{ts, pr, summary, changes:[{dashboard,
+  action}]}`, oldest-first); `tests/test_changelog.py` validates it.
 - **Declare data provenance.** Every dashboard entry carries a `source:` block
   (repo / paths / produces / cadence / status) so drift is detectable. Add one for
   any new dashboard; mark usage/event-driven buckets `monitor: skip` (idle ≠
