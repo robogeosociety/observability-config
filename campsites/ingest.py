@@ -5,20 +5,29 @@ Ingest campsite-availability summaries from R2 → InfluxDB (`campsites` bucket)
 The raw-collection job (robot-geographical-society backend Worker) scrapes
 recreation.gov + WA State Parks via Browser Rendering and writes
 `summary/<date>/<id>.json` to the `campsite-raw` R2 bucket. This — the
-observability side — pulls those summaries (S3 API) and writes one time-series
-point per (campsite, target_date), feeding the Campsite Availability dashboard's
-burn-down / sell-out projection. No scraping here; download + write only.
+observability side — pulls those summaries and writes one time-series point per
+(campsite, target_date), feeding the Campsite Availability dashboard's burn-down
+/ sell-out projection. No scraping here; download + write only.
+
+R2 is read through the **existing wrangler OAuth session** (Cloudflare R2 API,
+`GET /accounts/{acct}/r2/buckets/{bucket}/objects[...]`) — no S3 key, no token to
+mint or paste. The access token (~1h) is auto-refreshed via `wrangler whoami` on
+a 401; if the session is truly dead the run fails and the campsite-collector-stale
+alert fires (run `wrangler login` to fix). Stdlib only.
 
 Run via uv (self-contained, no project):
-    uv run --no-project --with boto3 python ingest.py
-    uv run --no-project --with boto3 python ingest.py --date 2026-06-01 --dry-run
+    uv run --no-project python ingest.py
+    uv run --no-project python ingest.py --date 2026-06-01 --dry-run
 """
 
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,12 +99,65 @@ def _load_env(p: Path):
                 os.environ.setdefault(k.strip(), v.strip())
 
 
-def _r2():
-    import boto3
-    acct = os.environ["R2_ACCOUNT_ID"]
-    return boto3.client("s3", endpoint_url=f"https://{acct}.r2.cloudflarestorage.com",
-                        aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
-                        aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"], region_name="auto")
+CF_API = "https://api.cloudflare.com/client/v4"
+
+
+def _wrangler_token() -> str:
+    """The OAuth access token from the local `wrangler login` session."""
+    import glob
+    for p in sorted(glob.glob(os.path.expanduser("~/Library/Preferences/.wrangler/config/*.toml"))):
+        for line in Path(p).read_text().splitlines():
+            if line.strip().startswith("oauth_token"):
+                return line.split("=", 1)[1].strip().strip('"')
+    raise SystemExit("No wrangler OAuth token — run `wrangler login`.")
+
+
+def _refresh_wrangler():
+    """Trigger wrangler to refresh its (expired) access token; wrangler owns the
+    refresh_token rotation, so we let it manage the lifecycle."""
+    try:
+        subprocess.run(["npx", "-y", "wrangler@latest", "whoami"],
+                       capture_output=True, timeout=120)
+    except Exception as e:  # noqa: BLE001
+        print(f"wrangler refresh failed (non-fatal): {e}", file=sys.stderr)
+
+
+def _cf(path: str, raw: bool = False, _retried: bool = False):
+    """GET the Cloudflare API with the wrangler OAuth token; refresh + retry once on 401/403."""
+    req = urllib.request.Request(f"{CF_API}/{path}",
+                                 headers={"Authorization": f"Bearer {_wrangler_token()}"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = r.read()
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403) and not _retried:
+            _refresh_wrangler()
+            return _cf(path, raw, _retried=True)
+        raise
+    return data if raw else json.loads(data)
+
+
+def _acct() -> str:
+    return os.environ.get("R2_ACCOUNT_ID", "d7adee58513c1b2f770ccaac90cf114f")
+
+
+def r2_list(bucket: str, prefix: str):
+    """[(key, last_modified)] under prefix, paginating the R2 objects API."""
+    out, cursor = [], ""
+    while True:
+        q = f"prefix={urllib.parse.quote(prefix)}&per_page=1000"
+        if cursor:
+            q += f"&cursor={urllib.parse.quote(cursor)}"
+        d = _cf(f"accounts/{_acct()}/r2/buckets/{bucket}/objects?{q}")
+        out += [(o["key"], o.get("last_modified")) for o in (d.get("result") or [])]
+        info = d.get("result_info") or {}
+        cursor = info.get("cursor") or ""
+        if not info.get("is_truncated"):
+            return out
+
+
+def r2_get(bucket: str, key: str) -> bytes:
+    return _cf(f"accounts/{_acct()}/r2/buckets/{bucket}/objects/{urllib.parse.quote(key)}", raw=True)
 
 
 def main():
@@ -108,15 +170,15 @@ def main():
     bucket = os.environ.get("R2_CAMPSITE_BUCKET", "campsite-raw")
     prefix = f"summary/{a.date}/"
 
-    s3 = _r2()
-    objs = s3.list_objects_v2(Bucket=bucket, Prefix=prefix).get("Contents", [])
+    objs = r2_list(bucket, prefix)
     print(f"{len(objs)} summaries under {prefix}", file=sys.stderr)
 
     lines, n = [], 0
-    for o in objs:
-        obj = s3.get_object(Bucket=bucket, Key=o["Key"])
-        ts = int(obj["LastModified"].timestamp())  # true scrape time
-        rec = json.loads(obj["Body"].read())
+    for key, last_modified in objs:
+        rec = json.loads(r2_get(bucket, key))
+        # true scrape time = the object's last-modified (ISO-8601 with Z)
+        ts = (int(datetime.fromisoformat(last_modified.replace("Z", "+00:00")).timestamp())
+              if last_modified else int(time.time()))
         lines += build_lines(rec["id"], rec["name"], rec.get("agency", ""), rec.get("by_date", {}), ts)
         n += 1
     print(f"{n} campsites · {len(lines)} points", file=sys.stderr)
