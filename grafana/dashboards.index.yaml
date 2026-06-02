@@ -96,18 +96,40 @@ campsite-availability:
     - Document the split vs campsite-live-availability (this = Influx history/forecast; that = AE live snapshot)
     - $target_date-scoped — consider a multi-date overview
 
+campsite-availability-metrics:
+  title: Campsite Availability Metrics
+  file: campsite-availability-metrics.json
+  purpose: >-
+    Available vs booked split per campsite for a target date — totals, booked %,
+    the available/booked trend, booked-by-agency, and a per-campsite table — from
+    the `campsites` InfluxDB bucket.
+  datasources: [influxdb]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [campsites/]
+    produces: { bucket: campsites, via: launchd-ingest }
+    cadence: 24h
+    status: active
+    note: in-repo ingest mirrors a public R2 dump produced by an upstream scraper Worker
+  intent: >-
+    At-a-glance available/booked counts and which campsites are closest to fully
+    booked — complements the burn-down/forecast view.
+  todos:
+    - Daily granularity (ingest cadence); a sub-day view would need the AE/live path
+
 campsite-collector-history:
   title: Collector History
   file: campsite-collector-history.json
   purpose: >-
-    Campsite scraper run health from Cloudflare Analytics Engine — runs/day,
-    sites ok/failed/empty of 61 per run, per-agency coverage, step durations,
-    top failing sites, latest capture.
-  datasources: [analytics-engine]
+    Collector pipeline health from Cloudflare Analytics Engine plus R2 storage —
+    collection rate + 30d total, per-agency coverage, step durations, top failing
+    sites, and R2 stored bytes/object count.
+  datasources: [analytics-engine, infinity]
   source:
     produces: { dataset: analytics-engine, via: cf-analytics-engine }
     status: external
-    note: upstream campsite scraper Worker writes to Cloudflare AE; repo TBD
+    note: produced by the deadline-driven CollectorLoop in tommyroar/robot-geographical-society (Worker -> AE); R2 storage via the Cloudflare GraphQL API
   intent: >-
     Ops/reliability view of the collector pipeline — is it running, how fully is
     it covering the tracked sites, and what's breaking.
