@@ -58,6 +58,10 @@ const PANELS = [
   // weather — Tempest, continuously written
   { dash: 'tempest-basic', id: 5, name: 'tempest-temp-humidity' },
   { dash: 'tempest-basic', id: 16, name: 'tempest-pressure' },
+  // transit — station availability (trip_prediction is continuous). The
+  // service-alerts dashboard is event-driven and intentionally NOT baselined.
+  { dash: 'transit-station-availability', id: 4, name: 'transit-predictions-per-station' },
+  { dash: 'transit-station-availability', id: 5, name: 'transit-live-vs-scheduled-per-station' },
 ];
 
 test.describe('Dashboards visual regression (relative now-6h)', () => {

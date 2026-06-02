@@ -31,6 +31,13 @@ transit-tracker-monitor:
 tempest-basic:
   allow_empty_panels: ["lightning", "nearest strike"]
 
+# Service alerts are event-driven — every panel is legitimately empty on a day
+# with no active OBA disruptions. (A real query error still fails — allow_empty
+# only excuses emptiness.) transit-station-availability stays strict: its
+# trip_prediction data is continuous.
+transit-alerts:
+  allow_empty_panels: ["*"]
+
 # These panels read HA "System Monitor" sensors that aren't currently being
 # recorded for the Pi (swap, disk usage, the end0/wlan0 throughput entities).
 # Allow-empty for now; tighten by enabling/renaming those HA sensors. TODO(#67).
