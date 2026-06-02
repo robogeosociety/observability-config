@@ -1,0 +1,12 @@
+[project]
+name = "drift-sentinel"
+version = "0.1.0"
+description = "Catch stale/degraded dashboard data and warn in Discord with the suspect upstream commits."
+requires-python = ">=3.11"
+dependencies = ["pyyaml>=6"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
