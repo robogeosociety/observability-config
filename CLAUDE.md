@@ -42,6 +42,29 @@ The token + bucket are defined as code in `terraform/` (Cloudflare provider v5):
 `terraform apply` (with `TF_VAR_cloudflare_api_token`) mints the scoped R2 token and
 outputs the S3 creds for `influxdb/.env` — see `terraform/README.md`.
 
+## Alerting
+
+File-provisioned Grafana alerting lives in `grafana/provisioning/alerting/`
+(contact points, root notification policy, rules) — deployed by the same
+`deploy-provisioning.sh` sync as dashboards. The one rule today is the
+**InfluxDB availability** alert (issue #11): it counts a cheap telegraf series
+(`cpu`/`usage_idle`/`cpu-total`) in the `system` bucket over the last 5m and
+pages when that drops below 1. Both `noDataState` and `execErrState` are
+`Alerting`, so a telegraf gap (InfluxDB up, no writes) **and** a query error
+(InfluxDB down/unreachable) surface within minutes instead of going silent.
+
+Notification is **Discord** via Grafana's native `discord` contact point, which
+posts a color-coded embed (firing red / resolved green) with the alert summary,
+labels, and runbook annotation. It reads `$__env{DISCORD_WEBHOOK_URL}` (a channel
+webhook — the secret), which `grafana/docker-compose.yml` passes through from
+`grafana/.env`; the URL is never committed. Stand-up: create the webhook in
+Discord (Server Settings → Integrations → Webhooks), put `DISCORD_WEBHOOK_URL` in
+`.env`, then `docker compose up -d` to recreate grafana (provisioning reload
+alone isn't enough — `$__env{}` is read at container start). Resolve messages are
+on (Discord embeds distinguish firing from resolved). `tests/test_alerting_static.py`
+guards the config (valid YAML, no literal secret, alert-on-missing-data, routes
+to a defined contact point).
+
 ## Hard rules
 
 - **Dashboards are code.** `provider.yml` sets `allowUiUpdates: false`, so the
