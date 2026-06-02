@@ -20,14 +20,33 @@
 #                   influxdb         -> influxdb
 #                   infinity         -> yesoreyeram-infinity-datasource
 #                   analytics-engine -> vertamedia-clickhouse-datasource (Cloudflare AE)
+#   source:       data PROVENANCE — which code produces this dashboard's data, so
+#                 drift (the upstream pipeline changing/migrating) is detectable.
+#                 The drift-sentinel + collector-freshness alerts read this.
+#                   repo:     owner/name on GitHub that owns the producing code
+#                             (omit when status: external and the repo is unknown)
+#                   ref:      branch to track (default: main)
+#                   paths:    code whose change could break this dashboard
+#                   produces: { bucket: <influx bucket> | dataset: <AE>, via: <how> }
+#                             via: telegraf | launchd-ingest | launchd-collector |
+#                                  launchd-backup | host-collector | cf-analytics-engine |
+#                                  home-assistant | external-service | external-script
+#                   cadence:  expected write rhythm (15s|5m|24h…) — powers the
+#                             freshness threshold + anomaly baseline
+#                   status:   active   — produced by a repo we track here
+#                             external — produced upstream; repo may be TBD
+#                             migrated — pipeline moved; dashboard retired/repointed
+#                             deprecated
 #   intent:       the design rationale / who-and-what it's for
 #   todos:        future improvements — the backlog that drives development
 #   status:       (optional) "pending" for a dashboard documented ahead of being
 #                 committed; lets the index lead the JSON without failing CI.
 #
 # test_dashboard_index.py keeps this honest: every committed dashboard JSON must
-# have an entry here, titles/files/datasources must match the JSON, and an index
-# entry with no JSON is only allowed when status: pending.
+# have an entry here, titles/files/datasources must match the JSON, an index
+# entry with no JSON is only allowed when status: pending, and a `source:` block
+# (when present) must carry a `produces` + `status`, with `repo` required when
+# status is `active`.
 
 backups:
   title: Backups
@@ -36,6 +55,13 @@ backups:
     Last-success age, result, and size per backup target (local InfluxDB, R2
     offsite, Obsidian vault) from the `ops` bucket `backup` measurement.
   datasources: [influxdb]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [influxdb/backup.sh, influxdb/r2_upload.py]
+    produces: { bucket: ops, via: launchd-backup }
+    cadence: 24h
+    status: active
   intent: >-
     Answer "did every backup run, and is it fresh?" at a glance. Each target is
     a last-success-age + result + size trio fed by the backup heartbeats.
@@ -51,6 +77,14 @@ campsite-availability:
     Historical availability, sell-out burn-down, and a Holt-Winters forecast for
     tracked target dates, from the `campsites` InfluxDB bucket.
   datasources: [influxdb]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [campsites/]
+    produces: { bucket: campsites, via: launchd-ingest }
+    cadence: 24h
+    status: active
+    note: in-repo ingest mirrors a public R2 dump produced by an upstream scraper Worker
   intent: >-
     Booking decision support — which dates and sites are trending toward sold
     out, with a forecast of remaining availability.
@@ -67,6 +101,10 @@ campsite-collector-history:
     sites ok/failed/empty of 61 per run, per-agency coverage, step durations,
     top failing sites, latest capture.
   datasources: [analytics-engine]
+  source:
+    produces: { dataset: analytics-engine, via: cf-analytics-engine }
+    status: external
+    note: upstream campsite scraper Worker writes to Cloudflare AE; repo TBD
   intent: >-
     Ops/reliability view of the collector pipeline — is it running, how fully is
     it covering the tracked sites, and what's breaking.
@@ -74,6 +112,7 @@ campsite-collector-history:
     - '"61 sites" is hard-coded in panel titles — parameterize or derive it'
     - AE retention is ~90d — note the ceiling on history depth
     - Alert when runs/day drops to 0 or the failure count spikes
+    - Fill source.repo once the scraper Worker repo is linked
 
 campsite-live-availability:
   title: Live Availability
@@ -83,6 +122,10 @@ campsite-live-availability:
     % reserved, fully-booked campgrounds, per-agency and per-campground latest,
     and watched hot dates.
   datasources: [analytics-engine]
+  source:
+    produces: { dataset: analytics-engine, via: cf-analytics-engine }
+    status: external
+    note: same upstream campsite scraper Worker as campsite-collector-history; repo TBD
   intent: >-
     The AE-native "right now" view, complementing the Influx history/forecast
     dashboard with low-latency current state.
@@ -98,6 +141,13 @@ mac-system:
     `system`) plus a btop-style whole-system process treemap from the dev-status
     collector (:8077/processes.json).
   datasources: [influxdb, infinity]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [telegraf/telegraf.conf, grafana/dev-status/server.py]
+    produces: { bucket: system, via: telegraf }
+    cadence: 15s
+    status: active
   intent: >-
     btop-at-a-glance for the mini that hosts the whole stack — one screen for
     "is the machine healthy and what's eating it."
@@ -107,35 +157,6 @@ mac-system:
     - Memory-pressure alerting (esp. after the 2026-05-31 VM-swap watchdog panic)
     - Treemap depends on the host collector being deployed via dev-status/deploy.sh
 
-mountain-infra:
-  title: Mountain Out — Inference Infrastructure
-  file: mountain-infra.json
-  purpose: >-
-    is-the-mountain-out collector liveness — minutes since last tick, tick/error
-    counts, success rate, tick duration, outcomes, and recent errors (Influx).
-  datasources: [influxdb]
-  intent: >-
-    Ops/liveness for the webcam-inference collector — the one Nomad-scheduled
-    production job.
-  todos:
-    - Alert when minutes-since-last-tick exceeds the schedule interval
-    - Correlate with Nomad job/alloc status
-
-mountain-status:
-  title: Mountain Out — Status
-  file: mountain-status.json
-  purpose: >-
-    The inference output itself — is the mountain out, current class, visible
-    confidence, class confidence over time, class distribution, and visibility
-    & ceiling (Influx).
-  datasources: [influxdb]
-  intent: >-
-    Product-facing result view for is-the-mountain-out — the answer, not the
-    plumbing.
-  todos:
-    - Add a latest webcam thumbnail panel
-    - Correlate predicted visibility with METAR / observed ceiling
-
 status-page:
   title: Project Status
   file: status-page.json
@@ -144,6 +165,13 @@ status-page:
     dev deployments and tailscale-serve routes from the dev-status collector
     (via Infinity).
   datasources: [influxdb, infinity]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [grafana/dev-status/server.py]
+    produces: { bucket: ops, via: host-collector }
+    cadence: 1m
+    status: active
   intent: >-
     A single "is everything up?" pane spanning monitored services and live dev
     deployments.
@@ -160,6 +188,10 @@ tempest-basic:
     (live/avg/gust/direction), solar/UV/illuminance, rain, lightning, and
     battery (Influx `tempest_archive`).
   datasources: [influxdb]
+  source:
+    produces: { bucket: tempest_archive, via: external-collector }
+    status: external
+    note: Tempest hub (home-weather-hub repo) writes the tempest_archive bucket; repo TBD
   intent: >-
     Home weather-station dashboard — current conditions and recent trends.
   todos:
@@ -174,6 +206,11 @@ transit-tracker-basic:
     cache, OBA latency, message throughput, predictions, next departures, and
     realtime-vs-scheduled (Influx).
   datasources: [influxdb]
+  source:
+    produces: { bucket: transit_tracker, via: external-service }
+    cadence: 1m
+    status: external
+    note: transit-tracker project writes the transit_tracker bucket; repo TBD
   intent: >-
     Combined operational + product view of the transit display — health and
     what riders see, on one dashboard.
@@ -191,6 +228,11 @@ transit-tracker-monitor:
     trips, coverage %, and a per-stop breakdown) off the trip_prediction
     is_realtime tag (Influx).
   datasources: [influxdb]
+  source:
+    produces: { bucket: transit_tracker, via: external-service }
+    cadence: 1m
+    status: external
+    note: same transit-tracker project as transit-tracker-basic; repo TBD
   intent: >-
     The topology/plumbing view that complements transit-tracker-basic — focused
     on the proxy and its network rather than rider-facing output. The Realtime
@@ -209,6 +251,10 @@ walksheds-uptime:
     status stat plus a "Deploys" annotation off the `deploy` measurement
     (service=walksheds).
   datasources: [influxdb]
+  source:
+    produces: { bucket: ops, via: external-service }
+    status: external
+    note: walksheds project writes its own uptime/deploy heartbeats to the ops bucket; repo TBD
   intent: >-
     At-a-glance liveness + deploy timeline for walksheds, matching the shared
     ops/uptime pattern used by the other project status dashboards.
@@ -223,6 +269,13 @@ orbstack-containers:
     Telegraf's `inputs.docker` (docker_container_* measurements) in the `system`
     bucket — reading the OrbStack socket as the host user.
   datasources: [influxdb]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [telegraf/telegraf.conf]
+    produces: { bucket: system, via: telegraf }
+    cadence: 15s
+    status: active
   intent: >-
     Visibility into the containers that run the stack (influxdb, grafana,
     renderer) so an outage or a runaway container is seen, not silent — the
@@ -240,6 +293,10 @@ ha-pi-system:
     `home_assistant` bucket (measurement `sensor.system_monitor_*`, field
     `value`) via HA's InfluxDB integration.
   datasources: [influxdb]
+  source:
+    produces: { bucket: home_assistant, via: home-assistant }
+    status: external
+    note: HA System Monitor → HA InfluxDB integration on the Pi (LAN IP); no repo
   intent: >-
     The HA-native counterpart to mac-system. Unlike the Telegraf-fed ha-system
     dashboard (which expects cpu/mem measurements in the `system` bucket), this
@@ -259,6 +316,13 @@ claude-usage:
     InfluxDB bucket fed by grafana/claude-usage-collector/ parsing
     ~/.claude/projects/**/*.jsonl message `usage` blocks.
   datasources: [influxdb]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [grafana/claude-usage-collector/collector.py]
+    produces: { bucket: claude_code, via: launchd-collector }
+    cadence: 5m
+    status: active
   intent: >-
     Answer "how many tokens is Claude Code burning, and is caching working?"
     Cost is deliberately OUT of scope — transcripts carry no cost and a per-model
@@ -284,6 +348,11 @@ obsidian-backups:
     `backup` measurement (target=obsidian) — last-success age, size trend, and a
     last-run table, grouped by the `vault` tag.
   datasources: [influxdb]
+  source:
+    produces: { bucket: ops, via: external-script }
+    cadence: 24h
+    status: external
+    note: obsidian fan-out backup script emits target=obsidian heartbeats (obsidian-tbd repo automations/); repo TBD
   intent: >-
     Drill-down companion to the top-level Backups dashboard. The Obsidian vault
     is being split into multiple vaults backed up by a fan-out script that emits
