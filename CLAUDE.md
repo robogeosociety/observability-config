@@ -60,6 +60,11 @@ Discord contact point:
   `/Volumes/dev` over 85%.
 - **Container OOM-killed** (`container-oom.yml`) — telegraf `docker_container_status`
   `oomkilled==true` (the runaway-container failure mode the mem_limits bound).
+- **Collector freshness** (`collector-freshness.yml`) — per-bucket "no writes in
+  15m" for the continuously-writing collectors (`transit_tracker`,
+  `home_assistant`, `tempest_archive`). Scoped to proven-continuous buckets only;
+  dormant/event-driven/usage-driven buckets (mountain, campsites, zigbee_archive,
+  claude_code) are deliberately excluded so the rules never fire on deploy.
 
 The three secondary rules set `execErrState=OK` (plus `noDataState=OK` for the
 latter two) so an InfluxDB outage pages **once** (via the availability rule), not
