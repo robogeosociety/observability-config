@@ -125,3 +125,42 @@ def test_entry_is_complete_and_in_sync(dashboard_path):
     assert declared == actual, (
         f"{uid}: index datasources {sorted(declared)} != JSON {sorted(actual)}"
     )
+
+
+VALID_SOURCE_STATUS = {"active", "external", "migrated", "deprecated"}
+
+
+def test_every_entry_has_source():
+    """Provenance convention: every committed dashboard declares where its data
+    comes from, so drift (an upstream pipeline changing/migrating) is detectable."""
+    idx = _index()
+    json_uids = {_load_json(p)["uid"] for p in _dashboards()}
+    missing = sorted(uid for uid in json_uids if not (idx.get(uid) or {}).get("source"))
+    assert not missing, f"dashboards missing a `source:` provenance block: {missing}"
+
+
+def test_source_block_well_formed():
+    """Validate the source schema. `repo`+`paths` are required only when the
+    producing code is something we track (status: active); external pipelines may
+    have a TBD repo."""
+    idx = _index()
+    for uid, entry in idx.items():
+        src = (entry or {}).get("source")
+        if src is None:
+            continue
+        assert isinstance(src, dict), f"{uid}: source must be a mapping"
+        status = src.get("status")
+        assert status in VALID_SOURCE_STATUS, (
+            f"{uid}: source.status {status!r} not in {sorted(VALID_SOURCE_STATUS)}"
+        )
+        produces = src.get("produces")
+        assert isinstance(produces, dict) and ("bucket" in produces or "dataset" in produces), (
+            f"{uid}: source.produces must name a `bucket` or `dataset`"
+        )
+        assert produces.get("via"), f"{uid}: source.produces needs a `via`"
+        if status == "active":
+            repo = src.get("repo", "")
+            assert isinstance(repo, str) and "/" in repo, (
+                f"{uid}: source.repo (owner/name) required when status=active, got {repo!r}"
+            )
+            assert src.get("paths"), f"{uid}: source.paths required when status=active"

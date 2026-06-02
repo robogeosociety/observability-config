@@ -107,28 +107,6 @@ datasources:
       token: ${INFLUX_GRAFANA_TOKEN}
     editable: true
 
-  # Mount Rainier visibility predictions + inference-tick health, mirrored from
-  # the public is-the-mountain-out R2 bucket (history.jsonl) into the `mountain`
-  # bucket by the in-repo ingest job (mountain/ingest.py, launchd every 15 min).
-  # Feeds the mountain-status and mountain-infra dashboards. See mountain/README.md.
-  - name: InfluxDB - mountain
-    uid: mountain
-    type: influxdb
-    access: proxy
-    url: http://influxdb:8086
-    jsonData:
-      version: Flux
-      organization: home
-      defaultBucket: mountain
-      tlsSkipVerify: true
-    secureJsonData:
-      token: ${INFLUX_GRAFANA_TOKEN}
-    editable: true
-
-  # Claude Code per-message token usage written every 5 min by the in-repo
-  # collector (grafana/claude-usage-collector/, launchd com.tommy.claude-usage),
-  # parsed from ~/.claude transcripts. Feeds the claude-usage dashboard.
-  # See claude-usage-collector/README.md and SPEC-claude-usage.md.
   - name: InfluxDB - claude_code
     uid: claude_code
     type: influxdb

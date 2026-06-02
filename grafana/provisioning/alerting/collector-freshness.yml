@@ -9,8 +9,9 @@ apiVersion: 1
 # rules never false-fire:
 #   transit_tracker (~5k pts/h), home_assistant (~9k/h), tempest_archive (~3k/h).
 # Deliberately EXCLUDED (freshness alerting would just fire on deploy):
-#   - mountain — currently stalled / daily; a freshness alert on an already-dead
-#     bucket is noise. Fix the collector, don't alert the corpse.
+#   - mountain — RETIRED: pipeline migrated to Cloudflare Workers; bucket,
+#     datasource, dashboards, and ingest job removed. The drift-sentinel reads
+#     dashboards.index.yaml `source.status`, so a `migrated` pipeline is skipped.
 #   - campsites — now continuous (deadline-driven CollectorLoop), but its InfluxDB
 #     bucket is fed by a DAILY 07:30 ingest, so it gets its own daily-cadence rule
 #     (34h window) in campsite-collector-freshness.yml rather than a 15m one here.
