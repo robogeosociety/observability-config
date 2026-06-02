@@ -1,11 +1,13 @@
 #!/bin/zsh
-# worker.sh — drain the coordinator queue and run the one serialized deploy step.
+# worker.sh — reconcile the live stack to origin/main, serialized behind the mutex.
 #
-# Phase 0: every job is a "deploy". The worker refreshes its internal-disk clone
-# to origin/main, syncs Grafana provisioning to the internal mount, restarts
-# Grafana, VERIFIES health, and ROLLS BACK the provisioning dir if Grafana doesn't
-# come back. All of it runs behind the mutex, so launchd ticks and interactive
-# deploys never overlap.
+# A deploy runs when EITHER the queue has a job OR origin/main has advanced since
+# the last deploy (poll-deploy) — so a merge goes live automatically within one
+# tick, with no manual enqueue. The worker refreshes its internal-disk clone to
+# origin/main, syncs Grafana provisioning to the internal mount, restarts Grafana,
+# VERIFIES health, and ROLLS BACK the provisioning dir if Grafana doesn't come
+# back, recording the deployed SHA. All of it runs behind the mutex, so launchd
+# ticks and interactive deploys never overlap.
 #
 # Runs under launchd from the INTERNAL-disk clone (TCC blocks launchd from
 # /Volumes). It touches only ~/.observability and the docker socket — never
@@ -36,11 +38,24 @@ start_ts=$(/bin/date +%s)
 setopt local_options null_glob
 jobs=("$COORD_HOME"/queue/*.job)
 njobs=${#jobs[@]}
-if (( njobs == 0 )); then log "queue empty"; exit 0; fi
 
-# Coalesce: all queued deploy jobs collapse into one deploy of current main.
+# Poll-deploy: also deploy when origin/main has advanced since the last deploy,
+# even with an empty queue — so a merge goes live automatically within a tick, no
+# manual enqueue. Gated on COORD_DEPLOY so tests stay hermetic (no git in tests).
+main_moved=0
+remote_sha=""
+if [ "$COORD_DEPLOY" = "1" ]; then
+  git -C "$COORD_REPO" fetch -q "$COORD_GIT_REMOTE" 2>/dev/null || true
+  remote_sha="$(git -C "$COORD_REPO" rev-parse "$COORD_GIT_REMOTE/main" 2>/dev/null || print '')"
+  last_sha="$(cat "$COORD_HOME/last-deployed-sha" 2>/dev/null || print '')"
+  [ -n "$remote_sha" ] && [ "$remote_sha" != "$last_sha" ] && main_moved=1
+fi
+
+if (( njobs == 0 )) && [ "$main_moved" = "0" ]; then log "queue empty"; exit 0; fi
+
+# Coalesce: all queued jobs collapse into one deploy of current main.
 for j in "${jobs[@]}"; do mv "$j" "$COORD_HOME/processing/"; done
-log "draining $njobs job(s)"
+if (( njobs > 0 )); then log "draining $njobs job(s)"; else log "main advanced to ${remote_sha[1,7]} — deploying"; fi
 
 ok=1
 sha="(skipped)"
@@ -75,6 +90,8 @@ if [ "$COORD_DEPLOY" = "1" ]; then
       fi
     fi
   fi
+  # Record the deployed SHA so the next tick only redeploys when main advances.
+  [ "$ok" = "1" ] && git -C "$COORD_REPO" rev-parse HEAD > "$COORD_HOME/last-deployed-sha" 2>/dev/null || true
   log "deploy main@$sha ok=$ok"
 fi
 
