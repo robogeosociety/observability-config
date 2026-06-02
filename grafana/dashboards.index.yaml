@@ -37,6 +37,9 @@
 #                             external — produced upstream; repo may be TBD
 #                             migrated — pipeline moved; dashboard retired/repointed
 #                             deprecated
+#                   monitor:  (optional) "skip" to exclude from the drift-sentinel's
+#                             data-freshness/anomaly checks — for usage/event-driven
+#                             buckets where idle != broken (e.g. claude_code).
 #   intent:       the design rationale / who-and-what it's for
 #   todos:        future improvements — the backlog that drives development
 #   status:       (optional) "pending" for a dashboard documented ahead of being
@@ -323,6 +326,7 @@ claude-usage:
     produces: { bucket: claude_code, via: launchd-collector }
     cadence: 5m
     status: active
+    monitor: skip   # usage-driven — only writes when Claude runs, so idle != broken
   intent: >-
     Answer "how many tokens is Claude Code burning, and is caching working?"
     Cost is deliberately OUT of scope — transcripts carry no cost and a per-model

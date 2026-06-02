@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tommy.drift-sentinel</string>
+    <!-- Runs the INTERNAL-disk copy (deploy.sh installs it) so launchd never
+         touches /Volumes — index snapshot + .env + venv all live under DEST.
+         Absolute uv path: launchd's minimal PATH wouldn't find it otherwise. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/tommydoerr/.local/bin/uv</string>
+        <string>run</string>
+        <string>--directory</string>
+        <string>/Users/tommydoerr/.local/share/drift-sentinel</string>
+        <string>python</string>
+        <string>sentinel.py</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>INDEX_PATH</key>
+        <string>/Users/tommydoerr/.local/share/drift-sentinel/dashboards.index.yaml</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/tommydoerr/.local/bin</string>
+    </dict>
+    <key>StartInterval</key>
+    <integer>600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/tommydoerr/Library/Logs/drift-sentinel.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tommydoerr/Library/Logs/drift-sentinel.log</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
