@@ -114,7 +114,12 @@ to a defined contact point).
   `provisioning/dashboards/`, because Grafana's provider would try to parse a
   stray YAML there as a provider config.)
 - **Secrets** live in per-dir `.env` (gitignored, chmod 600); `.env.example`
-  templates are committed. Never commit a real `.env`.
+  templates are committed. Never commit a real `.env`. **Exception — shared read
+  creds:** one credential reused by many ingests lives once in
+  `~/.observability/r2-read.env` (a single R2 **Object-Read** token scoped to all
+  buckets; template `r2-read.env.example`). Ingests load it (`R2_READ_ENV`
+  overrides the path) so adding a bucket needs **no new token** — rotate or scope
+  it by editing that one file. R2 API tokens don't expire (no OAuth refresh).
 
 ## dev-status collector
 

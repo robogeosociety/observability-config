@@ -2,6 +2,9 @@
 **/.env
 **/.env.*
 !**/.env.example
+# Shared R2 read creds live at ~/.observability/r2-read.env; ignore any stray
+# repo copy (the .example template stays tracked).
+**/r2-read.env
 
 # python test artifacts
 __pycache__/

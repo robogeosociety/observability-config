@@ -104,6 +104,11 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
+    # Shared R2 read creds (ONE Object-Read token reused across every bucket
+    # ingest — see r2-read.env.example) live in ~/.observability/r2-read.env;
+    # project-specific bits (InfluxDB token, which bucket) stay in the local .env.
+    # Real env wins over both (setdefault).
+    _load_env(Path(os.environ.get("R2_READ_ENV") or (Path.home() / ".observability" / "r2-read.env")))
     _load_env(Path(__file__).resolve().parent / ".env")
     bucket = os.environ.get("R2_CAMPSITE_BUCKET", "campsite-raw")
     prefix = f"summary/{a.date}/"
