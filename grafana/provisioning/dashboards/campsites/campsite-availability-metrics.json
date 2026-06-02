@@ -38,7 +38,7 @@
         "label": "Target date (night)",
         "type": "query",
         "datasource": {"type": "influxdb", "uid": "campsites"},
-        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"campsites\", tag: \"target_date\")",
+        "query": "import \"date\"\nimport \"influxdata/influxdb/schema\"\npad = (n) => if n < 10 then \"0\" + string(v: n) else string(v: n)\ntoday = string(v: date.year(t: now())) + \"-\" + pad(n: date.month(t: now())) + \"-\" + pad(n: date.monthDay(t: now()))\nschema.tagValues(bucket: \"campsites\", tag: \"target_date\") |> filter(fn: (r) => r._value >= today)",
         "multi": false,
         "includeAll": false,
         "refresh": 2,

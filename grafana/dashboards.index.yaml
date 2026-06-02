@@ -98,6 +98,13 @@ campsite-availability-metrics:
   intent: >-
     At-a-glance available/booked counts and which campsites are closest to fully
     booked — complements the burn-down/forecast view.
+  notes:
+    - >-
+      The target_date variable is filtered to today-and-future (computed in-Flux
+      from now(), since this Flux build lacks date.format) and sorted ascending,
+      so the dashboard opens on the soonest upcoming night. Past dates have a
+      single straggler snapshot — defaulting to the earliest value (2026-05-01)
+      made the trend panels (v.timeRange-scoped) render empty, which read as nodata.
   todos:
     - Daily granularity (ingest cadence); a sub-day view would need the AE/live path
 
