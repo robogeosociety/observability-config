@@ -123,6 +123,16 @@ campsite-collector-history:
   intent: >-
     Ops/reliability view of the collector pipeline — is it running, how fully is
     it covering the tracked sites, and what's breaking.
+  notes:
+    - >-
+      AE timeseries/aggregate panels follow the dashboard time picker via the
+      vertamedia macros ($timeSeries for adaptive bucketing, $timeFilter for the
+      range; each target carries dateTimeColDataType=timestamp). They previously
+      hardcoded `timestamp > now() - INTERVAL '30'/'7' DAY`, so any picker range
+      shorter than the data span (e.g. a remembered now-24h) plotted an empty
+      viewport and read as nodata. The "Latest collection" stat keeps fixed
+      24h/2d health windows on purpose (it's a right-now status tile, not a range
+      view); the R2 stats already keyed off ${__from}.
   todos:
     - Continuous model — legacy run panels retired; '140' is hard-coded, could derive it
     - AE retention is ~90d — note the ceiling on history depth
