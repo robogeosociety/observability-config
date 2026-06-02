@@ -151,7 +151,7 @@
           },
           "dateTimeColDataType": "timestamp",
           "dateTimeType": "DATETIME",
-          "query": "SELECT $timeSeries AS t, uniqExactIf(index1, blob5='ok') AS sites_collected FROM campsite_collector WHERE $timeFilter GROUP BY t ORDER BY t",
+          "query": "SELECT $timeSeries AS t, count(DISTINCT index1) AS sites_collected FROM campsite_collector WHERE $timeFilter AND blob5 = 'ok' GROUP BY t ORDER BY t",
           "extrapolate": false
         }
       ],
@@ -517,7 +517,16 @@
             "uid": "campsites_ae"
           },
           "format": "table",
-          "query": "SELECT max(timestamp) AS last_collection, SUMIf(_sample_interval, blob5='ok' AND timestamp > now() - INTERVAL '1' DAY) AS ok_24h, SUMIf(_sample_interval, blob5='failed' AND timestamp > now() - INTERVAL '1' DAY) AS failed_24h, uniqExactIf(index1, blob5='ok' AND timestamp > now() - INTERVAL '2' DAY) AS sites_2d FROM campsite_collector WHERE timestamp > now() - INTERVAL '7' DAY"
+          "query": "SELECT max(timestamp) AS last_collection, SUMIf(_sample_interval, blob5='ok' AND timestamp > now() - INTERVAL '1' DAY) AS ok_24h, SUMIf(_sample_interval, blob5='failed' AND timestamp > now() - INTERVAL '1' DAY) AS failed_24h FROM campsite_collector WHERE timestamp > now() - INTERVAL '7' DAY"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "query": "SELECT count(DISTINCT index1) AS sites_2d FROM campsite_collector WHERE timestamp > now() - INTERVAL '2' DAY AND blob5 = 'ok'"
         }
       ],
       "options": {

@@ -59,6 +59,22 @@ def grafana_post(grafana_auth, grafana_get):
     return post
 
 
+_HEALTH = {}
+
+
+def _ds_healthy(grafana_get, uid):
+    """Cached datasource health. A query error on a *healthy* datasource is a real
+    bug (e.g. an unsupported SQL function); on an unhealthy one it's just 'can't
+    test here' (token not configured) and we skip."""
+    if uid not in _HEALTH:
+        try:
+            status, body = grafana_get(f"/api/datasources/uid/{uid}/health")
+            _HEALTH[uid] = status == 200 and body.get("status") == "OK"
+        except Exception:
+            _HEALTH[uid] = False
+    return _HEALTH[uid]
+
+
 def _panels(dash):
     for p in dash.get("panels", []):
         yield p
@@ -129,7 +145,7 @@ def _interpolate(query, vars_):
 
 
 @pytest.mark.parametrize("f", CAMPSITES, ids=IDS)
-def test_campsites_panels_return_data(f, grafana_post):
+def test_campsites_panels_return_data(f, grafana_post, grafana_get):
     dash = json.loads(f.read_text())
     default_from = dash.get("time", {}).get("from", "now-30d")
     default_to = dash.get("time", {}).get("to", "now")
@@ -152,7 +168,11 @@ def test_campsites_panels_return_data(f, grafana_post):
             t_def = dict(t, __query=_interpolate(t["query"], vars_default))
             frames, err = _run(grafana_post, t_def, ds, default_from, default_to)
             if err:
-                continue  # datasource unavailable — can't judge, skip this target
+                if _ds_healthy(grafana_get, ds.get("uid")):
+                    failures.append(f"[{title!r}] query ERROR on a healthy "
+                                    f"datasource (broken query?): {err}")
+                # else datasource unavailable (token not configured) — can't judge
+                continue
             evaluated += 1
             default_had_rows = _has_rows(frames)
             if not default_had_rows and not allow_empty:

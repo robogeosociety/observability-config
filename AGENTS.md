@@ -69,6 +69,42 @@ the files must be correct as-merged:
   `.env.example`. Never put a real token, webhook, or password in a tracked file
   or a PR diff.
 
+## Dashboard validation & regression path
+
+A dashboard can pass JSON validation and still render **No data** — a query bound
+to a fixed window the picker never covers, a variable defaulting to a dataless
+value, an unsupported datasource function. We catch that class in layers; when you
+add or change a dashboard, your change is verified against them (the first layer
+gates CI):
+
+1. **Static guards — hermetic, run in CI** (`grafana/tests/test_dashboards_static.py`
+   for every dashboard; `test_campsites_dashboards_static.py` for the nodata class).
+   The campsites guards: time-axis (`timeseries`/`trend`) panels must follow the
+   time picker (ClickHouse `$timeFilter`/`$timeSeries`, Flux `v.timeRangeStart`)
+   and never hardcode their own window; ClickHouse targets using the time macros
+   must declare `dateTimeColDataType`; a single-value query variable feeding an
+   `== "${var}"` filter must be data-scoped (so it can't default to a dataless edge
+   value). These are **parametrized over the dashboard dir glob**, so a *new*
+   `campsites/` dashboard is covered automatically — no test edit needed.
+2. **Integration — live stack, maintainer-run** (`test_campsites_integration.py`,
+   marked `integration`, self-skips if the stack is down). Resolves each
+   dashboard's variables to Grafana's defaults, interpolates, and runs every panel
+   over the default range **and** `now-24h`, failing any that returns No data. It's
+   **health-aware**: a query error on a *healthy* datasource is a failure (catches
+   unsupported SQL like AE's missing `uniqExactIf`/`uniq`), not a skip.
+3. **Visual — local Playwright** (`grafana/playwright/campsites-visual.spec.ts`).
+   Renders each panel (canvas mounted + no "No data"), with loose committed
+   baselines over a relative `now-7d` window. For ad-hoc spot-checks, the Grafana
+   MCP `get_panel_image` renders a single panel to PNG (the renderer sidecar).
+
+Preferred order when something looks empty: **data layer first** (run the pytest
+tiers / `/api/ds/query`), then **canvas layer** (visual baseline or
+`get_panel_image`) — most "nodata" is a query/variable bug the data layer pins
+down exactly. CI runs layer 1 over all dashboards on every push/PR; layers 2–3
+need the live stack (`grafana/run-tests.sh integration|e2e`) and are the
+maintainer's to run. Adding a panel with a new visualization? Add it to the visual
+spec in the same PR.
+
 ## Context to write correct config (the maintainer applies it, not you)
 
 - **`/Volumes` + launchd = TCC block.** Any launchd job that reads `/Volumes`
