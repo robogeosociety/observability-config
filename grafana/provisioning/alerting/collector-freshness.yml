@@ -9,8 +9,11 @@ apiVersion: 1
 # rules never false-fire:
 #   transit_tracker (~5k pts/h), home_assistant (~9k/h), tempest_archive (~3k/h).
 # Deliberately EXCLUDED (freshness alerting would just fire on deploy):
-#   - mountain, campsites — currently stalled / daily; a freshness alert on an
-#     already-dead bucket is noise. Fix the collector, don't alert the corpse.
+#   - mountain — currently stalled / daily; a freshness alert on an already-dead
+#     bucket is noise. Fix the collector, don't alert the corpse.
+#   - campsites — now continuous (deadline-driven CollectorLoop), but its InfluxDB
+#     bucket is fed by a DAILY 07:30 ingest, so it gets its own daily-cadence rule
+#     (34h window) in campsite-collector-freshness.yml rather than a 15m one here.
 #   - zigbee_archive — event-driven (quiet by design).
 #   - claude_code — usage-driven (idle whenever Claude isn't running).
 #   - system / ops — covered by influxdb-availability / backup-stale.
