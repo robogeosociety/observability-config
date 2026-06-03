@@ -24,7 +24,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "# Collector history — Cloudflare Workers Analytics Engine\n\nRun history + health for the **campsite-availability collector** Cloudflare Worker (repo `robot-geographical-society`). Reads the **AE SQL API** (ClickHouse dialect) via the `campsites_ae` ClickHouse datasource. The deadline-driven CollectorLoop collects each of the **140** sites within a 2-day SLA (continuous, no fixed runs). Counts are sampling-weighted (`SUM(_sample_interval)`).\n\n- Collections/day, rate & fleet coverage: `campsite_collector` (one row per collection, `blob5`=ok/failed)\n- Step durations: `campsite_collector` `double2`\n- Top failing sites: `campsite_collector WHERE blob5='failed'`\n\nPanels read *No data* until the `CF_AE_TOKEN` secret (Account → Account Analytics → Read) is set and the deadline-driven CollectorLoop emits. Account `d7adee58513c1b2f770ccaac90cf114f`.\n\n**Throughput & storage**: collection rate + 30d total from `campsite_collector`; R2 stored bytes + object count from the Cloudflare GraphQL API (`r2StorageAdaptiveGroups`, bucket `campsite-raw`)."
+        "content": "# Collector history — Cloudflare Workers Analytics Engine\n\nRun history + health for the **campsite-availability collector** Cloudflare Worker (repo `robot-geographical-society`). Reads the **AE SQL API** (ClickHouse dialect) via the `campsites_ae` ClickHouse datasource. The deadline-driven CollectorLoop collects each of the **140** sites within a 2-day SLA (continuous, no fixed runs). Counts are sampling-weighted (`SUM(_sample_interval)`).\n\n- Collections/day, rate & fleet coverage: `campsite_collector` (one row per collection, `blob5`=ok/failed)\n- Step durations: `campsite_collector` `double2`\n- Top failing sites: `campsite_collector WHERE blob5='failed'`\n\n**Health & quarantine** (lower row): a failing site backs off exponentially (10m, 20m, 40m…) and after `INACTIVE_AFTER_FAILURES` consecutive failures is **quarantined** — removed from the schedule, written to the DLQ (`dlq/<id>.json` in R2), and emitted as an `inactive` state change (`blob5`). A daily probe — or `POST /collect/reactivate?id=` — emits `reactivated` and resumes it. *Failure ratio* is the system-health signal: it should sit near 0%; sustained >25% pages Discord.\n\nPanels read *No data* until the `CF_AE_TOKEN` secret (Account → Account Analytics → Read) is set and the deadline-driven CollectorLoop emits. Account `d7adee58513c1b2f770ccaac90cf114f`.\n\n**Throughput & storage**: collection rate + 30d total from `campsite_collector`; R2 stored bytes + object count from the Cloudflare GraphQL API (`r2StorageAdaptiveGroups`, bucket `campsite-raw`)."
       }
     },
     {
@@ -930,6 +930,449 @@
         "textMode": "value",
         "justifyMode": "auto"
       }
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "Health & quarantine",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Failure ratio (% of attempts)",
+      "description": "Failed collections as a share of all attempts. A healthy fleet sits near 0% (a single bad site backs off exponentially and is then quarantined). Sustained >25% means something is wrong system-wide, not with one site — this is what the 'collector failure ratio high' Discord alert watches.",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "time_series",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "dateTimeColDataType": "timestamp",
+          "dateTimeType": "DATETIME",
+          "query": "SELECT $timeSeries AS t, 100 * SUMIf(_sample_interval, blob5='failed') / SUMIf(_sample_interval, blob5 IN ('ok','failed')) AS failure_pct FROM campsite_collector WHERE $timeFilter AND blob5 IN ('ok','failed') GROUP BY t ORDER BY t",
+          "extrapolate": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 18,
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 25
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "Inactive sites (now)",
+      "description": "Sites currently quarantined in the DLQ — their most recent state change is 'inactive' with no later 'ok'/'reactivated'. Should be 0.",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 41,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "dateTimeColDataType": "timestamp",
+          "dateTimeType": "DATETIME",
+          "query": "SELECT count() AS inactive_now FROM (SELECT index1, MAX(if(blob5='inactive', timestamp, toDateTime(0))) AS inactive_at, MAX(if(blob5 IN ('ok','reactivated'), timestamp, toDateTime(0))) AS active_at FROM campsite_collector WHERE $timeFilter GROUP BY index1 HAVING inactive_at > active_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 33,
+      "type": "table",
+      "title": "Currently inactive (DLQ)",
+      "description": "Quarantined sites and when they went inactive. Reactivate with POST /collect/reactivate?id=<site_id> on the backend Worker (or wait for the daily auto-probe).",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 41,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "dateTimeColDataType": "timestamp",
+          "dateTimeType": "DATETIME",
+          "query": "SELECT index1 AS site_id, argMax(blob4, timestamp) AS name, argMax(blob2, timestamp) AS agency, MAX(if(blob5='inactive', timestamp, toDateTime(0))) AS inactive_since FROM campsite_collector WHERE $timeFilter GROUP BY index1 HAVING inactive_since > MAX(if(blob5 IN ('ok','reactivated'), timestamp, toDateTime(0))) ORDER BY inactive_since DESC LIMIT 50",
+          "extrapolate": false
+        }
+      ],
+      "transformations": [],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "site_id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Site ID"
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Campsite"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "agency"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Agency"
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "inactive_since"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Inactive since"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Inactive since",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        },
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 34,
+      "type": "table",
+      "title": "State changes (inactive / reactivated)",
+      "description": "Quarantine and recovery transitions over the range. 'inactive' = quarantined to the DLQ after consecutive failures; 'reactivated' = a daily probe (or manual reactivation) succeeded and collection resumed.",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 49,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "dateTimeColDataType": "timestamp",
+          "dateTimeType": "DATETIME",
+          "query": "SELECT timestamp, blob5 AS transition, index1 AS site_id, blob4 AS name, blob2 AS agency, double1 AS failures FROM campsite_collector WHERE $timeFilter AND blob5 IN ('inactive','reactivated') ORDER BY timestamp DESC LIMIT 100",
+          "extrapolate": false
+        }
+      ],
+      "transformations": [],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "timestamp"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Time"
+              },
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "transition"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Transition"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "inactive": {
+                        "color": "red",
+                        "index": 0
+                      },
+                      "reactivated": {
+                        "color": "green",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "site_id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Site ID"
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Campsite"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "agency"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Agency"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failures"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Fails at quarantine"
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [],
+        "footer": {
+          "show": false
+        },
+        "cellHeight": "sm"
+      }
     }
   ],
   "refresh": "",
@@ -948,6 +1391,6 @@
   "timezone": "browser",
   "title": "Collector History",
   "uid": "campsite-collector-history",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

@@ -1,0 +1,94 @@
+apiVersion: 1
+
+# Campsite collector — STATE-CHANGE alert: a site was just quarantined.
+#
+# When a site fails INACTIVE_AFTER_FAILURES times in a row the CollectorLoop
+# marks it inactive, writes it to the DLQ, and emits an `inactive` row to the
+# `campsite_collector` AE dataset. This alert turns that state change into a
+# Discord ping so a human notices a campground dropping out of collection —
+# rather than discovering it later on the dashboard.
+#
+# Fires when ≥1 `inactive` event lands in the last 20m (the group re-evaluates
+# every 5m, so a quarantine is surfaced within ~5–20m). `for: 0m` — a quarantine
+# is a discrete event, page on the first sight. noDataState=OK: no rows in the
+# window just means no state change. Reactivations (`reactivated`) are recoveries
+# and are intentionally NOT paged — see the dashboard "State changes" panel.
+# Routed to Discord by the root notification policy (folder: Alerts).
+groups:
+  - orgId: 1
+    name: campsite-collector-health
+    folder: Alerts
+    interval: 5m
+    rules:
+      - uid: campsite-collector-site-inactive
+        title: A campsite was quarantined (collector marked a site inactive)
+        condition: C
+        for: 0m
+        noDataState: OK
+        execErrState: OK
+        labels:
+          severity: warning
+          component: collector
+          collector: campsites
+        annotations:
+          summary: >-
+            The collector quarantined one or more campsites in the last 20
+            minutes — they failed repeatedly and were moved to the DLQ, so they
+            are no longer being collected until they recover.
+          runbook: >-
+            GET /collect/dlq on the backend Worker to see which site(s) and the
+            last error. A daily probe will auto-retry; to force it after a fix,
+            POST /collect/reactivate?id=<site_id>. See the Collector History
+            dashboard "State changes" and "Currently inactive (DLQ)" panels.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1200
+              to: 0
+            datasourceUid: campsites_ae
+            model:
+              refId: A
+              datasource:
+                type: vertamedia-clickhouse-datasource
+                uid: campsites_ae
+              format: time_series
+              dateTimeColDataType: timestamp
+              dateTimeType: DATETIME
+              intervalMs: 60000
+              maxDataPoints: 100
+              query: >-
+                SELECT (intDiv(toUInt32(now()), 60) * 60) * 1000 AS t,
+                SUMIf(_sample_interval, blob5 = 'inactive') AS inactive_events
+                FROM campsite_collector
+                WHERE timestamp > now() - INTERVAL '20' MINUTE
+                GROUP BY t
+          - refId: B
+            relativeTimeRange:
+              from: 1200
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: last
+              expression: A
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 1200
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
