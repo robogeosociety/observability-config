@@ -1,27 +1,24 @@
 apiVersion: 1
 
 # Collector freshness — page when a continuously-writing ingest stops landing
-# data in its bucket. Each rule counts points over the last 15m; an empty window
-# means the collector died (noDataState=Alerting). execErrState=OK so an InfluxDB
+# data in its bucket. Each rule measures SECONDS SINCE THE LAST WRITE (over a 30d
+# lookback) and fires when that exceeds 900s (15m). execErrState=OK so an InfluxDB
 # outage pages once via influxdb-availability, not once per collector.
 #
-# The count query MUST collapse to a single series — `count()` alone returns one
-# table PER series (27 for transit_tracker), which the reduce→threshold evaluator
-# reads as NoData and FALSE-fires. `|> group() |> sum() |> keep(["_value"])` folds
-# them into one scalar so a real stall (truly empty) is the only NoData. Each rule
-# also carries __dashboardUid__/__panelId__ so the alert embeds that bucket's
-# points/min graph (the `collector-freshness` dashboard).
+# Why age-of-last-write, not count-in-window: a bare `count()` returns one table
+# PER series, which the reduce→threshold evaluator misreads as NoData (false
+# fire); and "age" gives us the firing value we want — the downtime — which the
+# annotation humanizes ("no writes for 3h 12m, last point at …"). The 30d range
+# means even a long outage resolves a real value instead of going NoData.
 #
-# SCOPE — only collectors with a proven continuous cadence are covered, so the
-# rules never false-fire:
+# Each rule carries __dashboardUid__/__panelId__ so the alert embeds that bucket's
+# write-rate graph (the `collector-freshness` dashboard).
+#
+# SCOPE — only collectors with a proven continuous cadence are covered:
 #   transit_tracker (~5k pts/h), home_assistant (~9k/h), tempest_archive (~3k/h).
 # Deliberately EXCLUDED (freshness alerting would just fire on deploy):
-#   - mountain — RETIRED: pipeline migrated to Cloudflare Workers; bucket,
-#     datasource, dashboards, and ingest job removed. The drift-sentinel reads
-#     dashboards.index.yaml `source.status`, so a `migrated` pipeline is skipped.
-#   - campsites — now continuous (deadline-driven CollectorLoop), but its InfluxDB
-#     bucket is fed by a DAILY 07:30 ingest, so it gets its own daily-cadence rule
-#     (34h window) in campsite-collector-freshness.yml rather than a 15m one here.
+#   - mountain — RETIRED (pipeline migrated to Cloudflare Workers).
+#   - campsites — daily ingest, gets its own 34h-window rule (campsite-collector-freshness.yml).
 #   - zigbee_archive — event-driven (quiet by design).
 #   - claude_code — usage-driven (idle whenever Claude isn't running).
 #   - system / ops — covered by influxdb-availability / backup-stale.
@@ -34,7 +31,7 @@ groups:
       - uid: freshness-transit-tracker
         title: Collector stalled — transit_tracker (no writes in 15m)
         condition: C
-        for: 10m
+        for: 5m
         noDataState: Alerting
         execErrState: OK
         labels:
@@ -42,16 +39,22 @@ groups:
           component: collector
           collector: transit_tracker
         annotations:
-          # screenshot the matching points/min panel into the alert notification
+          # embed the matching write-rate panel as the alert screenshot
           __dashboardUid__: collector-freshness
           __panelId__: "1"
           summary: >-
             No new points in the transit_tracker bucket for 15+ minutes. The
             transit ingest (normally ~5k pts/h) has likely stalled.
+          description: >-
+            transit_tracker has had no writes for {{ humanizeDuration $values.B.Value }}
+            (last point at {{ humanizeTimestamp $values.E.Value }}). The
+            transit ingest (normally ~5k pts/h) has stalled.
         data:
+          # A: seconds since the bucket's most recent write (30d lookback so a long
+          # outage resolves a real value, not NoData — the firing value IS the downtime).
           - refId: A
             relativeTimeRange:
-              from: 900
+              from: 2592000
               to: 0
             datasourceUid: transit_tracker
             model:
@@ -62,13 +65,14 @@ groups:
               query: |
                 from(bucket: "transit_tracker")
                   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-                  |> count()
+                  |> keep(columns: ["_time"])
+                  |> map(fn: (r) => ({ _value: float(v: uint(v: r._time)) }))
                   |> group()
-                  |> sum()
-                  |> keep(columns: ["_value"])
+                  |> max()
+                  |> map(fn: (r) => ({ _value: (float(v: uint(v: now())) - r._value) / 1000000000.0 }))
           - refId: B
             relativeTimeRange:
-              from: 900
+              from: 2592000
               to: 0
             datasourceUid: __expr__
             model:
@@ -79,9 +83,10 @@ groups:
               datasource:
                 type: __expr__
                 uid: __expr__
+          # C: fire when age > 900s (no writes for 15m).
           - refId: C
             relativeTimeRange:
-              from: 900
+              from: 2592000
               to: 0
             datasourceUid: __expr__
             model:
@@ -93,14 +98,46 @@ groups:
                 uid: __expr__
               conditions:
                 - evaluator:
-                    type: lt
+                    type: gt
                     params:
-                      - 1
+                      - 900
+          # D/E: last-write timestamp (epoch seconds) → humanizeTimestamp in the annotation.
+          - refId: D
+            relativeTimeRange:
+              from: 2592000
+              to: 0
+            datasourceUid: transit_tracker
+            model:
+              refId: D
+              datasource:
+                type: influxdb
+                uid: transit_tracker
+              query: |
+                from(bucket: "transit_tracker")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> keep(columns: ["_time"])
+                  |> map(fn: (r) => ({ _value: float(v: uint(v: r._time)) }))
+                  |> group()
+                  |> max()
+                  |> map(fn: (r) => ({ _value: r._value / 1000000000.0 }))
+          - refId: E
+            relativeTimeRange:
+              from: 2592000
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: E
+              type: reduce
+              reducer: last
+              expression: D
+              datasource:
+                type: __expr__
+                uid: __expr__
 
       - uid: freshness-home-assistant
         title: Collector stalled — home_assistant (no writes in 15m)
         condition: C
-        for: 10m
+        for: 5m
         noDataState: Alerting
         execErrState: OK
         labels:
@@ -108,15 +145,22 @@ groups:
           component: collector
           collector: home_assistant
         annotations:
+          # embed the matching write-rate panel as the alert screenshot
           __dashboardUid__: collector-freshness
           __panelId__: "2"
           summary: >-
-            No new points in the home_assistant bucket for 15+ minutes. The HA
-            → InfluxDB feed (normally ~9k pts/h) has likely stalled.
+            No new points in the home_assistant bucket for 15+ minutes. The
+            HA → InfluxDB feed (normally ~9k pts/h) has likely stalled.
+          description: >-
+            home_assistant has had no writes for {{ humanizeDuration $values.B.Value }}
+            (last point at {{ humanizeTimestamp $values.E.Value }}). The
+            HA → InfluxDB feed (normally ~9k pts/h) has stalled.
         data:
+          # A: seconds since the bucket's most recent write (30d lookback so a long
+          # outage resolves a real value, not NoData — the firing value IS the downtime).
           - refId: A
             relativeTimeRange:
-              from: 900
+              from: 2592000
               to: 0
             datasourceUid: home_assistant
             model:
@@ -127,13 +171,14 @@ groups:
               query: |
                 from(bucket: "home_assistant")
                   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-                  |> count()
+                  |> keep(columns: ["_time"])
+                  |> map(fn: (r) => ({ _value: float(v: uint(v: r._time)) }))
                   |> group()
-                  |> sum()
-                  |> keep(columns: ["_value"])
+                  |> max()
+                  |> map(fn: (r) => ({ _value: (float(v: uint(v: now())) - r._value) / 1000000000.0 }))
           - refId: B
             relativeTimeRange:
-              from: 900
+              from: 2592000
               to: 0
             datasourceUid: __expr__
             model:
@@ -144,9 +189,10 @@ groups:
               datasource:
                 type: __expr__
                 uid: __expr__
+          # C: fire when age > 900s (no writes for 15m).
           - refId: C
             relativeTimeRange:
-              from: 900
+              from: 2592000
               to: 0
             datasourceUid: __expr__
             model:
@@ -158,14 +204,46 @@ groups:
                 uid: __expr__
               conditions:
                 - evaluator:
-                    type: lt
+                    type: gt
                     params:
-                      - 1
+                      - 900
+          # D/E: last-write timestamp (epoch seconds) → humanizeTimestamp in the annotation.
+          - refId: D
+            relativeTimeRange:
+              from: 2592000
+              to: 0
+            datasourceUid: home_assistant
+            model:
+              refId: D
+              datasource:
+                type: influxdb
+                uid: home_assistant
+              query: |
+                from(bucket: "home_assistant")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> keep(columns: ["_time"])
+                  |> map(fn: (r) => ({ _value: float(v: uint(v: r._time)) }))
+                  |> group()
+                  |> max()
+                  |> map(fn: (r) => ({ _value: r._value / 1000000000.0 }))
+          - refId: E
+            relativeTimeRange:
+              from: 2592000
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: E
+              type: reduce
+              reducer: last
+              expression: D
+              datasource:
+                type: __expr__
+                uid: __expr__
 
       - uid: freshness-tempest
         title: Collector stalled — tempest_archive (no writes in 15m)
         condition: C
-        for: 10m
+        for: 5m
         noDataState: Alerting
         execErrState: OK
         labels:
@@ -173,15 +251,22 @@ groups:
           component: collector
           collector: tempest_archive
         annotations:
+          # embed the matching write-rate panel as the alert screenshot
           __dashboardUid__: collector-freshness
           __panelId__: "3"
           summary: >-
             No new points in the tempest_archive bucket for 15+ minutes. The
             Tempest weather ingest (normally ~3k pts/h) has likely stalled.
+          description: >-
+            tempest_archive has had no writes for {{ humanizeDuration $values.B.Value }}
+            (last point at {{ humanizeTimestamp $values.E.Value }}). The
+            Tempest weather ingest (normally ~3k pts/h) has stalled.
         data:
+          # A: seconds since the bucket's most recent write (30d lookback so a long
+          # outage resolves a real value, not NoData — the firing value IS the downtime).
           - refId: A
             relativeTimeRange:
-              from: 900
+              from: 2592000
               to: 0
             datasourceUid: tempest_archive
             model:
@@ -192,13 +277,14 @@ groups:
               query: |
                 from(bucket: "tempest_archive")
                   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-                  |> count()
+                  |> keep(columns: ["_time"])
+                  |> map(fn: (r) => ({ _value: float(v: uint(v: r._time)) }))
                   |> group()
-                  |> sum()
-                  |> keep(columns: ["_value"])
+                  |> max()
+                  |> map(fn: (r) => ({ _value: (float(v: uint(v: now())) - r._value) / 1000000000.0 }))
           - refId: B
             relativeTimeRange:
-              from: 900
+              from: 2592000
               to: 0
             datasourceUid: __expr__
             model:
@@ -209,9 +295,10 @@ groups:
               datasource:
                 type: __expr__
                 uid: __expr__
+          # C: fire when age > 900s (no writes for 15m).
           - refId: C
             relativeTimeRange:
-              from: 900
+              from: 2592000
               to: 0
             datasourceUid: __expr__
             model:
@@ -223,6 +310,38 @@ groups:
                 uid: __expr__
               conditions:
                 - evaluator:
-                    type: lt
+                    type: gt
                     params:
-                      - 1
+                      - 900
+          # D/E: last-write timestamp (epoch seconds) → humanizeTimestamp in the annotation.
+          - refId: D
+            relativeTimeRange:
+              from: 2592000
+              to: 0
+            datasourceUid: tempest_archive
+            model:
+              refId: D
+              datasource:
+                type: influxdb
+                uid: tempest_archive
+              query: |
+                from(bucket: "tempest_archive")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> keep(columns: ["_time"])
+                  |> map(fn: (r) => ({ _value: float(v: uint(v: r._time)) }))
+                  |> group()
+                  |> max()
+                  |> map(fn: (r) => ({ _value: r._value / 1000000000.0 }))
+          - refId: E
+            relativeTimeRange:
+              from: 2592000
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: E
+              type: reduce
+              reducer: last
+              expression: D
+              datasource:
+                type: __expr__
+                uid: __expr__
