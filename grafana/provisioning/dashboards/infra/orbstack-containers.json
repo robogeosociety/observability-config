@@ -7,7 +7,17 @@
   "graphTooltip": 1,
   "id": null,
   "links": [
-    { "title": "Mac System", "type": "dashboards", "tags": ["mac", "system"], "asDropdown": true, "includeVars": false, "keepTime": true }
+    {
+      "title": "Mac System",
+      "type": "dashboards",
+      "tags": [
+        "mac",
+        "system"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
+    }
   ],
   "liveNow": false,
   "templating": {
@@ -19,7 +29,12 @@
       "type": "row",
       "title": "OrbStack engine",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
       "panels": []
     },
     {
@@ -27,17 +42,34 @@
       "type": "stat",
       "title": "Running containers",
       "description": "Containers currently running, per the OrbStack Docker engine.",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 5 },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"docker\" and r._field == \"n_containers_running\")\n  |> last()"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "green" } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
         "overrides": []
       },
       "options": {
@@ -45,7 +77,13 @@
         "graphMode": "area",
         "justifyMode": "center",
         "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
@@ -53,17 +91,34 @@
       "type": "stat",
       "title": "Total containers",
       "description": "All containers (running + stopped/exited).",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 5 },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"docker\" and r._field == \"n_containers\")\n  |> last()"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
         "overrides": []
       },
       "options": {
@@ -71,25 +126,48 @@
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 3,
       "type": "stat",
       "title": "Images",
-      "description": "Local images in the OrbStack engine. Watch for creep — a weekly prune LaunchAgent trims unused ones.",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 5 },
+      "description": "Local images in the OrbStack engine. Watch for creep \u2014 a weekly prune LaunchAgent trims unused ones.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"docker\" and r._field == \"n_images\")\n  |> last()"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "purple" } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
         "overrides": []
       },
       "options": {
@@ -97,25 +175,48 @@
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 4,
       "type": "stat",
       "title": "VM memory limit",
-      "description": "Total memory the OrbStack Linux VM exposes to the engine (the VM cap — 4 GiB on this 8 GB Mac mini).",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 5 },
+      "description": "Total memory the OrbStack Linux VM exposes to the engine (the VM cap \u2014 4 GiB on this 8 GB Mac mini).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"docker\" and r._field == \"memory_total\")\n  |> last()"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "bytes", "color": { "mode": "fixed", "fixedColor": "text" } },
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
         "overrides": []
       },
       "options": {
@@ -123,7 +224,13 @@
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
@@ -131,20 +238,78 @@
       "type": "row",
       "title": "CPU & memory (per container)",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 1 },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      },
       "panels": []
+    },
+    {
+      "id": 15,
+      "type": "volkovlabs-echarts-panel",
+      "title": "Memory map \u2014 container usage (btop-style)",
+      "description": "Each tile is a container; area \u221d memory used, colour = % of its mem_limit (green \u2192 red). A red tile is near its cap and at OOM risk \u2014 exactly what the OOM alert fires on.",
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "format": "table",
+          "query": "from(bucket: \"system\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"docker_container_mem\" and (r._field == \"usage\" or r._field == \"usage_percent\" or r._field == \"limit\"))\n  |> last()\n  |> pivot(rowKey: [\"container_name\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ container_name: r.container_name, usage_mb: float(v: r.usage) / 1048576.0, pct: r.usage_percent, limit_mb: float(v: r.limit) / 1048576.0 }))\n  |> filter(fn: (r) => exists r.usage_mb)\n  |> keep(columns: [\"container_name\", \"usage_mb\", \"pct\", \"limit_mb\"])\n  |> group()\n  |> sort(columns: [\"usage_mb\"], desc: true)"
+        }
+      ],
+      "options": {
+        "getOption": "const { panel } = context;\nconst s = panel && panel.data && panel.data.series && panel.data.series[0];\nif (!s) { return { series: [] }; }\nconst col = (n) => { const f = s.fields.find((x) => x.name === n); if (!f) return []; const v = f.values; return v && v.toArray ? v.toArray() : (v || []); };\nconst names = col('container_name'), usage = col('usage_mb'), pct = col('pct'), limit = col('limit_mb');\nconst num = (x) => (typeof x === 'number' && isFinite(x)) ? x : 0;\nconst heat = (p) => p < 50 ? '#2f6f3e' : p < 75 ? '#7a8b1f' : p < 90 ? '#cf7b1b' : '#c0392b';\nconst fmtMem = (m) => { m = num(m); return m >= 1024 ? (m / 1024).toFixed(1) + 'G' : m.toFixed(0) + 'M'; };\nconst items = names.map((n, i) => ({ name: n, value: Math.max(0.1, num(usage[i])), itemStyle: { color: heat(num(pct[i])) } }));\nreturn {\n  backgroundColor: 'transparent',\n  tooltip: { formatter: (p) => { const i = names.indexOf(p.name); return `<b>${p.name}</b><br/>Mem: ${fmtMem(usage[i])} / ${fmtMem(limit[i])}<br/>${num(pct[i]).toFixed(1)}% of limit`; } },\n  series: [{\n    type: 'treemap', roam: false, nodeClick: false, breadcrumb: { show: false },\n    top: 2, left: 2, right: 2, bottom: 2, width: 'auto', height: 'auto',\n    itemStyle: { borderColor: '#0b0c0e', borderWidth: 1, gapWidth: 1 },\n    label: { show: true, overflow: 'truncate', color: '#eaeaea', fontSize: 11,\n      formatter: (p) => { const i = names.indexOf(p.name); return `${p.name}\\n${fmtMem(usage[i])} \u00b7 ${num(pct[i]).toFixed(0)}%`; } },\n    data: items,\n  }],\n};",
+        "renderer": "canvas",
+        "theme": "dark",
+        "followTheme": true,
+        "resetOptions": false,
+        "editor": {
+          "height": 600,
+          "format": "auto"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
     },
     {
       "id": 10,
       "type": "timeseries",
       "title": "CPU usage % per container",
       "description": "docker stats-style CPU percent (relative to total VM CPU; can exceed 100% across cores). Each container is capped at 2 vCPU (50% of the 4-core VM).",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 8 },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"docker_container_cpu\" and r._field == \"usage_percent\")\n  |> group(columns: [\"container_name\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"container_name\"])"
         }
       ],
@@ -160,13 +325,27 @@
             "showPoints": "auto",
             "spanNulls": true
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": ["last", "mean", "max"] }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        }
       }
     },
     {
@@ -174,12 +353,23 @@
       "type": "timeseries",
       "title": "Memory usage per container",
       "description": "Resident memory per container (docker_container_mem.usage).",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 12, "y": 7, "w": 12, "h": 8 },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"docker_container_mem\" and r._field == \"usage\")\n  |> group(columns: [\"container_name\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"container_name\"])"
         }
       ],
@@ -195,26 +385,51 @@
             "showPoints": "auto",
             "spanNulls": true
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": ["last", "mean", "max"] }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        }
       }
     },
     {
       "id": 12,
       "type": "timeseries",
       "title": "Memory % of limit per container",
-      "description": "Container memory as a percent of its mem_limit (2048 MiB cap). Yellow ≥80%, red ≥95% — sustained red means it will soon be OOM-killed by Docker (the intended blast-radius cap, not a VM-wide thrash).",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 8 },
+      "description": "Container memory as a percent of its mem_limit (2048 MiB cap). Yellow \u226580%, red \u226595% \u2014 sustained red means it will soon be OOM-killed by Docker (the intended blast-radius cap, not a VM-wide thrash).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"docker_container_mem\" and r._field == \"usage_percent\")\n  |> group(columns: [\"container_name\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"container_name\"])"
         }
       ],
@@ -230,16 +445,47 @@
             "fillOpacity": 10,
             "showPoints": "auto",
             "spanNulls": true,
-            "thresholdsStyle": { "mode": "dashed" }
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
           },
-          "color": { "mode": "palette-classic" },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 95 } ] }
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        }
       }
     },
     {
@@ -247,12 +493,23 @@
       "type": "timeseries",
       "title": "Network I/O per container",
       "description": "Per-container network throughput (rate of rx/tx bytes, total across interfaces).",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 12, "y": 15, "w": 12, "h": 8 },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"docker_container_net\" and (r._field == \"rx_bytes\" or r._field == \"tx_bytes\"))\n  |> filter(fn: (r) => r.network == \"total\")\n  |> group(columns: [\"container_name\", \"_field\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> keep(columns: [\"_time\", \"_value\", \"container_name\", \"_field\"])"
         }
       ],
@@ -268,13 +525,23 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
       }
     },
     {
@@ -282,7 +549,12 @@
       "type": "row",
       "title": "Disk I/O & health",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 1 },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 24,
+        "h": 1
+      },
       "panels": []
     },
     {
@@ -290,12 +562,23 @@
       "type": "timeseries",
       "title": "Block I/O per container",
       "description": "Per-container disk read/write throughput (rate of blkio bytes, total device). Heavy sustained I/O here is the class of activity that hung the VM on 2026-05-31.",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 7 },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 7
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"docker_container_blkio\" and (r._field == \"io_service_bytes_recursive_read\" or r._field == \"io_service_bytes_recursive_write\"))\n  |> filter(fn: (r) => r.device == \"total\")\n  |> group(columns: [\"container_name\", \"_field\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> keep(columns: [\"_time\", \"_value\", \"container_name\", \"_field\"])"
         }
       ],
@@ -311,13 +594,23 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
       }
     },
     {
@@ -325,44 +618,193 @@
       "type": "table",
       "title": "Container status",
       "description": "Latest state per container: status, restart count, last exit code, OOM-killed flag, and uptime. Non-zero restart counts / exit codes flag the kind of crash loop seen with transit-tracker.",
-      "datasource": { "type": "influxdb", "uid": "system" },
-      "gridPos": { "x": 0, "y": 31, "w": 24, "h": 9 },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 9
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "system" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
           "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"docker_container_status\")\n  |> filter(fn: (r) => r._field == \"restart_count\" or r._field == \"exitcode\" or r._field == \"oomkilled\" or r._field == \"uptime_ns\")\n  |> last()\n  |> pivot(rowKey: [\"container_name\", \"container_status\", \"container_image\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"container_name\", \"container_status\", \"container_image\", \"restart_count\", \"exitcode\", \"oomkilled\", \"uptime_ns\"])\n  |> sort(columns: [\"container_name\"])"
         }
       ],
       "transformations": [
-        { "id": "organize", "options": { "indexByName": { "container_name": 0, "container_status": 1, "uptime_ns": 2, "restart_count": 3, "exitcode": 4, "oomkilled": 5, "container_image": 6 } } }
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "container_name": 0,
+              "container_status": 1,
+              "uptime_ns": 2,
+              "restart_count": 3,
+              "exitcode": 4,
+              "oomkilled": 5,
+              "container_image": 6
+            }
+          }
+        }
       ],
       "fieldConfig": {
-        "defaults": { "custom": { "align": "auto", "filterable": true } },
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "container_name" }, "properties": [ { "id": "displayName", "value": "Container" }, { "id": "custom.width", "value": 200 } ] },
-          { "matcher": { "id": "byName", "options": "container_status" }, "properties": [ { "id": "displayName", "value": "Status" } ] },
-          { "matcher": { "id": "byName", "options": "uptime_ns" }, "properties": [ { "id": "displayName", "value": "Uptime" }, { "id": "unit", "value": "ns" } ] },
-          { "matcher": { "id": "byName", "options": "restart_count" }, "properties": [ { "id": "displayName", "value": "Restarts" }, { "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } ] },
-          { "matcher": { "id": "byName", "options": "exitcode" }, "properties": [ { "id": "displayName", "value": "Last exit" } ] },
-          { "matcher": { "id": "byName", "options": "oomkilled" }, "properties": [ { "id": "displayName", "value": "OOM-killed" } ] },
-          { "matcher": { "id": "byName", "options": "container_image" }, "properties": [ { "id": "displayName", "value": "Image" } ] }
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "container_name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Container"
+              },
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "container_status"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Status"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "uptime_ns"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Uptime"
+              },
+              {
+                "id": "unit",
+                "value": "ns"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "restart_count"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Restarts"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "exitcode"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Last exit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "oomkilled"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "OOM-killed"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "container_image"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Image"
+              }
+            ]
+          }
         ]
       },
       "options": {
         "showHeader": true,
-        "sortBy": [ { "displayName": "Restarts", "desc": true } ]
+        "sortBy": [
+          {
+            "displayName": "Restarts",
+            "desc": true
+          }
+        ]
       }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["orbstack", "docker", "containers", "infrastructure"],
-  "time": { "from": "now-6h", "to": "now" },
+  "tags": [
+    "orbstack",
+    "docker",
+    "containers",
+    "infrastructure"
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
-  "title": "OrbStack — Container Monitoring",
+  "title": "OrbStack \u2014 Container Monitoring",
   "uid": "orbstack-containers",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

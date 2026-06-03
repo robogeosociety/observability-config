@@ -72,8 +72,12 @@ Discord contact point:
   heartbeat in the `ops` bucket for 26h (`noDataState=Alerting`).
 - **Disk filling** (`disk-space.yml`) — `system` disk `used_percent` for
   `/Volumes/dev` over 85%.
-- **Container OOM-killed** (`container-oom.yml`) — telegraf `docker_container_status`
-  `oomkilled==true` (the runaway-container failure mode the mem_limits bound).
+- **Container health** (`container-health.yml`) — three per-container rules off the
+  telegraf docker input (each names the container): **OOM-killed**
+  (`docker_container_status.oomkilled==true`, reports the mem_limit breached + peak
+  usage), **memory near limit** (`docker_container_mem.usage_percent` >90% for 15m —
+  the runaway *before* the kill), and **restart loop** (`restart_count` climbed >2
+  in 15m).
 - **Collector freshness** (`collector-freshness.yml`) — per-bucket "no writes in
   15m" for the continuously-writing collectors (`transit_tracker`,
   `home_assistant`, `tempest_archive`). Scoped to proven-continuous buckets only;
