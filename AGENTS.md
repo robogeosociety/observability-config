@@ -77,25 +77,31 @@ value, an unsupported datasource function. We catch that class in layers; when y
 add or change a dashboard, your change is verified against them (the first layer
 gates CI):
 
-1. **Static guards — hermetic, run in CI** (`grafana/tests/test_dashboards_static.py`
-   for every dashboard; `test_campsites_dashboards_static.py` for the nodata class).
-   The campsites guards: time-axis (`timeseries`/`trend`) panels must follow the
-   time picker (ClickHouse `$timeFilter`/`$timeSeries`, Flux `v.timeRangeStart`)
-   and never hardcode their own window; ClickHouse targets using the time macros
-   must declare `dateTimeColDataType`; a single-value query variable feeding an
-   `== "${var}"` filter must be data-scoped (so it can't default to a dataless edge
-   value). These are **parametrized over the dashboard dir glob**, so a *new*
-   `campsites/` dashboard is covered automatically — no test edit needed.
-2. **Integration — live stack, maintainer-run** (`test_campsites_integration.py`,
-   marked `integration`, self-skips if the stack is down). Resolves each
-   dashboard's variables to Grafana's defaults, interpolates, and runs every panel
-   over the default range **and** `now-24h`, failing any that returns No data. It's
-   **health-aware**: a query error on a *healthy* datasource is a failure (catches
-   unsupported SQL like AE's missing `uniqExactIf`/`uniq`), not a skip.
-3. **Visual — local Playwright** (`grafana/playwright/campsites-visual.spec.ts`).
-   Renders each panel (canvas mounted + no "No data"), with loose committed
-   baselines over a relative `now-7d` window. For ad-hoc spot-checks, the Grafana
-   MCP `get_panel_image` renders a single panel to PNG (the renderer sidecar).
+1. **Static guards — hermetic, run in CI** (`grafana/tests/test_dashboards_static.py`,
+   the nodata guards repo-wide as of #67). Time-axis (`timeseries`/`trend`) panels
+   must follow the time picker (ClickHouse `$timeFilter`/`$timeSeries`, Flux
+   `v.timeRangeStart`) and never hardcode their own window; ClickHouse targets using
+   the time macros must declare `dateTimeColDataType`; a single-value query variable
+   feeding an `== "${var}"` filter must be data-scoped (so it can't default to a
+   dataless edge value). **Parametrized over the dashboard dir glob**, so *any* new
+   dashboard is covered automatically — no test edit needed. A legitimately
+   fixed-window time-axis panel goes in the `TIME_AXIS_EXCEPTIONS` allowlist; encode
+   the exception, don't weaken the rule.
+2. **Integration — live stack, maintainer-run** (`test_dashboards_integration.py`,
+   repo-wide as of #67; marked `integration`, self-skips if the stack is down).
+   Resolves each dashboard's variables to Grafana's defaults, interpolates, and runs
+   every panel over the default range **and** `now-24h`, failing any that returns No
+   data. It's **health-aware**: a query error on a *healthy* datasource is a failure
+   (catches unsupported SQL like AE's missing `uniqExactIf`/`uniq`, or a Flux type
+   conflict), not a skip. A legitimately-empty panel (event-driven, weather, not-yet-
+   configured) goes in `tests/dashboard_coverage.yaml`, keyed by dashboard uid —
+   no entry ⇒ strict. `allow_empty` excuses an *empty* result only; a real query
+   error still fails.
+3. **Visual — local Playwright** (`grafana/playwright/{campsites,dashboards}-visual.spec.ts`).
+   Renders each panel (canvas mounted + no "No data"), loose committed baselines over
+   a relative window. Driven by a `PANELS` manifest — cover a new dashboard by adding
+   rows. For ad-hoc spot-checks, the Grafana MCP `get_panel_image` renders a single
+   panel to PNG (the renderer sidecar).
 
 Preferred order when something looks empty: **data layer first** (run the pytest
 tiers / `/api/ds/query`), then **canvas layer** (visual baseline or

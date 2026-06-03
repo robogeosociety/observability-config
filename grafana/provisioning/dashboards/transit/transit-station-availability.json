@@ -1,0 +1,524 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Stations reporting (window)",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> keep(columns: [\"stop_id\"])\n  |> group()\n  |> distinct(column: \"stop_id\")\n  |> count()"
+        }
+      ],
+      "description": "Distinct stop_ids that produced any prediction in the window.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Predictions (window)",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> count()\n  |> group()\n  |> sum()"
+        }
+      ],
+      "description": "Total prediction points broadcast across all stations in the window.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Realtime coverage % (all stations)",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group()\n  |> reduce(identity: {live: 0, total: 0}, fn: (r, accumulator) => ({\n       live: accumulator.live + (if r.is_realtime == \"true\" then 1 else 0),\n       total: accumulator.total + 1 }))\n  |> map(fn: (r) => ({ _time: now(), _value: if r.total > 0 then float(v: r.live) / float(v: r.total) * 100.0 else 0.0 }))"
+        }
+      ],
+      "description": "live / (live + scheduled) across every station. A sustained dip = an upstream OBA realtime gap.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "green",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Predictions per station / interval",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group(columns: [\"stop_id\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: count, createEmpty: false)"
+        }
+      ],
+      "description": "Per-station prediction volume over time. A station whose line goes flat/zero has stopped reporting.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Live vs scheduled per station / interval",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group(columns: [\"stop_id\", \"is_realtime\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({ r with is_realtime: if r.is_realtime == \"true\" then \"live\" else \"scheduled\" }))"
+        }
+      ],
+      "description": "Each station split by the is_realtime tag. A growing 'scheduled' share = realtime coverage falling back to GTFS schedule.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Per-station availability",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 14,
+        "h": 10
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group(columns: [\"stop_id\", \"route_name\", \"is_realtime\"])\n  |> count()\n  |> group()\n  |> pivot(rowKey: [\"stop_id\", \"route_name\"], columnKey: [\"is_realtime\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with live: if exists r.true then r.true else 0, scheduled: if exists r.false then r.false else 0 }))\n  |> map(fn: (r) => ({ r with total: r.live + r.scheduled, coverage_pct: if (r.live + r.scheduled) > 0 then float(v: r.live) / float(v: r.live + r.scheduled) * 100.0 else 0.0 }))\n  |> keep(columns: [\"stop_id\", \"route_name\", \"total\", \"live\", \"scheduled\", \"coverage_pct\"])\n  |> sort(columns: [\"total\"], desc: true)"
+        }
+      ],
+      "description": "Per stop_id: total / live / scheduled prediction counts and realtime coverage % over the window.",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "stop_id": 0,
+              "route_name": 1,
+              "total": 2,
+              "live": 3,
+              "scheduled": 4,
+              "coverage_pct": 5
+            },
+            "renameByName": {
+              "stop_id": "Stop",
+              "route_name": "Route",
+              "total": "Total",
+              "live": "Live",
+              "scheduled": "Scheduled",
+              "coverage_pct": "Coverage %"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coverage %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 60
+                    },
+                    {
+                      "color": "green",
+                      "value": 85
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Total",
+            "desc": true
+          }
+        ],
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Last prediction per station (freshness)",
+      "gridPos": {
+        "x": 14,
+        "y": 14,
+        "w": 10,
+        "h": 10
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "transit_tracker"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "transit_tracker"
+          },
+          "query": "from(bucket: \"transit_tracker\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"trip_prediction\" and r._field == \"arrival_time_s\")\n  |> group(columns: [\"stop_id\", \"route_name\"])\n  |> last()\n  |> keep(columns: [\"stop_id\", \"route_name\", \"_time\"])\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)"
+        }
+      ],
+      "description": "Newest prediction timestamp per station \u2014 the freshness check. A stale _time means that stop went quiet.",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "_time": 0,
+              "stop_id": 1,
+              "route_name": 2
+            },
+            "renameByName": {
+              "_time": "Last seen",
+              "stop_id": "Stop",
+              "route_name": "Route"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last seen"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Last seen",
+            "desc": true
+          }
+        ],
+        "cellHeight": "sm"
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "transit_tracker",
+    "transit",
+    "availability"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Transit \u2014 Station Data Availability",
+  "uid": "transit-station-availability",
+  "version": 1,
+  "weekStart": ""
+}
