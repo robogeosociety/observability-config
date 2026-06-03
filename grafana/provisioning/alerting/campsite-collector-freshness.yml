@@ -58,6 +58,9 @@ groups:
                   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
                   |> filter(fn: (r) => r._measurement == "availability" and r._field == "available")
                   |> count()
+                  |> group()
+                  |> sum()
+                  |> keep(columns: ["_value"])
           - refId: B
             relativeTimeRange:
               from: 122400

@@ -24,4 +24,13 @@ contactPoints:
         settings:
           url: $__env{DISCORD_WEBHOOK_URL}
           use_discord_username: false
+          # Clean embed instead of Grafana's default label/annotation/silence dump.
+          # Firing/resolved is conveyed by the embed colour (red/green); avoid emoji
+          # in these templates — Grafana's settings validation rejects 4-byte emoji.
+          title: '{{ if eq .Status "firing" }}FIRING{{ else }}RESOLVED{{ end }} · {{ if .CommonLabels.alertname }}{{ .CommonLabels.alertname }}{{ else }}{{ len .Alerts }} alert(s){{ end }}'
+          message: |
+            {{ range .Alerts }}**{{ .Labels.alertname }}**
+            {{ .Annotations.summary }}
+            {{ if .PanelURL }}[graph]({{ .PanelURL }}) · {{ end }}{{ if .DashboardURL }}[dashboard]({{ .DashboardURL }}) · {{ end }}[silence]({{ .SilenceURL }})
+            {{ end }}
         disableResolveMessage: false

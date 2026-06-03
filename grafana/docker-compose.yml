@@ -49,6 +49,11 @@ services:
       # renderer, which loads panels back from Grafana via the callback URL.
       GF_RENDERING_SERVER_URL: "http://renderer:8081/render"
       GF_RENDERING_CALLBACK_URL: "http://grafana:3000/"
+      # Embed a panel screenshot in alert notifications: rules carry
+      # __dashboardUid__/__panelId__ annotations, Grafana renders that panel via
+      # the renderer above and attaches the PNG to the Discord embed (the
+      # "offending graph"). Needs the renderer (present) + a container recreate.
+      GF_UNIFIED_ALERTING_SCREENSHOTS_CAPTURE: "true"
       # Discord contact point for the stack-availability alert (provisioning/
       # alerting/). Expanded into contactpoints.yml via $__env{} at provisioning
       # time so the channel webhook URL never lives in a committed file.
