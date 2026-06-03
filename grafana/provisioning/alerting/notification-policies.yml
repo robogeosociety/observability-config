@@ -1,8 +1,7 @@
 apiVersion: 1
 
-# Root notification policy. This is a single-user homelab with one alerting
-# concern (stack availability), so the root route sends everything to one place.
-# Add nested `routes:` here later if other alerts need different channels.
+# Root notification policy. This is a single-user homelab; the root route sends
+# everything to Discord. A nested route backs off the noisy class.
 #
 # NOTE: provisioning the root policy makes it read-only in the Grafana UI — the
 # same store-as-code stance as dashboards (provider.yml `allowUiUpdates: false`).
@@ -17,3 +16,17 @@ policies:
     group_wait: 30s
     group_interval: 5m
     repeat_interval: 4h
+    routes:
+      # Collector-stalled alerts (component=collector) are usually a *known*,
+      # multi-hour/day outage once you've seen the first page. Back the
+      # re-notification off to 24h so a sustained stall reminds daily, not every
+      # 4h. (Grafana has no native exponential backoff — this is a fixed longer
+      # interval; true exponential would need an external notifier.)
+      - receiver: discord
+        matchers:
+          - component = collector
+        group_by:
+          - alertname
+        group_wait: 30s
+        group_interval: 10m
+        repeat_interval: 24h
