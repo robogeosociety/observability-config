@@ -21,6 +21,12 @@
 campsite-availability:
   allow_empty_panels: [failing]              # "failing sites" empty == good news
 
+# Freshness viz: a panel is empty *precisely when* its collector has stalled —
+# that's the condition this dashboard exists to show (home_assistant is stalled
+# right now). Don't fail the nodata suite on it.
+collector-freshness:
+  allow_empty_panels: ["*"]
+
 # Event-driven — these are quiet between trips / when the API is healthy.
 transit-tracker-basic:
   allow_empty_panels: ["api errors", "api call", "next →"]
