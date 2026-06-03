@@ -8,10 +8,12 @@ apiVersion: 1
 # wrong with the collector as a whole (bad deploy, expired UA/headers, an
 # upstream booking system down, IP blocked) — not one campground.
 #
-# Metric: failed / (ok + failed) over a rolling 6h window, from the
+# Metric: failed / (ok + failed) over a rolling 2h window, from the
 # `campsite_collector` Analytics Engine dataset via the `campsites_ae` ClickHouse
-# datasource (backend+alerting capable — verified against /api/ds/query). The 6h
-# window smooths transient blips; `for: 15m` requires it to persist. Fires >25%.
+# datasource (backend+alerting capable — verified against /api/ds/query). The 2h
+# window smooths transient blips while staying responsive (the ~3/hr healthy
+# collection rate means a longer window drains slowly); `for: 15m` requires it to
+# persist. Fires >25%.
 #
 # noDataState=OK: an empty window (no collections at all) means the collector is
 # idle/dead — that's the freshness alert's job (campsite-collector-freshness),
@@ -24,7 +26,7 @@ groups:
     interval: 5m
     rules:
       - uid: campsite-collector-failure-ratio
-        title: Campsite collector failure ratio is high (>25% of attempts in 6h)
+        title: Campsite collector failure ratio is high (>25% of attempts in 2h)
         condition: C
         for: 15m
         noDataState: OK
@@ -35,7 +37,7 @@ groups:
           collector: campsites
         annotations:
           summary: >-
-            Over 25% of campsite collection attempts in the last 6h failed. A
+            Over 25% of campsite collection attempts in the last 2h failed. A
             single bad site can't cause this (it gets quarantined) — suspect a
             collector-wide problem: a bad deploy, stale request headers, a
             blocked Worker IP, or an upstream booking system (rec.gov / WA
@@ -48,7 +50,7 @@ groups:
         data:
           - refId: A
             relativeTimeRange:
-              from: 21600
+              from: 7200
               to: 0
             datasourceUid: campsites_ae
             model:
@@ -66,12 +68,12 @@ groups:
                 100 * SUMIf(_sample_interval, blob5 = 'failed') /
                 SUMIf(_sample_interval, blob5 IN ('ok', 'failed')) AS failure_pct
                 FROM campsite_collector
-                WHERE timestamp > now() - INTERVAL '6' HOUR
+                WHERE timestamp > now() - INTERVAL '2' HOUR
                 AND blob5 IN ('ok', 'failed')
                 GROUP BY t
           - refId: B
             relativeTimeRange:
-              from: 21600
+              from: 7200
               to: 0
             datasourceUid: __expr__
             model:
@@ -84,7 +86,7 @@ groups:
                 uid: __expr__
           - refId: C
             relativeTimeRange:
-              from: 21600
+              from: 7200
               to: 0
             datasourceUid: __expr__
             model:
