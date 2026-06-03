@@ -454,3 +454,33 @@ collector-freshness:
   todos:
     - Add a last-write-age stat row per bucket
     - Fold in campsites (daily cadence) once its 34h-window panel shape is settled
+
+alerts-anomalies:
+  title: Alerts & Anomalies
+  file: ops/alerts-anomalies.json
+  purpose: >-
+    One place for "what's wrong / what's weird": Grafana's built-in firing+pending
+    alert list (standard pattern), plus a window z-score anomaly view off the
+    ops.anomaly event stream the anomaly-detector writes — z-scores over time,
+    counts by metric, and a recent-anomalies table with the baseline each point
+    deviated from.
+  datasources: [influxdb]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [grafana/anomaly-detector/]
+    produces: { bucket: ops, via: launchd-collector }
+    cadence: 10m
+    status: active
+    monitor: skip
+    note: anomaly events are event-driven (none when healthy) — excluded from freshness/anomaly monitoring
+  intent: >-
+    Alerts use the standard built-in alertlist (free). Native anomaly detection is
+    a paid Grafana Cloud/ML feature, so anomalies are our own metric-math (window
+    z-score) written as an event stream — the telemetry that lets a scheduled
+    Claude pass analyse history + raw metrics and PR detection-config updates over
+    time (anomaly-detector/anomaly-detection.yaml is the store-as-code config).
+  todos:
+    - Add a verdict (true/false-positive) label per event as the tuning signal
+    - Hour-of-day baselines so the diurnal ramp isn't flagged
+    - Scheduled Claude pass that PRs anomaly-detection.yaml tweaks from the event history

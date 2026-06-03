@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tommy.anomaly-detector</string>
+    <!-- Runs the INTERNAL-disk copy (deploy.sh installs it) so launchd never
+         touches /Volumes — detector.py, anomaly-detection.yaml, .env, and the venv
+         all live under DEST. Absolute uv path: launchd's minimal PATH wouldn't
+         find it otherwise. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/tommydoerr/.local/bin/uv</string>
+        <string>run</string>
+        <string>--directory</string>
+        <string>/Users/tommydoerr/.local/share/anomaly-detector</string>
+        <string>python</string>
+        <string>detector.py</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/tommydoerr/.local/bin</string>
+    </dict>
+    <key>StartInterval</key>
+    <integer>600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/tommydoerr/Library/Logs/anomaly-detector.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tommydoerr/Library/Logs/anomaly-detector.log</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

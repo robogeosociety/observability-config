@@ -58,3 +58,8 @@ backups:
 # Deploy events — empty when nothing deployed in the window.
 walksheds-uptime:
   allow_empty_panels: ["deploys"]
+
+# Anomaly events are sparse/event-driven — empty panels mean "no anomalies"
+# (healthy). The alertlist panel has no datasource query (skipped anyway).
+alerts-anomalies:
+  allow_empty_panels: ["*"]
