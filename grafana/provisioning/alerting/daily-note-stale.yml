@@ -1,0 +1,81 @@
+apiVersion: 1
+
+# "Daily note didn't run" — the morning daily-note pipeline emits a
+# daily_note,step=pipeline success=1 heartbeat once it has collected data and written
+# the note. If none lands in 26 hours, a daily run was missed (launchd not firing, repo
+# offline, uv/claude broken) — page it. 26h (not 24h) gives the 08:00 run slack for a
+# late wake/mount without flapping.
+#
+# success=1 means "the run completed and wrote a note"; per-section faults (e.g.
+# calendar TCC) are counted in failed_steps and do NOT suppress this heartbeat, so this
+# rule tracks "did the run happen", not "was every section perfect".
+#
+# noDataState=Alerting: an empty 26-hour window IS the alert. execErrState=OK: a broken
+# InfluxDB is covered by the influxdb-availability rule — don't double-page.
+groups:
+  - orgId: 1
+    name: daily-note
+    folder: Alerts
+    interval: 1h
+    rules:
+      - uid: daily-note-stale
+        title: Daily note pipeline missed its run (no success in 26h)
+        condition: C
+        for: 1h
+        noDataState: Alerting
+        execErrState: OK
+        labels:
+          severity: warning
+          component: daily-note
+        annotations:
+          summary: >-
+            No successful daily-note pipeline run (ops bucket,
+            daily_note step=pipeline) in the last 26 hours. This morning's run may have
+            been missed — check ~/git-repos/daily-note.log, the
+            com.tommydoerr.daily-note LaunchAgent, and Full Disk Access.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 93600
+              to: 0
+            datasourceUid: ops
+            model:
+              refId: A
+              datasource:
+                type: influxdb
+                uid: ops
+              query: |
+                from(bucket: "ops")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "daily_note" and r._field == "success" and r.step == "pipeline" and r._value == 1)
+                  |> count()
+          - refId: B
+            relativeTimeRange:
+              from: 93600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: last
+              expression: A
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 93600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
