@@ -384,3 +384,49 @@ obsidian-backups:
     - No `changed`-files field is emitted yet — the spec's "files changed per run" panel is dropped until it is
     - Alert when any vault's last-success age exceeds the backup interval
     - Size-trend thresholds per vault to catch silent truncation
+
+transit-alerts:
+  title: Transit — Service Alerts
+  file: transit/transit-alerts.json
+  purpose: >-
+    OBA service_alert visibility — active-alert count, alert-points by reason,
+    an over-time band and a per-alert active/clear state-timeline, and a table of
+    the latest summary + affected routes/stops, so disruptions (and why realtime
+    coverage dropped) are visible at a glance (Influx).
+  datasources: [influxdb]
+  source:
+    produces: { bucket: transit_tracker, via: external-service }
+    cadence: 1m
+    status: external
+    note: transit-tracker writes a service_alert point per active alert each poll (transit-tracker-tui PR #67)
+  intent: >-
+    The disruption lens that pairs with transit-tracker-monitor's realtime-coverage
+    row — when a coverage dip appears there, this dashboard shows the alert (e.g. a
+    2 Line shuttle closure) that caused it. Alerts are event-driven, so panels are
+    legitimately empty on a quiet day (allow-empty in dashboard_coverage.yaml).
+  todos:
+    - Overlay service_alert periods as annotations on the trips graph (issue #23 item 3)
+    - Alert when a high-severity service_alert stays active beyond a threshold
+
+transit-station-availability:
+  title: Transit — Station Data Availability
+  file: transit/transit-station-availability.json
+  purpose: >-
+    Per-station (stop_id) trip_prediction availability — stations reporting,
+    prediction volume per station over time, live-vs-scheduled split, a coverage
+    table, and a per-station freshness (last-seen) table, so a stop that goes
+    quiet or all-scheduled is obvious (Influx).
+  datasources: [influxdb]
+  source:
+    produces: { bucket: transit_tracker, via: external-service }
+    cadence: 1m
+    status: external
+    note: derived from the trip_prediction measurement's stop_id / is_realtime tags
+  intent: >-
+    The OBA station-coverage view (issue #16) — complements transit-tracker-monitor's
+    per-stop realtime breakdown by making *data availability and freshness* per
+    station first-class. trip_prediction is continuous, so panels stay strict (no
+    allow-empty) and give real nodata protection.
+  todos:
+    - Per-station "no data in N min" alert once more stops are tracked
+    - Geo/station-name mapping so stop_ids read as place names

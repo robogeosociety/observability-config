@@ -1,0 +1,54 @@
+# Per-dashboard config for the integration nodata check
+# (tests/test_dashboards_integration.py, #67).
+#
+# Keyed by dashboard uid. A dashboard with no entry gets the STRICT default:
+# every queryable panel must return rows over BOTH the default range and now-24h.
+# Encode a legitimately-empty panel or an inapplicable window here rather than
+# weakening the test. Same "intent is code" idea as dashboards.index.yaml.
+#
+#   allow_empty_panels: panel titles (case-insensitive substring) or numeric ids
+#                       that may legitimately return no rows. "*" = the whole
+#                       dashboard is allowed empty. NOTE: allow_empty suppresses
+#                       *empty* results only — a query that ERRORS on a healthy
+#                       datasource still fails (that's bug class 3).
+#   windows:            subset of [default, short]. Omit for both. Use [default]
+#                       to skip the now-24h pass where 24h is meaningless.
+#
+# Tuned against the live stack on tommys-mac-mini. Dashboards not listed are
+# strict and pass today (campsites, mac-system, orbstack-containers, status-page,
+# walksheds-uptime, backups, obsidian-backups, claude-usage, ...).
+
+campsite-availability:
+  allow_empty_panels: [failing]              # "failing sites" empty == good news
+
+# Event-driven — these are quiet between trips / when the API is healthy.
+transit-tracker-basic:
+  allow_empty_panels: ["api errors", "api call", "next →"]
+transit-tracker-monitor:
+  allow_empty_panels: ["api errors"]
+
+# Weather-dependent — no lightning ⇒ no strike rows (the common case).
+tempest-basic:
+  allow_empty_panels: ["lightning", "nearest strike"]
+
+# Service alerts are event-driven — every panel is legitimately empty on a day
+# with no active OBA disruptions. (A real query error still fails — allow_empty
+# only excuses emptiness.) transit-station-availability stays strict: its
+# trip_prediction data is continuous.
+transit-alerts:
+  allow_empty_panels: ["*"]
+
+# These panels read HA "System Monitor" sensors that aren't currently being
+# recorded for the Pi (swap, disk usage, the end0/wlan0 throughput entities).
+# Allow-empty for now; tighten by enabling/renaming those HA sensors. TODO(#67).
+ha-pi-system:
+  allow_empty_panels: ["swap used", "disk usage", "network throughput"]
+
+# R2 offsite backups are pending a scoped token (CLAUDE.md: "NOT CONFIGURED"),
+# so the R2 panels have no heartbeat yet. Local-target panels stay strict.
+backups:
+  allow_empty_panels: ["r2"]
+
+# Deploy events — empty when nothing deployed in the window.
+walksheds-uptime:
+  allow_empty_panels: ["deploys"]
