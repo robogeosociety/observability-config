@@ -1,0 +1,101 @@
+apiVersion: 1
+
+# Campsite collector — system-health alert on the FAILURE RATIO.
+#
+# A single broken site can't trip this: failed collections back off
+# exponentially and the site is quarantined after a handful of tries, so in
+# steady state the ratio sits near 0%. A sustained high ratio means something is
+# wrong with the collector as a whole (bad deploy, expired UA/headers, an
+# upstream booking system down, IP blocked) — not one campground.
+#
+# Metric: failed / (ok + failed) over a rolling 6h window, from the
+# `campsite_collector` Analytics Engine dataset via the `campsites_ae` ClickHouse
+# datasource (backend+alerting capable — verified against /api/ds/query). The 6h
+# window smooths transient blips; `for: 15m` requires it to persist. Fires >25%.
+#
+# noDataState=OK: an empty window (no collections at all) means the collector is
+# idle/dead — that's the freshness alert's job (campsite-collector-freshness),
+# don't double-page. execErrState=OK: an AE/token hiccup shouldn't page a health
+# alert. Routed to Discord by the root notification policy (folder: Alerts).
+groups:
+  - orgId: 1
+    name: campsite-collector-health
+    folder: Alerts
+    interval: 5m
+    rules:
+      - uid: campsite-collector-failure-ratio
+        title: Campsite collector failure ratio is high (>25% of attempts in 6h)
+        condition: C
+        for: 15m
+        noDataState: OK
+        execErrState: OK
+        labels:
+          severity: warning
+          component: collector
+          collector: campsites
+        annotations:
+          summary: >-
+            Over 25% of campsite collection attempts in the last 6h failed. A
+            single bad site can't cause this (it gets quarantined) — suspect a
+            collector-wide problem: a bad deploy, stale request headers, a
+            blocked Worker IP, or an upstream booking system (rec.gov / WA
+            goingtocamp) outage.
+          runbook: >-
+            Open the Collector History dashboard → "Failure ratio" and "State
+            changes" panels. Check GET /scheduler/status and GET /collect/dlq on
+            the backend Worker. If one agency dominates, the upstream is likely
+            down; if it's broad, check the latest Worker deploy.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 21600
+              to: 0
+            datasourceUid: campsites_ae
+            model:
+              refId: A
+              datasource:
+                type: vertamedia-clickhouse-datasource
+                uid: campsites_ae
+              format: time_series
+              dateTimeColDataType: timestamp
+              dateTimeType: DATETIME
+              intervalMs: 60000
+              maxDataPoints: 100
+              query: >-
+                SELECT (intDiv(toUInt32(now()), 60) * 60) * 1000 AS t,
+                100 * SUMIf(_sample_interval, blob5 = 'failed') /
+                SUMIf(_sample_interval, blob5 IN ('ok', 'failed')) AS failure_pct
+                FROM campsite_collector
+                WHERE timestamp > now() - INTERVAL '6' HOUR
+                AND blob5 IN ('ok', 'failed')
+                GROUP BY t
+          - refId: B
+            relativeTimeRange:
+              from: 21600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: last
+              expression: A
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 21600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 25
