@@ -1,0 +1,79 @@
+# Anomaly-detection config — READ BY detector.py, and the thing Claude proposes
+# updates to over time (store-as-code: tune here, open a PR; git history is the
+# audit trail of how detection evolved).
+#
+# Method (v1): window z-score. For each metric the detector pulls the series over
+# `window`, computes mean+stddev across the window, and scores the LATEST point
+# as z = (value - mean) / stddev. |z| >= z_warn → a `warn` anomaly event; >= z_crit
+# → `crit`. Events are written to the `ops` bucket, measurement `anomaly`, which
+# the Alerts & Anomalies dashboard reads and the Claude loop analyses.
+#
+# Known limitation (deliberate, see PR): a flat window z-score has no seasonality,
+# so it can flag the normal diurnal ramp. Hour-of-day baselines are the next layer.
+#
+# Each metric: name (unique, no spaces), bucket, optional unit, and a Flux query
+# that yields a single time series. Use __WINDOW__ / __EVERY__ placeholders; the
+# detector substitutes them. Per-metric z_warn/z_crit/min_points override defaults.
+
+defaults:
+  window: 6h
+  every: 1m
+  z_warn: 3.0
+  z_crit: 4.0
+  min_points: 30        # need a real baseline before scoring
+
+metrics:
+  - name: mac_cpu_usage
+    bucket: system
+    unit: percent
+    flux: |
+      from(bucket: "system")
+        |> range(start: -__WINDOW__)
+        |> filter(fn: (r) => r._measurement == "cpu" and r._field == "usage_idle" and r.cpu == "cpu-total")
+        |> aggregateWindow(every: __EVERY__, fn: mean, createEmpty: false)
+        |> map(fn: (r) => ({ r with _value: 100.0 - r._value }))
+        |> group()
+
+  - name: mac_mem_used_pct
+    bucket: system
+    unit: percent
+    flux: |
+      from(bucket: "system")
+        |> range(start: -__WINDOW__)
+        |> filter(fn: (r) => r._measurement == "mem" and r._field == "used_percent")
+        |> aggregateWindow(every: __EVERY__, fn: mean, createEmpty: false)
+        |> group()
+
+  - name: transit_write_rate
+    bucket: transit_tracker
+    unit: points/min
+    flux: |
+      from(bucket: "transit_tracker")
+        |> range(start: -__WINDOW__)
+        |> aggregateWindow(every: __EVERY__, fn: count, createEmpty: true)
+        |> group(columns: ["_time"])
+        |> sum()
+        |> group()
+        |> map(fn: (r) => ({ r with _value: float(v: r._value) }))
+
+  - name: oba_api_latency_ms
+    bucket: transit_tracker
+    unit: ms
+    flux: |
+      from(bucket: "transit_tracker")
+        |> range(start: -__WINDOW__)
+        |> filter(fn: (r) => r._measurement == "service_gauge" and r.name == "api_latency_ms" and r._field == "value")
+        |> aggregateWindow(every: __EVERY__, fn: mean, createEmpty: false)
+        |> group()
+
+  - name: tempest_write_rate
+    bucket: tempest_archive
+    unit: points/min
+    flux: |
+      from(bucket: "tempest_archive")
+        |> range(start: -__WINDOW__)
+        |> aggregateWindow(every: __EVERY__, fn: count, createEmpty: true)
+        |> group(columns: ["_time"])
+        |> sum()
+        |> group()
+        |> map(fn: (r) => ({ r with _value: float(v: r._value) }))
