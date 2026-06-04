@@ -4,4 +4,7 @@ on:
     types: [opened, edited, reopened]
 jobs:
   newspaper:
+    permissions:
+      contents: read
+      pull-requests: read
     uses: tommyroar/pr-newspaper/.github/workflows/validate.yml@main
