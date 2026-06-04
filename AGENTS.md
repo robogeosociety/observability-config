@@ -41,6 +41,14 @@ the hermetic test suite, not a running deploy.**
 4. **Open the PR.** Body = what changed, why, and how you verified (which tests).
    Keep secrets out of the diff. Then stop — do not merge, deploy, or restart.
 
+   **PR descriptions follow the "newspaper" framework** — one self-contained front
+   page (kicker → headline → dek → masthead → why → what → mermaid flow → screens →
+   verification → risk) that reads top-to-bottom on an iPad-mini portrait display
+   (1–2 pages; up to 4 for very complex *code* changes). Rebuild it from the **full**
+   diff, never append. Skeleton: `.github/pull_request_template.md`; full rules:
+   <https://github.com/tommyroar/.github/blob/main/PR_FRAMEWORK.md>. The
+   `pr-newspaper` workflow validates the body in CI (readability + page budget).
+
 ## Conventions your change must follow
 
 These exist because the maintainer/coordinator — not you — applies the change, so

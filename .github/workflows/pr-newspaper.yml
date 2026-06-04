@@ -1,51 +1,7 @@
 name: PR newspaper
-
-# Validate the PR description against the newspaper framework — readability +
-# iPad-mini page budget — with NO model in the loop (replaces the old global
-# `claude -p` pre-push hook). The body is written by whoever opens/updates the PR;
-# this only checks that it renders within budget. Pure-stdlib validator, vendored
-# at .github/scripts/validate_pr.py.
-
 on:
   pull_request:
     types: [opened, edited, reopened]
-
-permissions:
-  contents: read
-
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # need base..head to size the page budget
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Size the page budget from non-prose churn
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          # Mirror the framework's tiering: pure-prose churn (.md/.txt/.rst/…) does
-          # NOT count; only substantial code/structural change unlocks the 4-page tier.
-          prose='\.(md|markdown|mdx|txt|rst|org|adoc)$'
-          lines=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" | grep -vE "$prose" | awk '{a+=$1+$2} END{print a+0}')
-          files=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" | grep -vEc "$prose" || true)
-          if [ "${lines:-0}" -gt 400 ] || [ "${files:-0}" -gt 15 ]; then
-            echo "PR_NEWSPAPER_MAX_PAGES=4" >> "$GITHUB_ENV"
-            echo "complex code change ($lines non-prose lines, $files files) → 4-page budget"
-          else
-            echo "PR_NEWSPAPER_MAX_PAGES=2" >> "$GITHUB_ENV"
-            echo "default 2-page budget ($lines non-prose lines, $files files)"
-          fi
-
-      - name: Validate newspaper
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          printf '%s' "$PR_BODY" > /tmp/pr-body.md
-          python3 .github/scripts/validate_pr.py /tmp/pr-body.md
+  newspaper:
+    uses: tommyroar/.github/.github/workflows/pr-newspaper.yml@main
