@@ -113,11 +113,12 @@ campsite-availability:
       ignores them. target_date is filtered to today-and-future (computed in-Flux
       from now(), this Flux build lacks date.format) and sorted ascending, so the
       history section opens on the soonest upcoming night rather than an empty
-      past date. The time picker drives the history trend; the live section is "now".
+      past date. The time picker drives the history trend; the live section is "now". A Per-site section (Loop/Site cascading dropdowns + a per-site table for the chosen Target date) reads the `site_availability` measurement, where the night is modelled as the point timestamp (bounded cardinality) — ingested from R2 `sites/` by campsites/ingest.py.
   todos:
     - Optionally wire the agency filter into the live (AE) section too
     - '"Watched hot dates" is a manual list — source it from collector config'
-    - Daily granularity on the history side; sub-day would need the AE/live path
+    - Wire the agency/campground filters into the live (AE) section too (currently system-wide)
+    - Per-site section is Influx-only (site_availability); could add an AE live equivalent
 
 campsite-collector-history:
   title: Collector History

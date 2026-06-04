@@ -26,16 +26,71 @@
       },
       {
         "name": "campsite",
-        "label": "Campsite",
+        "label": "Site (campground)",
         "type": "query",
         "datasource": {
           "type": "influxdb",
           "uid": "campsites"
         },
-        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"campsites\", tag: \"name\")",
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"campsites\", tag: \"name\", predicate: (r) => contains(value: r.agency, set: ${agency:json}), start: -90d)",
         "multi": true,
         "includeAll": true,
         "refresh": 2,
+        "sort": 1,
+        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"campsites\", tag: \"name\", predicate: (r) => contains(value: r.agency, set: ${agency:json}), start: -90d)"
+      },
+      {
+        "name": "loop",
+        "label": "Loop",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "campsites"
+        },
+        "definition": "from(bucket: \"campsites\")\n  |> range(start: -1d, stop: 2035-01-01T00:00:00Z)\n  |> filter(fn: (r) => r._measurement == \"site_availability\" and r._field == \"available\")\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> keep(columns: [\"loop\"])\n  |> group()\n  |> distinct(column: \"loop\")\n  |> sort()",
+        "query": "from(bucket: \"campsites\")\n  |> range(start: -1d, stop: 2035-01-01T00:00:00Z)\n  |> filter(fn: (r) => r._measurement == \"site_availability\" and r._field == \"available\")\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> keep(columns: [\"loop\"])\n  |> group()\n  |> distinct(column: \"loop\")\n  |> sort()",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "hide": 0,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "sort": 1
+      },
+      {
+        "name": "site",
+        "label": "Site (number)",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "campsites"
+        },
+        "definition": "from(bucket: \"campsites\")\n  |> range(start: -1d, stop: 2035-01-01T00:00:00Z)\n  |> filter(fn: (r) => r._measurement == \"site_availability\" and r._field == \"available\")\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r.loop =~ /^${loop:regex}$/)\n  |> keep(columns: [\"site\"])\n  |> group()\n  |> distinct(column: \"site\")\n  |> sort()",
+        "query": "from(bucket: \"campsites\")\n  |> range(start: -1d, stop: 2035-01-01T00:00:00Z)\n  |> filter(fn: (r) => r._measurement == \"site_availability\" and r._field == \"available\")\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r.loop =~ /^${loop:regex}$/)\n  |> keep(columns: [\"site\"])\n  |> group()\n  |> distinct(column: \"site\")\n  |> sort()",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "hide": 0,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
         "sort": 1
       },
       {
@@ -1227,6 +1282,160 @@
           ]
         }
       }
+    },
+    {
+      "id": 19,
+      "type": "row",
+      "title": "Per-site availability (for the selected night)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "table",
+      "title": "Sites \u2014 availability for ${target_date}",
+      "description": "Per-site status for the selected campground/loop/site on the chosen target night. Drill with the Site (campground) / Loop / Site dropdowns; the night is the Target date dropdown.",
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "w": 16,
+        "h": 11
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: ${target_date}T00:00:00Z, stop: ${target_date}T23:59:59Z)\n  |> filter(fn: (r) => r._measurement == \"site_availability\")\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r.loop =~ /^${loop:regex}$/ and r.site =~ /^${site:regex}$/)\n  |> last()\n  |> pivot(rowKey: [\"name\", \"loop\", \"site\", \"type\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({ r with status: if r.available == 1 then \"available\" else if r.reserved == 1 then \"reserved\" else \"other\" }))\n  |> keep(columns: [\"name\", \"loop\", \"site\", \"type\", \"status\"])\n  |> sort(columns: [\"name\", \"loop\", \"site\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "available": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "reserved": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "other": {
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "name": "Campground",
+              "loop": "Loop",
+              "site": "Site",
+              "type": "Type",
+              "status": "Status"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Available sites (this night)",
+      "gridPos": {
+        "x": 16,
+        "y": 53,
+        "w": 8,
+        "h": 11
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: ${target_date}T00:00:00Z, stop: ${target_date}T23:59:59Z)\n  |> filter(fn: (r) => r._measurement == \"site_availability\" and r._field == \"available\")\n  |> filter(fn: (r) => contains(value: r.name, set: ${campsite:json}))\n  |> filter(fn: (r) => r.loop =~ /^${loop:regex}$/ and r.site =~ /^${site:regex}$/)\n  |> last()\n  |> group()\n  |> sum()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
     }
   ],
   "refresh": "30m",
@@ -1243,6 +1452,6 @@
   "timezone": "browser",
   "title": "Campsite Availability",
   "uid": "campsite-availability",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
