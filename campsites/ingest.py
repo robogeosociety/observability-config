@@ -51,6 +51,39 @@ def build_lines(cid, name, agency, by_date, ts):
     return lines
 
 
+def _night_s(d):
+    """'YYYY-MM-DD' night -> epoch SECONDS at 00:00 UTC (the write uses precision=s)."""
+    return int(datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
+
+
+def build_site_lines(rec):
+    """Per-SITE availability from a `sites/<date>/<id>.json` record.
+
+    Models the night (target_date) as the POINT TIMESTAMP, not a tag — so series
+    cardinality is bounded by the number of sites (~11k), not sites×nights (~2M)
+    which would strain the 2GB InfluxDB. Re-runs upsert (last-write-wins per
+    series+night), keeping the latest status per (site, night). Powers the
+    cascading loop/site dropdowns + the per-site calendar on the campsite dash.
+    """
+    name = rec.get("name", ""); agency = rec.get("agency", "")
+    lines = []
+    for sid, s in (rec.get("sites") or {}).items():
+        loop = s.get("loop") or "—"
+        site = s.get("label") or str(sid)
+        typ = s.get("type") or "—"
+        tags = (f"name={_esc(name)},agency={_esc(agency)},loop={_esc(loop)},"
+                f"site={_esc(site)},type={_esc(typ)}")
+        for d, status in (s.get("by_date") or {}).items():
+            try:
+                ts = _night_s(d)
+            except (ValueError, TypeError):
+                continue
+            av = 1 if status == "available" else 0
+            rs = 1 if status == "reserved" else 0
+            lines.append(f"site_availability,{tags} available={av}i,reserved={rs}i {ts}")
+    return lines
+
+
 def influx_write(lines):
     url = os.environ.get("INFLUX_URL", "http://localhost:8086").rstrip("/")
     org = os.environ.get("INFLUX_ORG", "home")
@@ -179,6 +212,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--date", default=datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-sites", action="store_true",
+                    help="skip per-site (sites/) ingest into site_availability")
     a = ap.parse_args()
 
     _load_env(Path(__file__).resolve().parent / ".env")
@@ -197,6 +232,17 @@ def main():
         lines += build_lines(rec["id"], rec["name"], rec.get("agency", ""), rec.get("by_date", {}), ts)
         n += 1
     print(f"{n} campsites · {len(lines)} points", file=sys.stderr)
+
+    # Per-site availability (sites/<date>/) → site_availability measurement.
+    if not a.no_sites:
+        sprefix = f"sites/{a.date}/"
+        sobjs = r2_list(bucket, sprefix)
+        sn = 0
+        for key, _lm in sobjs:
+            lines += build_site_lines(json.loads(r2_get(bucket, key)))
+            sn += 1
+        print(f"{sn} site files · {len(lines)} total points", file=sys.stderr)
+
     if a.dry_run:
         print("\n".join(lines[:6]))
         print(f"... ({len(lines)} total, dry-run)", file=sys.stderr)
