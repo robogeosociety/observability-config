@@ -26,6 +26,7 @@ HTTPS goes through curl.
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -124,6 +125,114 @@ def build_demand_lines(rec):
         lines.append(f"campground_demand,name={_esc(name)},agency={_esc(agency)} "
                      f"available={night_av[d]}i,reserved={night_rs[d]}i {ts}")
     return lines
+
+
+# --- prediction readiness (PREDICT.md §10 / checkpoint D) -------------------
+# A 0–1 gauge that fills as collection history deepens, gating when sell-out
+# predictions are trustworthy. Computed here (observability owns InfluxDB
+# emission) by scanning the R2 sites/ history. The formula mirrors the
+# robot-geographical-society `predict/readiness.py` module and must stay in
+# lockstep with it: (events · coverage · depth)^⅓, a geometric mean so one
+# lagging component holds the gauge down.
+EVENTS_TARGET = 500
+DEPTH_TARGET = 6
+READY_TARGET_AUC = 0.80  # "usable accuracy" the countdown targets
+READINESS_BANDS = ((0.33, "insufficient"), (0.80, "directional"), (1.01, "reliable"))
+
+
+def _band(score):
+    return next(name for edge, name in READINESS_BANDS if score < edge)
+
+
+def compute_readiness(bucket, max_days=60):
+    """Scan sites/ history → per-cell at-risk intervals → readiness dict.
+
+    Bounded to the most recent `max_days` collection dates so the daily job stays
+    cheap as history grows (that window is also the right horizon for "is there
+    enough *recent* depth to predict"). An at-risk interval is a consecutive pair
+    of snapshots whose earlier status is `available`; the first `available ->
+    reserved` flip is the sell-out event (mirrors the C0 builder, which stops a
+    cell at its first sell-out)."""
+    by_date = {}
+    for key, _lm in r2_list(bucket, "sites/"):
+        parts = key.split("/")
+        if len(parts) >= 3 and parts[0] == "sites" and parts[-1].endswith(".json"):
+            by_date.setdefault(parts[1], []).append(key)
+    dates = sorted(by_date)[-max_days:]
+
+    cells = {}  # (campground, site, target_date) -> {collected_date: status}
+    cgset = set()
+    for d in dates:
+        for key in by_date[d]:
+            rec = json.loads(r2_get(bucket, key))
+            cg = str(rec.get("id"))
+            cgset.add(cg)
+            cd = rec.get("collected_date") or d
+            for sid, s in (rec.get("sites") or {}).items():
+                for tgt, status in (s.get("by_date") or {}).items():
+                    cells.setdefault((cg, str(sid), tgt), {})[cd] = status
+
+    total = len(cells); active = 0; events = 0; depths = []
+    for seq in cells.values():
+        days = sorted(seq)
+        intervals = 0; sold = False
+        for i in range(len(days) - 1):
+            if seq[days[i]] != "available":
+                continue
+            intervals += 1
+            nxt = seq[days[i + 1]]
+            if nxt == "reserved":
+                sold = True; break
+            if nxt == "other":
+                break
+        if intervals > 0:
+            active += 1; depths.append(intervals)
+        if sold:
+            events += 1
+
+    median_depth = sorted(depths)[len(depths) // 2] if depths else 0
+    event_score = min(1.0, events / EVENTS_TARGET) if EVENTS_TARGET else 0.0
+    coverage = active / total if total else 0.0
+    depth_score = min(1.0, median_depth / DEPTH_TARGET) if DEPTH_TARGET else 0.0
+    score = (event_score * coverage * depth_score) ** (1 / 3)
+
+    # Expected accuracy boundary: the best AUC the model can reach given the
+    # history collected so far, as a saturating function of months of history —
+    # mirrors the PREDICT.md §2 figure, 0.5 + 0.34·(1 − e^(−months/3)), rising
+    # toward the ~0.84 one-sample-per-annual-peak ceiling. Plotted over time it's
+    # the boundary the live model is bounded by until more history accrues.
+    span_days = ((datetime.fromisoformat(dates[-1]) - datetime.fromisoformat(dates[0])).days
+                 if len(dates) >= 2 else 0)
+    history_months = span_days / 30.0
+    expected_accuracy = 0.5 + 0.34 * (1 - math.exp(-history_months / 3.0))
+
+    # Countdown: expected days until the accuracy boundary reaches a usable AUC,
+    # inverting the same curve (history grows ~1 day per calendar day). Drops to
+    # 0 once the target is reached. Recomputed each run — a daily countdown.
+    frac = (READY_TARGET_AUC - 0.5) / 0.34
+    months_to_ready = -3.0 * math.log(1 - frac) if 0 < frac < 1 else 0.0
+    ready_eta_days = max(0, round((months_to_ready - history_months) * 30))
+
+    return {"readiness": score, "band": _band(score), "event_score": event_score,
+            "coverage": coverage, "depth_score": depth_score, "events": events,
+            "active_cells": active, "cells": total, "median_depth": median_depth,
+            "history_months": history_months, "expected_accuracy": expected_accuracy,
+            "campgrounds": len(cgset), "collect_days": len(dates),
+            "ready_eta_days": ready_eta_days}
+
+
+def build_readiness_line(stats, ts):
+    """One global `predict_readiness` point (no tags) feeding the gauge."""
+    return [f"predict_readiness "
+            f"readiness={stats['readiness']:.4f},event_score={stats['event_score']:.4f},"
+            f"coverage={stats['coverage']:.4f},depth_score={stats['depth_score']:.4f},"
+            f"events={int(stats['events'])}i,active_cells={int(stats['active_cells'])}i,"
+            f"cells={int(stats['cells'])}i,median_depth={int(stats['median_depth'])}i,"
+            f"history_months={stats['history_months']:.2f},"
+            f"expected_accuracy={stats['expected_accuracy']:.4f},"
+            f"campgrounds={int(stats['campgrounds'])}i,collect_days={int(stats['collect_days'])}i,"
+            f"ready_eta_days={int(stats['ready_eta_days'])}i,"
+            f"band=\"{stats['band']}\" {ts}"]
 
 
 def influx_write(lines):
@@ -256,36 +365,50 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-sites", action="store_true",
                     help="skip per-site (sites/) ingest into site_availability")
+    ap.add_argument("--no-readiness", action="store_true",
+                    help="skip the prediction-readiness gauge (predict_readiness)")
+    ap.add_argument("--readiness-only", action="store_true",
+                    help="compute only the readiness gauge (skip availability/sites)")
+    ap.add_argument("--readiness-max-days", type=int, default=60,
+                    help="recent sites/ collection dates to scan for readiness")
     a = ap.parse_args()
 
     _load_env(Path(__file__).resolve().parent / ".env")
     bucket = os.environ.get("R2_CAMPSITE_BUCKET", "campsite-raw")
     prefix = f"summary/{a.date}/"
 
-    objs = r2_list(bucket, prefix)
-    print(f"{len(objs)} summaries under {prefix}", file=sys.stderr)
-
     lines, n = [], 0
-    for key, last_modified in objs:
-        rec = json.loads(r2_get(bucket, key))
-        # true scrape time = the object's last-modified (ISO-8601 with Z)
-        ts = (int(datetime.fromisoformat(last_modified.replace("Z", "+00:00")).timestamp())
-              if last_modified else int(time.time()))
-        lines += build_lines(rec["id"], rec["name"], rec.get("agency", ""), rec.get("by_date", {}), ts)
-        n += 1
-    print(f"{n} campsites · {len(lines)} points", file=sys.stderr)
-
-    # Per-site availability (sites/<date>/) → site_availability measurement.
-    if not a.no_sites:
-        sprefix = f"sites/{a.date}/"
-        sobjs = r2_list(bucket, sprefix)
-        sn = 0
-        for key, _lm in sobjs:
+    if not a.readiness_only:
+        objs = r2_list(bucket, prefix)
+        print(f"{len(objs)} summaries under {prefix}", file=sys.stderr)
+        for key, last_modified in objs:
             rec = json.loads(r2_get(bucket, key))
-            lines += build_site_lines(rec)
-            lines += build_demand_lines(rec)
-            sn += 1
-        print(f"{sn} site files · {len(lines)} total points", file=sys.stderr)
+            # true scrape time = the object's last-modified (ISO-8601 with Z)
+            ts = (int(datetime.fromisoformat(last_modified.replace("Z", "+00:00")).timestamp())
+                  if last_modified else int(time.time()))
+            lines += build_lines(rec["id"], rec["name"], rec.get("agency", ""), rec.get("by_date", {}), ts)
+            n += 1
+        print(f"{n} campsites · {len(lines)} points", file=sys.stderr)
+
+        # Per-site availability (sites/<date>/) → site_availability + demand.
+        if not a.no_sites:
+            sprefix = f"sites/{a.date}/"
+            sobjs = r2_list(bucket, sprefix)
+            sn = 0
+            for key, _lm in sobjs:
+                rec = json.loads(r2_get(bucket, key))
+                lines += build_site_lines(rec)
+                lines += build_demand_lines(rec)
+                sn += 1
+            print(f"{sn} site files · {len(lines)} total points", file=sys.stderr)
+
+    # Prediction-readiness gauge (PREDICT.md §10) — scans the sites/ history.
+    if not a.no_readiness:
+        stats = compute_readiness(bucket, max_days=a.readiness_max_days)
+        print(f"readiness {stats['readiness']:.3f} ({stats['band']}) — "
+              f"events={stats['events']} active={stats['active_cells']}/{stats['cells']} "
+              f"median_depth={stats['median_depth']}", file=sys.stderr)
+        lines += build_readiness_line(stats, int(time.time()))
 
     if a.dry_run:
         print("\n".join(lines[:6]))

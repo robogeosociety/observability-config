@@ -120,6 +120,38 @@ campsite-availability:
     - Wire the agency/campground filters into the live (AE) section too (currently system-wide)
     - Per-site section is Influx-only (site_availability); could add an AE live equivalent
 
+campsite-predictions:
+  title: Campsite Predictions
+  file: campsites/campsite-predictions.json
+  purpose: >-
+    Prediction-readiness gauge (plus its component sub-scores and history) for
+    the sell-out model: how much usable collection history exists and whether
+    predictions can be trusted yet. Reads the `predict_readiness` measurement in
+    the `campsites` InfluxDB bucket.
+  datasources: [influxdb]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [campsites/]
+    produces: { bucket: campsites, via: launchd-ingest }
+    cadence: 24h
+    status: active
+    note: >-
+      The readiness metric is computed by the daily campsites/ingest.py (scanning
+      the sites/ history in R2) and written to the `campsites` bucket. The formula
+      mirrors robot-geographical-society predict/readiness.py and must stay in
+      lockstep with it.
+  intent: >-
+    Make "can we trust sell-out predictions yet?" a first-class, visible signal.
+    The gauge fills as history accrues (geometric mean of events, coverage, and
+    depth, so one lagging term holds it down); the band gates whether the model's
+    ETAs are surfaced — hidden / low-confidence / shown.
+  todos:
+    - Re-point at an rgs-emitted readiness JSON once history grows, so the ingest
+      stops re-scanning the full sites/ history each run.
+    - Add per-cohort readiness (which date/site classes are still data-starved).
+    - Add C2-vs-C1 backtest panels once readiness clears the directional band.
+
 campsite-collector-history:
   title: Collector History
   file: campsites/campsite-collector-history.json
