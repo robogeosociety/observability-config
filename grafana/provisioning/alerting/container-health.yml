@@ -1,0 +1,265 @@
+apiVersion: 1
+
+# Container health alerts (telegraf docker input → `system` bucket). Richer than a
+# bare "something OOM'd": every rule groups by container_name so the firing
+# instance names the container, and the OOM rule reports the limit it breached +
+# its peak usage. noDataState/execErrState=OK throughout: no docker telemetry is a
+# gap handled by influxdb-availability, not a container fault.
+#
+#   1. OOM-killed      — docker_container_status.oomkilled==true; names the
+#                        container + the mem_limit it breached + peak usage.
+#   2. Memory near cap — docker_container_mem.usage_percent > 90% for 15m: the
+#                        runaway BEFORE Docker kills it (the proactive warning).
+#   3. Restart loop    — docker_container_status.restart_count climbed >2 in 15m.
+groups:
+  - orgId: 1
+    name: containers
+    folder: Alerts
+    interval: 5m
+    rules:
+      - uid: container-oomkilled
+        title: A container was OOM-killed
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: OK
+        labels:
+          severity: critical
+          component: docker
+        annotations:
+          summary: >-
+            {{ $labels.container_name }} was OOM-killed — it breached its
+            {{ humanize1024 $values.E.Value }}B mem_limit (peak usage
+            {{ humanize1024 $values.G.Value }}B). Raise the limit or fix the leak;
+            see the orbstack memory map.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: system
+            model:
+              refId: A
+              datasource:
+                type: influxdb
+                uid: system
+              query: |
+                from(bucket: "system")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "docker_container_status" and r._field == "oomkilled")
+                  |> map(fn: (r) => ({ container_name: r.container_name, _time: r._time, _value: if r._value then 1.0 else 0.0 }))
+                  |> group(columns: ["container_name"])
+                  |> aggregateWindow(every: 10m, fn: max, createEmpty: false)
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: last
+              expression: A
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+          - refId: D
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: system
+            model:
+              refId: D
+              datasource:
+                type: influxdb
+                uid: system
+              query: |
+                from(bucket: "system")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "docker_container_mem" and r._field == "limit")
+                  |> map(fn: (r) => ({ container_name: r.container_name, _time: r._time, _value: float(v: r._value) }))
+                  |> group(columns: ["container_name"])
+                  |> aggregateWindow(every: 10m, fn: last, createEmpty: false)
+          - refId: E
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: E
+              type: reduce
+              reducer: last
+              expression: D
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: F
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: system
+            model:
+              refId: F
+              datasource:
+                type: influxdb
+                uid: system
+              query: |
+                from(bucket: "system")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "docker_container_mem" and r._field == "max_usage")
+                  |> map(fn: (r) => ({ container_name: r.container_name, _time: r._time, _value: float(v: r._value) }))
+                  |> group(columns: ["container_name"])
+                  |> aggregateWindow(every: 10m, fn: last, createEmpty: false)
+          - refId: G
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: G
+              type: reduce
+              reducer: last
+              expression: F
+              datasource:
+                type: __expr__
+                uid: __expr__
+
+      - uid: container-mem-near-limit
+        title: Container memory near its limit
+        condition: C
+        for: 15m
+        noDataState: OK
+        execErrState: OK
+        labels:
+          severity: warning
+          component: docker
+        annotations:
+          summary: >-
+            {{ $labels.container_name }} has averaged {{ printf "%.0f" $values.B.Value }}% of
+            its memory limit over 15m — OOM risk. Raise its mem_limit or trim usage
+            before Docker kills it.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: system
+            model:
+              refId: A
+              datasource:
+                type: influxdb
+                uid: system
+              query: |
+                from(bucket: "system")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "docker_container_mem" and r._field == "usage_percent")
+                  |> group(columns: ["container_name"])
+                  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: last
+              expression: A
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 90
+
+      - uid: container-restart-loop
+        title: Container restart loop
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: OK
+        labels:
+          severity: warning
+          component: docker
+        annotations:
+          summary: >-
+            {{ $labels.container_name }} restarted {{ printf "%.0f" $values.B.Value }} times in
+            15m — it's crash-looping. Check `docker logs {{ $labels.container_name }}`.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: system
+            model:
+              refId: A
+              datasource:
+                type: influxdb
+                uid: system
+              query: |
+                from(bucket: "system")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "docker_container_status" and r._field == "restart_count")
+                  |> group(columns: ["container_name"])
+                  |> aggregateWindow(every: 15m, fn: spread, createEmpty: false)
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: last
+              expression: A
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 2
