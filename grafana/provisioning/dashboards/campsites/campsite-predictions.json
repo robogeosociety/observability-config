@@ -17,12 +17,23 @@
       "type": "gauge",
       "title": "Prediction readiness",
       "description": "Composite gate on trusting sell-out predictions: (events · coverage · depth)^⅓. Fills as collection history deepens. <0.33 hide predictions; 0.33–0.80 low-confidence; ≥0.80 reliable.",
-      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "campsites" },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "campsites" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
           "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"readiness\")\n  |> last()"
         }
       ],
@@ -35,16 +46,31 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "orange", "value": 0.33 },
-              { "color": "green", "value": 0.8 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.33
+              },
+              {
+                "color": "green",
+                "value": 0.8
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "showThresholdLabels": false,
         "showThresholdMarkers": true
       }
@@ -54,12 +80,23 @@
       "type": "bargauge",
       "title": "Readiness components",
       "description": "The three sub-scores behind the gauge. The lowest one is the current bottleneck (geometric mean, so one near-zero term holds the whole gauge down).",
-      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "campsites" },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "campsites" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
           "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and (r._field == \"event_score\" or r._field == \"coverage\" or r._field == \"depth_score\"))\n  |> last()\n  |> keep(columns: [\"_field\", \"_value\"])"
         }
       ],
@@ -72,16 +109,31 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "orange", "value": 0.33 },
-              { "color": "green", "value": 0.8 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.33
+              },
+              {
+                "color": "green",
+                "value": 0.8
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "orientation": "horizontal",
         "displayMode": "gradient",
         "showUnfilled": true
@@ -91,12 +143,23 @@
       "id": 3,
       "type": "stat",
       "title": "Band",
-      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "campsites" },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "campsites" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
           "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"band\")\n  |> last()"
         }
       ],
@@ -106,19 +169,44 @@
             {
               "type": "value",
               "options": {
-                "insufficient": { "color": "red", "index": 0 },
-                "directional": { "color": "orange", "index": 1 },
-                "reliable": { "color": "green", "index": 2 }
+                "insufficient": {
+                  "color": "red",
+                  "index": 0
+                },
+                "directional": {
+                  "color": "orange",
+                  "index": 1
+                },
+                "reliable": {
+                  "color": "green",
+                  "index": 2
+                }
               }
             }
           ],
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "colorMode": "background",
         "graphMode": "none",
         "textMode": "value",
@@ -130,12 +218,23 @@
       "type": "stat",
       "title": "Events observed",
       "description": "Distinct sell-outs seen so far. Target before a stable hazard fit: 500.",
-      "gridPos": { "x": 16, "y": 4, "w": 4, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "campsites" },
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "campsites" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
           "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"events\")\n  |> last()"
         }
       ],
@@ -146,16 +245,31 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "orange", "value": 165 },
-              { "color": "green", "value": 500 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 165
+              },
+              {
+                "color": "green",
+                "value": 500
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
@@ -167,21 +281,45 @@
       "type": "stat",
       "title": "Active cells",
       "description": "(site, date) cells with ≥2 snapshots, i.e. at least one at-risk interval.",
-      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "campsites" },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "campsites" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
           "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"active_cells\")\n  |> last()"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "colorMode": "none",
         "graphMode": "none",
         "textMode": "value",
@@ -193,12 +331,23 @@
       "type": "stat",
       "title": "Median depth",
       "description": "Median at-risk intervals per active cell. Target burn-down resolution: 6.",
-      "gridPos": { "x": 20, "y": 4, "w": 4, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "campsites" },
+      "gridPos": {
+        "x": 20,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "campsites" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
           "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"median_depth\")\n  |> last()"
         }
       ],
@@ -209,16 +358,31 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "orange", "value": 2 },
-              { "color": "green", "value": 6 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "green",
+                "value": 6
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
@@ -230,12 +394,23 @@
       "type": "timeseries",
       "title": "Readiness over time",
       "description": "The gauge value as history accrues — the curve should climb toward 1.0.",
-      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "campsites" },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "campsites" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
           "query": "from(bucket: \"campsites\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"readiness\")\n  |> aggregateWindow(every: 1d, fn: last, createEmpty: false)"
         }
       ],
@@ -252,21 +427,41 @@
             "showPoints": "auto",
             "spanNulls": true
           },
-          "color": { "mode": "fixed", "fixedColor": "green" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "orange", "value": 0.33 },
-              { "color": "green", "value": 0.8 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.33
+              },
+              {
+                "color": "green",
+                "value": 0.8
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "single", "sort": "none" },
-        "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": [] }
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
       }
     },
     {
@@ -274,12 +469,23 @@
       "type": "timeseries",
       "title": "Events accumulated",
       "description": "Observed sell-outs over time against the 500-event target line.",
-      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "campsites" },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "campsites" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
           "query": "from(bucket: \"campsites\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"events\")\n  |> aggregateWindow(every: 1d, fn: last, createEmpty: false)"
         }
       ],
@@ -294,22 +500,41 @@
             "fillOpacity": 15,
             "showPoints": "auto",
             "spanNulls": true,
-            "thresholdsStyle": { "mode": "line" }
+            "thresholdsStyle": {
+              "mode": "line"
+            }
           },
-          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "transparent", "value": null },
-              { "color": "green", "value": 500 }
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 500
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "single", "sort": "none" },
-        "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": [] }
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
       }
     },
     {
@@ -317,12 +542,23 @@
       "type": "timeseries",
       "title": "Expected accuracy boundary",
       "description": "Best AUC the sell-out model can reach given history collected so far: 0.5 + 0.34·(1 − e^(−months/3)), rising toward the ~0.84 one-sample-per-annual-peak ceiling. The reference lines are the no-skill floor (0.5) and that ceiling; the curve is the live boundary the model is bounded by until more history accrues. Illustrative model (mirrors PREDICT.md §2), not measured accuracy.",
-      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "campsites" },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "campsites" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
           "query": "from(bucket: \"campsites\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"expected_accuracy\")\n  |> aggregateWindow(every: 1d, fn: last, createEmpty: false)"
         }
       ],
@@ -339,43 +575,273 @@
             "fillOpacity": 20,
             "showPoints": "auto",
             "spanNulls": true,
-            "thresholdsStyle": { "mode": "line" }
+            "thresholdsStyle": {
+              "mode": "line"
+            }
           },
-          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "green", "value": 0.84 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.84
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "single", "sort": "none" },
-        "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": [] }
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
       }
     },
     {
       "id": 10,
       "type": "text",
       "title": "About this dashboard — model, targets & references",
-      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 15 },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 13
+      },
       "options": {
         "mode": "markdown",
-        "content": "## How to read this board\n\n**Goal:** predict *when* a specific campsite/date sells out. With little history those predictions are not trustworthy yet — the **readiness gauge** above is the honest gate, and model ETAs stay hidden until it clears.\n\n### The model (robot-geographical-society PREDICT.md)\nSell-out is a **time-to-event / survival** problem on the daily `sites/` snapshots:\n\n- **C0** — build per-(site, date) at-risk intervals from the snapshots.\n- **C1** — Kaplan–Meier survival curves per cohort (day-of-week × season × popularity).\n- **C2** — discrete-time **logistic hazard** → survival curve → median sell-out ETA + risk band.\n- **Expected-accuracy boundary** — best achievable AUC given history so far, 0.5 + 0.34·(1 − e^(−months/3)), rising toward a **~0.84** ceiling (one sample per annual peak).\n\n### Targets — what *ready* means\n`readiness = (event_score · coverage · depth_score)^(1/3)` — a geometric mean, so the weakest component holds the gauge down.\n\n| Component | Target | Meaning |\n|---|---|---|\n| events | **500** sell-outs | enough events to fit a stable hazard model |\n| coverage | **100%** | cells with ≥2 snapshots (an at-risk interval exists) |\n| depth | **6** intervals/cell | burn-down resolution per cell |\n\nBands: 🔴 **< 0.33** hide · 🟡 **0.33–0.80** low-confidence · 🟢 **≥ 0.80** show ETAs.\n\n### Your data — snapshot 2026-06-04\n\n- **138** campgrounds · **4** collection days (2026-06-01 → 06-04, ≈0.1 month)\n- **1,489,812** (site, date) cells · **123,382** active (≥2 snapshots)\n- **1,211** sell-outs observed · median depth **1** interval/cell\n- **readiness 0.24 🔴 insufficient** — event_score 1.00, coverage 0.08, depth_score 0.17\n- expected-accuracy boundary **≈ 0.51**, just above the 0.5 no-skill floor\n\nThe bottleneck is **depth & coverage**, not events: most cells have only one snapshot so far, so few at-risk intervals exist. The gauge climbs as the daily collector revisits each site over the coming weeks. *(Snapshot figures — the panels above are live.)*\n\n### References\n\n- Design & checkpoints — **PREDICT.md** · rgs PR [#71](https://github.com/tommyroar/robot-geographical-society/pull/71)\n- Readiness + accuracy formulas — [predict/readiness.py](https://github.com/tommyroar/robot-geographical-society/blob/feat/predict-plan/predict/readiness.py), mirrored in `campsites/ingest.py`\n- Upstream data — [recreation.gov](https://www.recreation.gov) · [WA goingtocamp](https://washington.goingtocamp.com)\n- Methods — [Kaplan–Meier estimator](https://en.wikipedia.org/wiki/Kaplan%E2%80%93Meier_estimator) · [survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) · [Brier score](https://en.wikipedia.org/wiki/Brier_score)"
+        "content": "## How to read this board\n\n**Goal:** predict *when* a specific campsite/date sells out. With little history those predictions are not trustworthy yet — the **readiness gauge** above is the honest gate, and model ETAs stay hidden until it clears.\n\n### The model (robot-geographical-society PREDICT.md)\nSell-out is a **time-to-event / survival** problem on the daily `sites/` snapshots:\n\n- **C0** — build per-(site, date) at-risk intervals from the snapshots.\n- **C1** — Kaplan–Meier survival curves per cohort (day-of-week × season × popularity).\n- **C2** — discrete-time **logistic hazard** → survival curve → median sell-out ETA + risk band.\n- **Expected-accuracy boundary** — best achievable AUC given history so far, 0.5 + 0.34·(1 − e^(−months/3)), rising toward a **~0.84** ceiling (one sample per annual peak).\n\n### Targets — what *ready* means\n`readiness = (event_score · coverage · depth_score)^(1/3)` — a geometric mean, so the weakest component holds the gauge down.\n\n| Component | Target | Meaning |\n|---|---|---|\n| events | **500** sell-outs | enough events to fit a stable hazard model |\n| coverage | **100%** | cells with ≥2 snapshots (an at-risk interval exists) |\n| depth | **6** intervals/cell | burn-down resolution per cell |\n\nBands: red **< 0.33** hide · amber **0.33–0.80** low-confidence · green **≥ 0.80** show ETAs.\n\n### Your data\nThe stat row and gauges above are recomputed every run from the R2 `sites/` history — campgrounds tracked, collection days, total (site, date) cells, sell-outs observed, coverage, median depth, and the current expected-accuracy boundary. Early on the bottleneck is **depth & coverage**, not events: most cells have only one snapshot so far, so few at-risk intervals exist. The gauge climbs as the daily collector revisits each site over the coming weeks, and the boundary rises toward its ceiling.\n\n### References\n\n- Design & checkpoints — **PREDICT.md** · rgs PR [#71](https://github.com/tommyroar/robot-geographical-society/pull/71)\n- Readiness + accuracy formulas — [predict/readiness.py](https://github.com/tommyroar/robot-geographical-society/blob/feat/predict-plan/predict/readiness.py), mirrored in `campsites/ingest.py`\n- Upstream data — [recreation.gov](https://www.recreation.gov) · [WA goingtocamp](https://washington.goingtocamp.com)\n- Methods — [Kaplan–Meier estimator](https://en.wikipedia.org/wiki/Kaplan%E2%80%93Meier_estimator) · [survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) · [Brier score](https://en.wikipedia.org/wiki/Brier_score)"
       }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Campgrounds",
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"campgrounds\")\n  |> last()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      },
+      "description": "Distinct campgrounds with collected history."
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Collection days",
+      "gridPos": {
+        "x": 6,
+        "y": 24,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"collect_days\")\n  |> last()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      },
+      "description": "Distinct collection dates scanned (readiness window)."
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Cells (site×date)",
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"cells\")\n  |> last()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      },
+      "description": "(site, date) cells observed at least once."
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Expected accuracy",
+      "gridPos": {
+        "x": 18,
+        "y": 24,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "campsites"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "campsites"
+          },
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"expected_accuracy\")\n  |> last()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      },
+      "description": "Current expected-accuracy boundary (AUC) given history so far."
     }
   ],
   "refresh": "30m",
   "schemaVersion": 39,
-  "tags": ["campsites", "predictions"],
-  "time": { "from": "now-90d", "to": "now" },
+  "tags": [
+    "campsites",
+    "predictions"
+  ],
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "Campsite Predictions",
   "uid": "campsite-predictions",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }

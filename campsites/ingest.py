@@ -160,10 +160,12 @@ def compute_readiness(bucket, max_days=60):
     dates = sorted(by_date)[-max_days:]
 
     cells = {}  # (campground, site, target_date) -> {collected_date: status}
+    cgset = set()
     for d in dates:
         for key in by_date[d]:
             rec = json.loads(r2_get(bucket, key))
             cg = str(rec.get("id"))
+            cgset.add(cg)
             cd = rec.get("collected_date") or d
             for sid, s in (rec.get("sites") or {}).items():
                 for tgt, status in (s.get("by_date") or {}).items():
@@ -206,7 +208,8 @@ def compute_readiness(bucket, max_days=60):
     return {"readiness": score, "band": _band(score), "event_score": event_score,
             "coverage": coverage, "depth_score": depth_score, "events": events,
             "active_cells": active, "cells": total, "median_depth": median_depth,
-            "history_months": history_months, "expected_accuracy": expected_accuracy}
+            "history_months": history_months, "expected_accuracy": expected_accuracy,
+            "campgrounds": len(cgset), "collect_days": len(dates)}
 
 
 def build_readiness_line(stats, ts):
@@ -218,6 +221,7 @@ def build_readiness_line(stats, ts):
             f"cells={int(stats['cells'])}i,median_depth={int(stats['median_depth'])}i,"
             f"history_months={stats['history_months']:.2f},"
             f"expected_accuracy={stats['expected_accuracy']:.4f},"
+            f"campgrounds={int(stats['campgrounds'])}i,collect_days={int(stats['collect_days'])}i,"
             f"band=\"{stats['band']}\" {ts}"]
 
 
