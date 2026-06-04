@@ -84,6 +84,48 @@ def build_site_lines(rec):
     return lines
 
 
+def build_demand_lines(rec):
+    """Pre-aggregated demand summaries from a `sites/` record — so the demand
+    dashboard never aggregates the ~1.5M site_availability points live (too slow /
+    OOM-risky on the 2GB Influx). Two small measurements:
+
+    - `site_demand`  : per site, available_nights/reserved_nights over the window
+                       (_time = collected night, so re-runs upsert). Top-sites list.
+    - `campground_demand`: per campground per night, available/reserved site counts
+                       (_time = the night). Powers the heatmap + hottest-nights +
+                       top-campgrounds.
+    """
+    name = rec.get("name", ""); agency = rec.get("agency", "")
+    collected = rec.get("collected_date")
+    lines = []
+    night_av, night_rs = {}, {}
+    try:
+        cts = _night_s(collected)
+    except (ValueError, TypeError):
+        cts = int(time.time())
+    for sid, s in (rec.get("sites") or {}).items():
+        loop = s.get("loop") or "—"
+        site = s.get("label") or str(sid)
+        av = rs = 0
+        for d, status in (s.get("by_date") or {}).items():
+            a = 1 if status == "available" else 0
+            r = 1 if status == "reserved" else 0
+            av += a; rs += r
+            night_av[d] = night_av.get(d, 0) + a
+            night_rs[d] = night_rs.get(d, 0) + r
+        tags = f"name={_esc(name)},agency={_esc(agency)},loop={_esc(loop)},site={_esc(site)}"
+        lines.append(f"site_demand,{tags} available_nights={av}i,reserved_nights={rs}i,"
+                     f"total_nights={av + rs}i {cts}")
+    for d in night_av:
+        try:
+            ts = _night_s(d)
+        except (ValueError, TypeError):
+            continue
+        lines.append(f"campground_demand,name={_esc(name)},agency={_esc(agency)} "
+                     f"available={night_av[d]}i,reserved={night_rs[d]}i {ts}")
+    return lines
+
+
 def influx_write(lines):
     url = os.environ.get("INFLUX_URL", "http://localhost:8086").rstrip("/")
     org = os.environ.get("INFLUX_ORG", "home")
@@ -239,7 +281,9 @@ def main():
         sobjs = r2_list(bucket, sprefix)
         sn = 0
         for key, _lm in sobjs:
-            lines += build_site_lines(json.loads(r2_get(bucket, key)))
+            rec = json.loads(r2_get(bucket, key))
+            lines += build_site_lines(rec)
+            lines += build_demand_lines(rec)
             sn += 1
         print(f"{sn} site files · {len(lines)} total points", file=sys.stderr)
 
