@@ -4,4 +4,4 @@ on:
     types: [opened, edited, reopened]
 jobs:
   newspaper:
-    uses: tommyroar/.github/.github/workflows/pr-newspaper.yml@main
+    uses: tommyroar/pr-newspaper/.github/workflows/validate.yml@main
