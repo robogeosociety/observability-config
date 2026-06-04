@@ -26,6 +26,7 @@ HTTPS goes through curl.
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -191,9 +192,21 @@ def compute_readiness(bucket, max_days=60):
     coverage = active / total if total else 0.0
     depth_score = min(1.0, median_depth / DEPTH_TARGET) if DEPTH_TARGET else 0.0
     score = (event_score * coverage * depth_score) ** (1 / 3)
+
+    # Expected accuracy boundary: the best AUC the model can reach given the
+    # history collected so far, as a saturating function of months of history —
+    # mirrors the PREDICT.md §2 figure, 0.5 + 0.34·(1 − e^(−months/3)), rising
+    # toward the ~0.84 one-sample-per-annual-peak ceiling. Plotted over time it's
+    # the boundary the live model is bounded by until more history accrues.
+    span_days = ((datetime.fromisoformat(dates[-1]) - datetime.fromisoformat(dates[0])).days
+                 if len(dates) >= 2 else 0)
+    history_months = span_days / 30.0
+    expected_accuracy = 0.5 + 0.34 * (1 - math.exp(-history_months / 3.0))
+
     return {"readiness": score, "band": _band(score), "event_score": event_score,
             "coverage": coverage, "depth_score": depth_score, "events": events,
-            "active_cells": active, "cells": total, "median_depth": median_depth}
+            "active_cells": active, "cells": total, "median_depth": median_depth,
+            "history_months": history_months, "expected_accuracy": expected_accuracy}
 
 
 def build_readiness_line(stats, ts):
@@ -203,6 +216,8 @@ def build_readiness_line(stats, ts):
             f"coverage={stats['coverage']:.4f},depth_score={stats['depth_score']:.4f},"
             f"events={int(stats['events'])}i,active_cells={int(stats['active_cells'])}i,"
             f"cells={int(stats['cells'])}i,median_depth={int(stats['median_depth'])}i,"
+            f"history_months={stats['history_months']:.2f},"
+            f"expected_accuracy={stats['expected_accuracy']:.4f},"
             f"band=\"{stats['band']}\" {ts}"]
 
 
