@@ -160,42 +160,52 @@
             "type": "influxdb",
             "uid": "campsites"
           },
-          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"band\")\n  |> last()"
+          "query": "from(bucket: \"campsites\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"predict_readiness\" and r._field == \"readiness\")\n  |> last()"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
           "mappings": [
             {
-              "type": "value",
+              "type": "range",
               "options": {
-                "insufficient": {
-                  "color": "red",
+                "from": 0,
+                "to": 0.33,
+                "result": {
+                  "text": "insufficient",
                   "index": 0
-                },
-                "directional": {
-                  "color": "orange",
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0.33,
+                "to": 0.8,
+                "result": {
+                  "text": "directional",
                   "index": 1
-                },
-                "reliable": {
-                  "color": "green",
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0.8,
+                "to": 1,
+                "result": {
+                  "text": "reliable",
                   "index": 2
                 }
               }
             }
-          ],
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
+          ]
         },
         "overrides": []
       },
@@ -207,7 +217,7 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "background",
+        "colorMode": "none",
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "auto"
@@ -842,6 +852,6 @@
   "timezone": "browser",
   "title": "Campsite Predictions",
   "uid": "campsite-predictions",
-  "version": 4,
+  "version": 6,
   "weekStart": ""
 }
