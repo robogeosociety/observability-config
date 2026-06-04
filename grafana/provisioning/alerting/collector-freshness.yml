@@ -2,8 +2,17 @@ apiVersion: 1
 
 # Collector freshness — page when a continuously-writing ingest stops landing
 # data in its bucket. Each rule measures SECONDS SINCE THE LAST WRITE (over a 30d
-# lookback) and fires when that exceeds 900s (15m). execErrState=OK so an InfluxDB
-# outage pages once via influxdb-availability, not once per collector.
+# lookback) and fires when that exceeds 900s (15m).
+#
+# noDataState=OK and execErrState=OK: a real stall surfaces as a LARGE AGE on the
+# data path (threshold C over the 30d range), never as NoData — within 30 days the
+# last point is still there, so the query returns the downtime as a number and
+# fires normally. NoData/Error therefore mean the *freshness query itself* failed
+# (the 30d age scan is heavy and intermittently times out / returns empty under
+# InfluxDB load), NOT that the collector stopped — paging on that is a false
+# positive, and a genuine InfluxDB outage already pages once via
+# influxdb-availability (the single primary detector). So this rule ignores
+# transient NoData/Error and fires only on a real, measured stall.
 #
 # Why age-of-last-write, not count-in-window: a bare `count()` returns one table
 # PER series, which the reduce→threshold evaluator misreads as NoData (false
@@ -32,7 +41,7 @@ groups:
         title: Collector stalled — transit_tracker (no writes in 15m)
         condition: C
         for: 5m
-        noDataState: Alerting
+        noDataState: OK
         execErrState: OK
         labels:
           severity: warning
@@ -138,7 +147,7 @@ groups:
         title: Collector stalled — home_assistant (no writes in 15m)
         condition: C
         for: 5m
-        noDataState: Alerting
+        noDataState: OK
         execErrState: OK
         labels:
           severity: warning
@@ -244,7 +253,7 @@ groups:
         title: Collector stalled — tempest_archive (no writes in 15m)
         condition: C
         for: 5m
-        noDataState: Alerting
+        noDataState: OK
         execErrState: OK
         labels:
           severity: warning
