@@ -1,11 +1,13 @@
 # SPEC — `obsidian-backups` dashboard (proposal)
 
-Status: **built** (`obsidian-backups.json`, uid `obsidian-backups`). Shipped in a
-graceful, forward-compatible form: it groups by the `vault` tag, but that tag isn't
-live yet, so today it renders the single Obsidian backup as one `tbd` series and
-fans out into camping/gear/dev/home automatically once the fan-out script tags its
-heartbeat. The spec's "files changed per run" panel is dropped until a `changed`
-field is emitted (only `bytes`/`success`/`duration_s` exist today).
+Status: **built + live** (`obsidian-backups.json`, uid `obsidian-backups`). The
+fan-out backup now tags each heartbeat with `vault`, so the dashboard renders one
+tile/row per live vault (camping/gear/dev/home), grouped by that tag. The original
+monolithic `tbd` vault was retired 2026-06-03 (frozen archive at
+`tommyroar/obsidian-tbd`, backup job stopped); the queries filter to `exists
+r.vault`, dropping its vault-less legacy heartbeats. The spec's "files changed per
+run" panel is dropped until a `changed` field is emitted (only
+`bytes`/`success`/`duration_s` exist today).
 
 ## Why
 

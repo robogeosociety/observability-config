@@ -370,18 +370,16 @@ obsidian-backups:
     produces: { bucket: ops, via: external-script }
     cadence: 24h
     status: external
-    note: obsidian fan-out backup script emits target=obsidian heartbeats (obsidian-tbd repo automations/); repo TBD
+    note: obsidian fan-out backup script (~/git-repos/obsidian-backup.sh, code in obsidian-automations) emits per-vault target=obsidian,vault=<camping|gear|dev|home> heartbeats
   intent: >-
     Drill-down companion to the top-level Backups dashboard. The Obsidian vault
-    is being split into multiple vaults backed up by a fan-out script that emits
-    a per-vault heartbeat; the single "Obsidian vault" stat on `backups` can't
-    show WHICH vault went stale. Built to be forward-compatible: it groups by the
-    `vault` tag, but the tag isn't live yet, so today the single Obsidian backup
-    shows as one tile/row labelled `tbd` — it fans out into camping/gear/dev/home
-    automatically once the fan-out script tags its heartbeat. Full design in
-    grafana/SPEC-obsidian-backups.md.
+    was split into multiple vaults backed up by a fan-out script that emits a
+    per-vault heartbeat; the single "Obsidian vault" stat on `backups` can't show
+    WHICH vault went stale. Groups by the `vault` tag — one tile/row per live
+    vault (camping/gear/dev/home). The original monolithic `tbd` vault was retired
+    2026-06-03 (frozen archive at tommyroar/obsidian-tbd); its vault-less legacy
+    heartbeats are filtered out. Full design in grafana/SPEC-obsidian-backups.md.
   todos:
-    - Heartbeat lacks the `vault` tag yet — shows one `tbd` series until the fan-out backup script tags per-vault (obsidian-tbd repo automations/)
     - No `changed`-files field is emitted yet — the spec's "files changed per run" panel is dropped until it is
     - Alert when any vault's last-success age exceeds the backup interval
     - Size-trend thresholds per vault to catch silent truncation

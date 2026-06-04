@@ -21,7 +21,7 @@
       "id": 1,
       "type": "stat",
       "title": "Last backup age — per vault",
-      "description": "Time since each vault's last successful backup (ops/backup, target=obsidian). Green < 36h, red > 48h (backup runs ~daily). Until the fan-out tags heartbeats with `vault`, the single Obsidian backup shows as one tile labelled `tbd`.",
+      "description": "Time since each vault's last successful backup (ops/backup, target=obsidian). Green < 36h, red > 48h (backup runs ~daily). One tile per live vault, keyed by the fan-out backup's `vault` tag (camping/gear/dev/home).",
       "datasource": { "type": "influxdb", "uid": "ops" },
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
@@ -52,7 +52,7 @@
         {
           "refId": "A",
           "datasource": { "type": "influxdb", "uid": "ops" },
-          "query": "from(bucket: \"ops\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"obsidian\" and r._field == \"success\" and r._value == 1)\n  |> map(fn: (r) => ({ r with vault: if exists r.vault then r.vault else \"tbd\" }))\n  |> group(columns: [\"vault\"])\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"vault\", \"_value\"])"
+          "query": "from(bucket: \"ops\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"obsidian\" and r._field == \"success\" and r._value == 1)\n  |> filter(fn: (r) => exists r.vault)\n  |> group(columns: [\"vault\"])\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"vault\", \"_value\"])"
         }
       ]
     },
@@ -88,7 +88,7 @@
         {
           "refId": "A",
           "datasource": { "type": "influxdb", "uid": "ops" },
-          "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"obsidian\" and r._field == \"bytes\")\n  |> map(fn: (r) => ({ r with vault: if exists r.vault then r.vault else \"tbd\" }))\n  |> keep(columns: [\"_time\", \"_value\", \"vault\"])\n  |> group(columns: [\"vault\"])\n  |> aggregateWindow(every: 1h, fn: last, createEmpty: false)"
+          "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"obsidian\" and r._field == \"bytes\")\n  |> filter(fn: (r) => exists r.vault)\n  |> keep(columns: [\"_time\", \"_value\", \"vault\"])\n  |> group(columns: [\"vault\"])\n  |> aggregateWindow(every: 1h, fn: last, createEmpty: false)"
         }
       ]
     },
@@ -143,7 +143,7 @@
         {
           "refId": "A",
           "datasource": { "type": "influxdb", "uid": "ops" },
-          "query": "from(bucket: \"ops\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"obsidian\" and (r._field == \"success\" or r._field == \"bytes\" or r._field == \"duration_s\"))\n  |> map(fn: (r) => ({ r with vault: if exists r.vault then r.vault else \"tbd\" }))\n  |> group(columns: [\"vault\", \"_field\"])\n  |> last()\n  |> keep(columns: [\"vault\", \"_field\", \"_value\"])\n  |> group()\n  |> pivot(rowKey: [\"vault\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+          "query": "from(bucket: \"ops\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"backup\" and r.target == \"obsidian\" and (r._field == \"success\" or r._field == \"bytes\" or r._field == \"duration_s\"))\n  |> filter(fn: (r) => exists r.vault)\n  |> group(columns: [\"vault\", \"_field\"])\n  |> last()\n  |> keep(columns: [\"vault\", \"_field\", \"_value\"])\n  |> group()\n  |> pivot(rowKey: [\"vault\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
         }
       ]
     }
