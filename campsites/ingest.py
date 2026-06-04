@@ -136,6 +136,7 @@ def build_demand_lines(rec):
 # lagging component holds the gauge down.
 EVENTS_TARGET = 500
 DEPTH_TARGET = 6
+READY_TARGET_AUC = 0.80  # "usable accuracy" the countdown targets
 READINESS_BANDS = ((0.33, "insufficient"), (0.80, "directional"), (1.01, "reliable"))
 
 
@@ -205,11 +206,19 @@ def compute_readiness(bucket, max_days=60):
     history_months = span_days / 30.0
     expected_accuracy = 0.5 + 0.34 * (1 - math.exp(-history_months / 3.0))
 
+    # Countdown: expected days until the accuracy boundary reaches a usable AUC,
+    # inverting the same curve (history grows ~1 day per calendar day). Drops to
+    # 0 once the target is reached. Recomputed each run — a daily countdown.
+    frac = (READY_TARGET_AUC - 0.5) / 0.34
+    months_to_ready = -3.0 * math.log(1 - frac) if 0 < frac < 1 else 0.0
+    ready_eta_days = max(0, round((months_to_ready - history_months) * 30))
+
     return {"readiness": score, "band": _band(score), "event_score": event_score,
             "coverage": coverage, "depth_score": depth_score, "events": events,
             "active_cells": active, "cells": total, "median_depth": median_depth,
             "history_months": history_months, "expected_accuracy": expected_accuracy,
-            "campgrounds": len(cgset), "collect_days": len(dates)}
+            "campgrounds": len(cgset), "collect_days": len(dates),
+            "ready_eta_days": ready_eta_days}
 
 
 def build_readiness_line(stats, ts):
@@ -222,6 +231,7 @@ def build_readiness_line(stats, ts):
             f"history_months={stats['history_months']:.2f},"
             f"expected_accuracy={stats['expected_accuracy']:.4f},"
             f"campgrounds={int(stats['campgrounds'])}i,collect_days={int(stats['collect_days'])}i,"
+            f"ready_eta_days={int(stats['ready_eta_days'])}i,"
             f"band=\"{stats['band']}\" {ts}"]
 
 
