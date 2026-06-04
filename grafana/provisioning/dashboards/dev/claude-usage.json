@@ -1,5 +1,7 @@
 {
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -7,12 +9,53 @@
   "liveNow": false,
   "refresh": "5m",
   "schemaVersion": 39,
-  "tags": ["claude", "usage"],
+  "tags": [
+    "claude",
+    "usage"
+  ],
   "templating": {
     "list": [
       {
-        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
-        "datasource": { "type": "influxdb", "uid": "claude_code" },
+        "name": "cache_fields",
+        "label": "Cache tokens",
+        "type": "custom",
+        "hide": 0,
+        "description": "Show or hide cache_creation/cache_read token series in 'Token usage by hour' (cache-read can dwarf real tokens).",
+        "query": "Shown : input_tokens|output_tokens|cache_creation_tokens|cache_read_tokens, Hidden : input_tokens|output_tokens",
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "selected": true,
+          "text": "Shown",
+          "value": "input_tokens|output_tokens|cache_creation_tokens|cache_read_tokens"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "Shown",
+            "value": "input_tokens|output_tokens|cache_creation_tokens|cache_read_tokens"
+          },
+          {
+            "selected": false,
+            "text": "Hidden",
+            "value": "input_tokens|output_tokens"
+          }
+        ]
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "claude_code"
+        },
         "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"claude_code\", tag: \"project\")",
         "hide": 0,
         "includeAll": true,
@@ -30,30 +73,46 @@
       }
     ]
   },
-  "time": { "from": "now-7d", "to": "now" },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Claude Code — Token Usage",
+  "title": "Claude Code \u2014 Token Usage",
   "uid": "claude-usage",
-  "version": 1,
+  "version": 2,
   "weekStart": "",
   "panels": [
     {
       "id": 1,
       "type": "timeseries",
       "title": "Token usage by hour",
-      "description": "Tokens per hour, summed across all sessions and stacked by class. cache_read normally dwarfs the rest — that's prompt-cache reuse, not new context.",
-      "datasource": { "type": "influxdb", "uid": "claude_code" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "description": "Tokens per hour, summed across all sessions and stacked by class. cache_read normally dwarfs the rest \u2014 that's prompt-cache reuse, not new context.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "claude_code"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "unit": "short",
           "custom": {
             "drawStyle": "bars",
             "fillOpacity": 80,
             "lineWidth": 1,
-            "stacking": { "mode": "normal", "group": "A" },
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
             "axisCenteredZero": false,
             "barAlignment": 0,
             "gradientMode": "none",
@@ -63,14 +122,27 @@
         "overrides": []
       },
       "options": {
-        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "claude_code" },
-          "query": "from(bucket: \"claude_code\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tokens\")\n  |> filter(fn: (r) => r._field == \"input_tokens\" or r._field == \"output_tokens\" or r._field == \"cache_creation_tokens\" or r._field == \"cache_read_tokens\")\n  |> filter(fn: (r) => r.project =~ /^${project:regex}$/)\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1h, fn: sum, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "claude_code"
+          },
+          "query": "from(bucket: \"claude_code\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tokens\")\n  |> filter(fn: (r) => r._field =~ /^(${cache_fields:raw})$/)\n  |> filter(fn: (r) => r.project =~ /^${project:regex}$/)\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: 1h, fn: sum, createEmpty: false)"
         }
       ]
     },
@@ -79,31 +151,65 @@
       "type": "table",
       "title": "Highest usage in a session",
       "description": "Top 10 sessions by total tokens (input + output + cache) over the selected range.",
-      "datasource": { "type": "influxdb", "uid": "claude_code" },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "claude_code"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
       "fieldConfig": {
         "defaults": {
-          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
           "unit": "short"
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "_value" },
+            "matcher": {
+              "id": "byName",
+              "options": "_value"
+            },
             "properties": [
-              { "id": "displayName", "value": "Tokens" },
-              { "id": "custom.cellOptions", "value": { "type": "gauge", "mode": "gradient" } }
+              {
+                "id": "displayName",
+                "value": "Tokens"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient"
+                }
+              }
             ]
           }
         ]
       },
       "options": {
         "showHeader": true,
-        "sortBy": [{ "displayName": "Tokens", "desc": true }]
+        "sortBy": [
+          {
+            "displayName": "Tokens",
+            "desc": true
+          }
+        ]
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "claude_code" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "claude_code"
+          },
           "query": "from(bucket: \"claude_code\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tokens\" and r._field == \"total_tokens\")\n  |> filter(fn: (r) => r.project =~ /^${project:regex}$/)\n  |> group(columns: [\"session\", \"project\"])\n  |> sum()\n  |> group()\n  |> sort(columns: [\"_value\"], desc: true)\n  |> limit(n: 10)\n  |> keep(columns: [\"project\", \"session\", \"_value\"])"
         }
       ]
@@ -113,22 +219,55 @@
       "type": "piechart",
       "title": "Cache vs real tokens",
       "description": "Cached tokens (cache read + cache create) vs real billed context (input + output) over the selected range. A high cache share means context is being reused efficiently.",
-      "datasource": { "type": "influxdb", "uid": "claude_code" },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "claude_code"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
         "overrides": []
       },
       "options": {
         "pieType": "pie",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "legend": { "displayMode": "list", "placement": "right", "showLegend": true, "values": ["value", "percent"] },
-        "tooltip": { "mode": "single", "sort": "none" }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "claude_code" },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "claude_code"
+          },
           "query": "from(bucket: \"claude_code\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tokens\")\n  |> filter(fn: (r) => r._field == \"input_tokens\" or r._field == \"output_tokens\" or r._field == \"cache_creation_tokens\" or r._field == \"cache_read_tokens\")\n  |> filter(fn: (r) => r.project =~ /^${project:regex}$/)\n  |> map(fn: (r) => ({ r with kind: if r._field == \"cache_read_tokens\" or r._field == \"cache_creation_tokens\" then \"cache\" else \"real\" }))\n  |> group(columns: [\"kind\"])\n  |> sum()\n  |> group()\n  |> pivot(rowKey: [], columnKey: [\"kind\"], valueColumn: \"_value\")"
         }
       ]
