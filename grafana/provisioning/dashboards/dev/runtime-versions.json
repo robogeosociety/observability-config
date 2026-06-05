@@ -1,0 +1,69 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "refresh": "30m",
+  "schemaVersion": 39,
+  "tags": ["dev", "versions", "toolchain"],
+  "templating": { "list": [] },
+  "time": { "from": "now-90d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Runtime Versions",
+  "uid": "runtime-versions",
+  "version": 1,
+  "weekStart": "",
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Runtimes — current vs latest",
+      "description": "Installed vs latest version of each language runtime that lives outside Homebrew. Per runtime: the managing tool, the installed version, the newest available (in the active major/series), and whether an update is available. Fed daily by grafana/runtime-versions/collect.sh into the ops bucket (measurement toolchain_version); shows the last point per runtime.",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "left", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "runtime" }, "properties": [ { "id": "displayName", "value": "Runtime" }, { "id": "custom.width", "value": 160 } ] },
+          { "matcher": { "id": "byName", "options": "manager" }, "properties": [ { "id": "displayName", "value": "Manager" }, { "id": "custom.width", "value": 160 } ] },
+          { "matcher": { "id": "byName", "options": "current" }, "properties": [ { "id": "displayName", "value": "Current" } ] },
+          { "matcher": { "id": "byName", "options": "latest" }, "properties": [ { "id": "displayName", "value": "Latest" } ] },
+          {
+            "matcher": { "id": "byName", "options": "update_available" },
+            "properties": [
+              { "id": "displayName", "value": "Status" },
+              { "id": "custom.align", "value": "center" },
+              { "id": "custom.width", "value": 220 },
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "0": { "text": "✓ up to date", "color": "green", "index": 0 } } },
+                  { "type": "value", "options": { "1": { "text": "⤴ update available", "color": "orange", "index": 1 } } }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "sortBy": [ { "displayName": "Runtime", "desc": false } ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: -90d)\n  |> filter(fn: (r) => r._measurement == \"toolchain_version\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: string(v: r._value) }))\n  |> group()\n  |> pivot(rowKey: [\"runtime\", \"manager\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"runtime\", \"manager\", \"current\", \"latest\", \"update_available\"])\n  |> sort(columns: [\"runtime\"])"
+        }
+      ]
+    }
+  ]
+}
