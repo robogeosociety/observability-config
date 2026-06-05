@@ -633,3 +633,38 @@ stack-catalog:
     - Make the directory/audit truly live (serve the index as JSON for an Infinity panel) instead of regenerating
     - Set as the Grafana home dashboard once it's proven out
     - Colored provenance as a real table panel (Infinity inline) if emoji isn't enough
+
+influxdb-internals:
+  title: InfluxDB Internals
+  file: infra/influxdb-internals.json
+  purpose: >-
+    InfluxDB engine/operational self-monitoring from its native Prometheus
+    /metrics (scraped by Telegraf into the `system` bucket): write
+    throughput/errors/dropped, query rate by result + query-controller state,
+    HTTP API request rate by status, HTTP I/O bytes, BoltDB meta-store ops, and
+    instance inventory + uptime. Counters shown as per-second rates.
+  datasources: [influxdb]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [telegraf/telegraf.conf]
+    produces: { bucket: system, via: telegraf }
+    cadence: 60s
+    status: active
+    note: >-
+      Fed by the telegraf inputs.prometheus scrape of InfluxDB :8086/metrics
+      added in PR #82 (namedrop trims ~2,600 raw series to ~50 by dropping the
+      *_duration_seconds histograms, per-shard storage_* families, and
+      go/promhttp/process runtime). Counter measurements (storage_writer_*,
+      qc_requests_total, http_*_total, boltdb_*) are rendered with derivative();
+      gauges (qc_*_active, influxdb_*_total, uptime) as-is.
+  intent: >-
+    The operational complement to influxdb-buckets: that board answers "how big /
+    how busy is each bucket" (named storage + throughput, custom collector); this
+    one answers "is the InfluxDB engine healthy — writing, querying, erroring?"
+    from the engine's own Prometheus internals. Together they're the hybrid the
+    collector-standardization arc landed on.
+  todos:
+    - Alert on storage_writer_err_points / _dropped_points > 0 and on failed-query rate
+    - Add API latency once a bounded way to keep the *_duration_seconds histograms is found
+    - Per-org / per-bucket query attribution if InfluxDB ever exposes it in /metrics

@@ -1,0 +1,838 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Uptime",
+      "description": "InfluxDB process uptime (influxdb_uptime_seconds).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"influxdb_uptime_seconds\" and r._field == \"gauge\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Buckets",
+      "description": "Buckets in the instance (influxdb_buckets_total).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"influxdb_buckets_total\" and r._field == \"counter\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active queries",
+      "description": "Queries executing now (qc_executing_active).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"qc_executing_active\" and r._field == \"gauge\")\n  |> last()\n  |> group()\n  |> sum()\n  |> keep(columns: [\"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Failed queries",
+      "description": "Compile/runtime query errors over the window (qc_requests_total, result != success).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"qc_requests_total\" and r._field == \"counter\" and r.result != \"success\")\n  |> spread()\n  |> group()\n  |> sum()\n  |> keep(columns: [\"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Write errors",
+      "description": "Points that errored on write over the window (storage_writer_err_points sum).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"storage_writer_err_points\" and r._field == \"sum\")\n  |> spread()\n  |> group()\n  |> sum()\n  |> keep(columns: [\"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Dropped points",
+      "description": "Points dropped over the window (storage_writer_dropped_points sum).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"storage_writer_dropped_points\" and r._field == \"sum\")\n  |> spread()\n  |> group()\n  |> sum()\n  |> keep(columns: [\"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Write throughput",
+      "description": "Points written per second (derivative of storage_writer_ok_points sum).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"storage_writer_ok_points\" and r._field == \"sum\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Query rate by result",
+      "description": "Flux/query requests per second by outcome (qc_requests_total).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"qc_requests_total\" and r._field == \"counter\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "HTTP API requests/s by status",
+      "description": "InfluxDB HTTP API request rate grouped by status class (http_api_requests_total).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"http_api_requests_total\" and r._field == \"counter\")\n  |> group(columns: [\"status\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "HTTP I/O bytes/s",
+      "description": "Write/query request+response bytes per second (http_*_bytes counters).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^http_(write_request|write_response|query_request|query_response)_bytes$/ and r._field == \"counter\")\n  |> group(columns: [\"_measurement\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Query controller state",
+      "description": "In-flight query controller counts (qc_*_active gauges).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^qc_(all|executing|compiling|queueing)_active$/ and r._field == \"gauge\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "BoltDB ops/s",
+      "description": "Meta-store read/write rate (boltdb_reads_total / boltdb_writes_total).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^boltdb_(reads|writes)_total$/ and r._field == \"counter\")\n  |> group(columns: [\"_measurement\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Instance inventory",
+      "description": "Counts of core InfluxDB objects (influxdb_*_total gauges).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "system"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "system"
+          },
+          "format": "table",
+          "query": "from(bucket: \"system\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^influxdb_.*_total$/ and r._field == \"counter\")\n  |> last()\n  |> keep(columns: [\"_measurement\", \"_value\"])\n  |> group()\n  |> rename(columns: {_measurement: \"object\", _value: \"count\"})\n  |> sort(columns: [\"object\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "count"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 14,
+      "type": "text",
+      "title": "About this dashboard",
+      "datasource": null,
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 9
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## InfluxDB Internals \u2014 engine & operational self-monitoring\n\nInfluxDB's own `/metrics` (Prometheus) scraped by **Telegraf** (`inputs.prometheus`, 60s)\ninto the `system` bucket \u2014 one measurement per metric. Counters are shown as **per-second\nrates** (`derivative`); gauges as-is.\n\n| Section | Metric |\n|---|---|\n| Write throughput / errors / dropped | `storage_writer_ok_points` / `_err_points` / `_dropped_points` (`sum`) |\n| Query rate + controller state | `qc_requests_total`, `qc_*_active` |\n| HTTP API + I/O | `http_api_requests_total`, `http_*_bytes` |\n| Meta store | `boltdb_reads_total` / `boltdb_writes_total` |\n| Inventory + uptime | `influxdb_*_total`, `influxdb_uptime_seconds` |\n\n**Hybrid with [InfluxDB Buckets](/d/influxdb-buckets):** this board owns the *engine/operational*\ninternals; the `bucket-stats` collector owns *named per-bucket storage + throughput*, which\n`/metrics` can't label by name or derive. The scrape `namedrop`s the cardinality bombs\n(`*_duration_seconds` histograms, per-shard `storage_*`, Go/promhttp/process runtime) \u2192 ~50\nbounded series. Source: `telegraf/telegraf.conf`.\n"
+      }
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [
+    "infra",
+    "influxdb",
+    "internals"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "InfluxDB Internals",
+  "uid": "influxdb-internals",
+  "version": 1,
+  "weekStart": ""
+}
