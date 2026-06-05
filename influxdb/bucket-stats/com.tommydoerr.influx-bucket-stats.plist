@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tommydoerr.influx-bucket-stats</string>
+    <!-- Runs the INTERNAL-disk copy (deploy.sh installs it): launchd-spawned
+         python can't read /Volumes (TCC blocks the script-file open and hangs),
+         so the script + .env live on the internal disk. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>/Users/tommydoerr/.local/share/influx-bucket-stats/collect.sh</string>
+    </array>
+    <!-- Every 5 min. Must match BUCKET_STATS_INTERVAL_S so throughput (points
+         counted over the trailing window) is a clean per-second rate. -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/tommydoerr/Library/Logs/influx-bucket-stats.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tommydoerr/Library/Logs/influx-bucket-stats.log</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
