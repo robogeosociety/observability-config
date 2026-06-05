@@ -1,0 +1,26 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+transit-alerts:
+  title: Transit — Service Alerts
+  file: transit/transit-alerts.json
+  purpose: OBA service_alert visibility — active-alert count, alert-points by reason, an over-time band
+    and a per-alert active/clear state-timeline, and a table of the latest summary + affected routes/stops,
+    so disruptions (and why realtime coverage dropped) are visible at a glance (Influx).
+  datasources:
+  - influxdb
+  source:
+    produces:
+      bucket: transit_tracker
+      via: external-service
+    cadence: 1m
+    status: external
+    note: transit-tracker writes a service_alert point per active alert each poll (transit-tracker-tui
+      PR
+  intent: The disruption lens that pairs with transit-tracker-monitor's realtime-coverage row — when a
+    coverage dip appears there, this dashboard shows the alert (e.g. a 2 Line shuttle closure) that caused
+    it. Alerts are event-driven, so panels are legitimately empty on a quiet day (allow-empty in dashboard_coverage.yaml).
+  todos:
+  - Overlay service_alert periods as annotations on the trips graph (issue
+  - Alert when a high-severity service_alert stays active beyond a threshold

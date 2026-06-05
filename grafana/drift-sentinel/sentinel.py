@@ -2,7 +2,8 @@
 """Drift sentinel — catch stale/degraded dashboard data and warn in Discord with
 the suspect upstream commits.
 
-For each dashboard in dashboards.index.yaml with a `source:` block we track
+For each dashboard in dashboards.index.d/ (conf.d, one file per uid) with a
+`source:` block we track
 (status: active, with a produced InfluxDB bucket), this:
   1. checks data freshness + an anomaly ratio (recent write-rate vs trailing
      baseline) against InfluxDB,
@@ -46,7 +47,8 @@ def _load_env():
 _load_env()
 
 REPO = Path(__file__).resolve().parent.parent.parent          # observability-config root
-INDEX = Path(os.environ.get("INDEX_PATH", REPO / "grafana" / "dashboards.index.yaml"))
+# conf.d intent index — one file per dashboard uid; merge them all.
+INDEX_DIR = Path(os.environ.get("INDEX_DIR", REPO / "grafana" / "dashboards.index.d"))
 INFLUX_URL = os.environ.get("INFLUX_URL", "http://localhost:8086")
 INFLUX_ORG = os.environ.get("INFLUX_ORG", "home")
 INFLUX_TOKEN = os.environ.get("INFLUX_READ_TOKEN", "")
@@ -195,6 +197,14 @@ def _save_state(state: dict) -> None:
 
 
 # --- orchestration --------------------------------------------------------
+def _load_index() -> dict:
+    """Merge every conf.d sidecar (dashboards.index.d/<uid>.yaml) into one mapping."""
+    merged: dict = {}
+    for f in sorted(INDEX_DIR.glob("*.yaml")):
+        merged.update(yaml.safe_load(f.read_text()) or {})
+    return merged
+
+
 def tracked_sources(index: dict):
     """Yield (uid, entry, source) for entries the sentinel can check."""
     for uid, entry in (index or {}).items():
@@ -207,7 +217,7 @@ def tracked_sources(index: dict):
 
 def main() -> int:
     dry = "--dry-run" in sys.argv
-    index = yaml.safe_load(INDEX.read_text())
+    index = _load_index()
     state = _load_state()
     now = time.time()
     findings = []

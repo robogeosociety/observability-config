@@ -1,0 +1,32 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+campsite-collector-history:
+  title: Collector History
+  file: campsites/campsite-collector-history.json
+  purpose: Collector pipeline health from Cloudflare Analytics Engine plus R2 storage — collection rate
+    + 30d total, per-agency coverage, step durations, top failing sites, and R2 stored bytes/object count.
+  datasources:
+  - analytics-engine
+  - infinity
+  source:
+    produces:
+      dataset: analytics-engine
+      via: cf-analytics-engine
+    status: external
+    note: produced by the deadline-driven CollectorLoop in tommyroar/robot-geographical-society (Worker
+      -> AE); R2 storage via the Cloudflare GraphQL API
+  intent: Ops/reliability view of the collector pipeline — is it running, how fully is it covering the
+    tracked sites, and what's breaking.
+  notes:
+  - AE timeseries/aggregate panels follow the dashboard time picker via the vertamedia macros ($timeSeries
+    for adaptive bucketing, $timeFilter for the range; each target carries dateTimeColDataType=timestamp).
+    They previously hardcoded `timestamp > now() - INTERVAL '30'/'7' DAY`, so any picker range shorter
+    than the data span (e.g. a remembered now-24h) plotted an empty viewport and read as nodata. The "Latest
+    collection" stat keeps fixed 24h/2d health windows on purpose (it's a right-now status tile, not a
+    range view); the R2 stats already keyed off ${__from}.
+  todos:
+  - Continuous model — legacy run panels retired; '140' is hard-coded, could derive it
+  - AE retention is ~90d — note the ceiling on history depth
+  - Staleness alerting now lives in campsite-collector-freshness.yml (Discord)

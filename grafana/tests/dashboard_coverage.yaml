@@ -4,7 +4,7 @@
 # Keyed by dashboard uid. A dashboard with no entry gets the STRICT default:
 # every queryable panel must return rows over BOTH the default range and now-24h.
 # Encode a legitimately-empty panel or an inapplicable window here rather than
-# weakening the test. Same "intent is code" idea as dashboards.index.yaml.
+# weakening the test. Same "intent is code" idea as dashboards.index.d/.
 #
 #   allow_empty_panels: panel titles (case-insensitive substring) or numeric ids
 #                       that may legitimately return no rows. "*" = the whole

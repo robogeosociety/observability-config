@@ -122,15 +122,17 @@ to a defined contact point).
   history is the changelog — write a clear commit subject, and render the human
   view on demand with `python3 grafana/render-changelog.py` (commits touching
   `provisioning/dashboards/**`, grouped by date, newest first).
-- **Dashboard intent is code too.** Every dashboard has an entry in
-  `grafana/dashboards.index.yaml` capturing its purpose, design rationale, and
-  TODO backlog — the "why" the JSON can't hold. Read it before changing a
-  dashboard; record follow-ups there instead of losing them. Add or remove a
-  dashboard JSON and update the index in the same change: `tests/test_dashboard_index.py`
-  fails if an entry is missing, orphaned, or drifts from the JSON's
-  title/file/datasources. (The index lives in `grafana/`, not
-  `provisioning/dashboards/`, because Grafana's provider would try to parse a
-  stray YAML there as a provider config.)
+- **Dashboard intent is code too (conf.d).** Every dashboard has a sidecar
+  `grafana/dashboards.index.d/<uid>.yaml` (one file per uid, single-key map)
+  capturing its purpose, design rationale, and TODO backlog — the "why" the JSON
+  can't hold. Read it before changing a dashboard; record follow-ups there instead
+  of losing them. Add or remove a dashboard JSON and its sidecar in the same change:
+  `tests/test_dashboard_index.py` globs+merges the dir and fails if an entry is
+  missing, orphaned, drifts from the JSON's title/file/datasources, or two files
+  claim the same uid. (The index lives in `grafana/`, not `provisioning/dashboards/`,
+  because Grafana's provider would try to parse a stray YAML there as a provider
+  config. One-file-per-uid means concurrent PRs never collide on a shared index —
+  the drift-sentinel reads the same dir; the human view is rendered on demand.)
 - **Secrets** live in per-dir `.env` (gitignored, chmod 600); `.env.example`
   templates are committed. Never commit a real `.env`.
 

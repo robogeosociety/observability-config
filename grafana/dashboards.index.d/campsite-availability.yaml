@@ -1,0 +1,58 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+campsite-availability:
+  title: Campsite Availability
+  file: campsites/campsite-availability.json
+  purpose: 'Campsite availability in two sections: a live system-wide snapshot from Cloudflare AE (site-nights
+    available, % reserved, fully-booked campgrounds, per-agency, per-campground latest, watched hot dates)
+    and a per-night history from the `campsites` InfluxDB bucket (totals, booked %, the available/booked
+    trend, booked-by-agency, per-campsite table for a chosen target date).'
+  datasources:
+  - analytics-engine
+  - influxdb
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths:
+    - campsites/
+    produces:
+      bucket: campsites
+      via: launchd-ingest
+    cadence: 24h
+    status: active
+    note: Primary source is the in-repo daily ingest into the `campsites` InfluxDB bucket (the history
+      section). The live section reads the Cloudflare Analytics Engine dataset (external, same upstream
+      scraper Worker as campsite-collector-history) for low-latency current state.
+  cloud_provenance:
+    audited: '2026-06-04'
+    cloud_copy: R2 (campsite-raw) + Cloudflare Analytics Engine
+    replaceable: false
+    reason: 'The dashboard is already a deliberate hybrid: the live snapshot panels query Analytics Engine
+      directly, while the `campsites` Influx bucket holds only the pre-aggregated daily history (site_demand
+      / campground_demand) + prediction readiness. That Influx copy is the retention + aggregation layer
+      Cloudflare doesn''t provide — AE retention is ~3 months vs Influx''s infinite history, and scanning
+      the ~1.5M raw site_availability points live in AE/Influx is too slow / OOM-risky on the 2 GB Influx
+      (hence ingest.py pre-aggregates). Replacing it with direct AE queries would lose long-term history
+      and re-introduce the slow-scan it was built to avoid.'
+    other_buckets: 'mountain is marginally cloud-backed (is-the-mountain-out CF Worker + R2) but ~1.5
+      KB / 3 series; tempest_archive (WeatherFlow) and transit_tracker (OneBusAway) are cloud-from-another-vendor
+      where Influx is the sole archive; claude_code / home_assistant / system / zigbee_archive / ops are
+      local-origin with no cloud copy. Net: no redundant Influx ingest to cut.'
+  intent: One home for both availability lenses — "how booked is everything right now" (live/AE, all nights)
+    and "how is a chosen night filling up" (history/Influx, burn-down + forecast). Merged from campsite-availability-metrics
+    + campsite-live-availability (2026-06-02) to end their documented overlap.
+  notes:
+  - Mixed-datasource dashboard. The target_date/agency/campsite variables drive ONLY the history (Influx)
+    section; the live (AE) section is system-wide and ignores them. target_date is filtered to today-and-future
+    (computed in-Flux from now(), this Flux build lacks date.format) and sorted ascending, so the history
+    section opens on the soonest upcoming night rather than an empty past date. The time picker drives
+    the history trend; the live section is "now". A Per-site section (Loop/Site cascading dropdowns +
+    a per-site table for the chosen Target date) reads the `site_availability` measurement, where the
+    night is modelled as the point timestamp (bounded cardinality) — ingested from R2 `sites/` by campsites/ingest.py.
+  todos:
+  - Optionally wire the agency filter into the live (AE) section too
+  - '"Watched hot dates" is a manual list — source it from collector config'
+  - Wire the agency/campground filters into the live (AE) section too (currently system-wide)
+  - Per-site section is Influx-only (site_availability); could add an AE live equivalent

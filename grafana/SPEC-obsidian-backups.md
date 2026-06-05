@@ -53,7 +53,7 @@ growing/shrinking unexpectedly?**
   (mirrors the existing `backups` todo).
 - Coordinate landing via the **Idea lane** in `COORDINATION-PLAN.md` once the
   conf.d index (`dashboards.index.d/`) exists — until then this is a `status:
-  pending` entry in the monolith `dashboards.index.yaml`.
+  pending` entry in the monolith `dashboards.index.d/`.
 
 ## Dependencies
 

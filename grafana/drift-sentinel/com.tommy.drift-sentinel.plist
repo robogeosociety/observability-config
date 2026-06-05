@@ -18,8 +18,8 @@
     </array>
     <key>EnvironmentVariables</key>
     <dict>
-        <key>INDEX_PATH</key>
-        <string>/Users/tommydoerr/.local/share/drift-sentinel/dashboards.index.yaml</string>
+        <key>INDEX_DIR</key>
+        <string>/Users/tommydoerr/.local/share/drift-sentinel/dashboards.index.d</string>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/tommydoerr/.local/bin</string>
     </dict>

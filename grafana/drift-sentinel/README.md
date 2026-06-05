@@ -4,7 +4,7 @@ Catches **stale or degraded dashboard data** and posts a Discord warning enriche
 with the **recent upstream commits** that likely caused it — the "why did this
 dashboard stop?" investigation, automated.
 
-It's driven by the `source:` provenance blocks in `grafana/dashboards.index.yaml`:
+It's driven by the `source:` provenance blocks in `grafana/dashboards.index.d/`:
 for every dashboard whose data we produce (`status: active`, with a bucket), it
 checks InfluxDB, and on trouble fetches the commits touching that pipeline's
 `source.paths` and pings the same Discord channel the Grafana alerts use.
