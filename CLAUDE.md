@@ -83,10 +83,17 @@ Discord contact point:
   `home_assistant`, `tempest_archive`). Scoped to proven-continuous buckets only;
   dormant/event-driven/usage-driven buckets (mountain, campsites, zigbee_archive,
   claude_code) are deliberately excluded so the rules never fire on deploy.
+- **InfluxDB write health** (`influxdb-write-health.yml`) — three rules off the
+  engine's own Prometheus internals (telegraf `inputs.prometheus` → `system`
+  bucket; visualised on `influxdb-internals`). Each alerts on the *increase* over
+  a 10m window (`spread()` of a cumulative counter): **write errors**
+  (`storage_writer_err_points` > 0), **dropped points**
+  (`storage_writer_dropped_points` > 0 — silent data loss), and a **query-error
+  storm** (`qc_requests_total` non-success > 20/10m, tolerating the odd malformed
+  ad-hoc query). Each embeds the matching `influxdb-internals` stat panel.
 
-The three secondary rules set `execErrState=OK` (plus `noDataState=OK` for the
-latter two) so an InfluxDB outage pages **once** (via the availability rule), not
-four times.
+The secondary rules set `execErrState=OK` (plus `noDataState=OK`) so an InfluxDB
+outage pages **once** (via the availability rule), not once per rule.
 
 Notification is **Discord** via Grafana's native `discord` contact point, which
 posts a color-coded embed (firing red / resolved green) with the alert summary,
