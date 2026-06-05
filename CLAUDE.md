@@ -117,9 +117,11 @@ to a defined contact point).
   subdirs** (`infra/ ops/ campsites/ transit/ weather/ dev/`) — Grafana makes a
   folder per subdir (`foldersFromFilesStructure: true`), and the index `file:` is
   the folder-relative path.
-- **Dashboard changes are logged.** Every add/remove/move/update appends one line
-  to `grafana/changelog.jsonl` (`{ts, pr, summary, changes:[{dashboard, action}]}`);
-  `tests/test_changelog.py` keeps it well-formed and chronological.
+- **Dashboard changes are logged by git, not a file.** The old append-only
+  `grafana/changelog.jsonl` was a concurrent-PR conflict funnel; it's gone. Git
+  history is the changelog — write a clear commit subject, and render the human
+  view on demand with `python3 grafana/render-changelog.py` (commits touching
+  `provisioning/dashboards/**`, grouped by date, newest first).
 - **Dashboard intent is code too.** Every dashboard has an entry in
   `grafana/dashboards.index.yaml` capturing its purpose, design rationale, and
   TODO backlog — the "why" the JSON can't hold. Read it before changing a
