@@ -22,6 +22,11 @@ services:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      # Home dashboard = the Stack Catalog (ops/stack-catalog.json), set via config
+      # so it's store-as-code (not a live org-preference API write). NOTE: this is a
+      # compose env change — applying it needs `docker compose up -d grafana`
+      # (recreate); the coordinator's `docker restart` alone won't pick it up.
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/etc/grafana/provisioning/dashboards/ops/stack-catalog.json"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
