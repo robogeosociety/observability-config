@@ -32,6 +32,34 @@ from pathlib import Path
 
 TRANSCRIPTS = Path.home() / ".claude" / "projects"
 CURSOR_PATH = Path.home() / ".local" / "state" / "claude-usage-collector" / "cursor.json"
+# The InfluxDB write token lives here (chmod 600), NOT in the launchd plist — so it
+# never lands in `launchctl print` env dumps or plist backups. deploy.sh writes it
+# from influxdb/.env (the launchd job can't read /Volumes at runtime; this can).
+ENV_PATH = Path.home() / ".local" / "share" / "claude-usage-collector" / ".env"
+
+
+def load_env_file(path: Path = ENV_PATH) -> None:
+    """Load KEY=VALUE lines from a local .env into os.environ (no override).
+
+    Stdlib-only, tolerant: skips blanks/comments, strips quotes, ignores a
+    leading `export`. Existing environment variables win so a plist/shell can
+    still override the file.
+    """
+    try:
+        text = path.read_text()
+    except OSError:
+        return
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):]
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")
+        if key:
+            os.environ.setdefault(key, val)
 
 # --- parse ------------------------------------------------------------------
 
@@ -164,6 +192,7 @@ def scan(cursor, reset=False):
 # --- write ------------------------------------------------------------------
 
 def influx_write(lines):
+    load_env_file()
     url = os.environ.get("INFLUX_URL", "http://localhost:8086").rstrip("/")
     org = os.environ.get("INFLUX_ORG", "home")
     bucket = os.environ.get("INFLUX_CLAUDE_USAGE_BUCKET", "claude_code")

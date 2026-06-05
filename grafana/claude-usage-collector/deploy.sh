@@ -20,16 +20,24 @@ cp "$SRC" "$DEST"
 echo "deployed $SRC -> $DEST"
 
 # Pull the write token from influxdb/.env (this script runs from the interactive
-# shell, which CAN read /Volumes; the launchd job that follows cannot, so the
-# token is baked into the deployed plist instead).
+# shell, which CAN read /Volumes; the launchd job that follows cannot). The token
+# goes into a chmod-600 .env next to the deployed collector — NOT into the plist —
+# so it stays out of `launchctl print` env dumps and plist backups. collector.py
+# loads this file itself (see load_env_file()).
 ENV_FILE="${0:A:h:h:h}/influxdb/.env"
 [ -f "$ENV_FILE" ] && source "$ENV_FILE"
 : "${INFLUX_CLAUDE_USAGE_TOKEN:?set INFLUX_CLAUDE_USAGE_TOKEN in influxdb/.env first}"
 
-# Install/refresh the launchd job (idempotent), injecting the token into the
-# deployed copy only (never the repo template).
+DEPLOYED_ENV="${DEST:h}/.env"
+umask 077
+printf 'INFLUX_CLAUDE_USAGE_TOKEN=%s\n' "$INFLUX_CLAUDE_USAGE_TOKEN" > "$DEPLOYED_ENV"
+chmod 600 "$DEPLOYED_ENV"
+echo "wrote token -> $DEPLOYED_ENV (chmod 600)"
+
+# Install/refresh the launchd job (idempotent). The plist is now secret-free, so
+# it's copied verbatim.
 mkdir -p "${PLIST_DEST:h}"
-sed "s|__INFLUX_CLAUDE_USAGE_TOKEN__|${INFLUX_CLAUDE_USAGE_TOKEN}|" "$PLIST_SRC" > "$PLIST_DEST"
+cp "$PLIST_SRC" "$PLIST_DEST"
 chmod 600 "$PLIST_DEST"
 launchctl bootout "gui/$(id -u)/com.tommy.claude-usage" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST"

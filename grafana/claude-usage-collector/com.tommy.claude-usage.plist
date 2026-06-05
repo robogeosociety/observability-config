@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  launchd job for the Claude Code usage collector. This is a TEMPLATE: deploy.sh
-  copies it to ~/Library/LaunchAgents/ and substitutes __INFLUX_CLAUDE_USAGE_TOKEN__
-  with the value from influxdb/.env (the token must NOT be committed). The deployed
-  copy carries the token because launchd is TCC-blocked from reading the /Volumes
-  .env at runtime; deploy.sh runs from the interactive shell, which can.
+  launchd job for the Claude Code usage collector. deploy.sh copies this verbatim
+  to ~/Library/LaunchAgents/. The InfluxDB write token is NOT here — deploy.sh
+  writes it to ~/.local/share/claude-usage-collector/.env (chmod 600) and the
+  collector reads it itself, so the secret never lands in this plist (or in
+  `launchctl print` env dumps / plist backups). Only non-secret config lives below.
 
   collector.py is pure stdlib, so /usr/bin/python3 needs no venv/uv.
 -->
@@ -27,8 +27,6 @@
         <string>home</string>
         <key>INFLUX_CLAUDE_USAGE_BUCKET</key>
         <string>claude_code</string>
-        <key>INFLUX_CLAUDE_USAGE_TOKEN</key>
-        <string>__INFLUX_CLAUDE_USAGE_TOKEN__</string>
     </dict>
 
     <key>StartInterval</key>
