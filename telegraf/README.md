@@ -8,7 +8,7 @@ own health.
 
 ```
 telegraf (brew service, native host)  ──15s──▶  InfluxDB `system` bucket  ──▶  dashboards
-  inputs: cpu mem swap disk diskio net system docker  +  internal  http_response
+  inputs: cpu mem swap disk diskio net system docker  +  internal  http_response  prometheus
 ```
 
 Telegraf runs **natively via Homebrew**, not in a container — a container would
@@ -78,3 +78,15 @@ Edit `telegraf.conf` here, then `./deploy.sh`. Check status with
   lands now; a small uptime panel + an `http_response` "endpoint down" alert are
   the obvious follow-ups. `x509_cert` for the tailnet HTTPS cert was considered
   but dropped — the tailnet TLS port isn't reachable from the host.
+- `inputs.prometheus` scrapes InfluxDB's own `/metrics` (`:8086`) at 60s for
+  engine/operational internals — write throughput/errors (`storage_writer_*`),
+  query-control state (`qc_*`), HTTP request/query/write counts, task scheduler,
+  instance inventory (`influxdb_*_total`), uptime, boltdb. This is the **hybrid**
+  "migrate to InfluxDB Prometheus": Telegraf owns the internals; `bucket-stats`
+  still owns named per-bucket storage + throughput (which `/metrics` can't label
+  by name or derive). `/metrics` has ~2,600 series; `namedrop` cuts the
+  cardinality bombs (`*_duration_seconds` histograms, per-shard `storage_*`,
+  `go_*`/`promhttp_*`/`process_*`) down to **~50 bounded series**. **Do NOT set
+  `metric_version = 2`** — in 1.38 it flips to a single `prometheus` measurement
+  and defeats the measurement-name `namedrop`. A future "InfluxDB Internals"
+  dashboard reads these from the `system` bucket.
