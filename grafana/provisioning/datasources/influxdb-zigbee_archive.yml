@@ -1,0 +1,18 @@
+# InfluxDB datasource (conf.d — one file per datasource so concurrent PRs adding a
+# bucket never collide on a shared file; Grafana merges every *.yml in this dir).
+
+apiVersion: 1
+datasources:
+- name: InfluxDB - zigbee_archive
+  uid: zigbee_archive
+  type: influxdb
+  access: proxy
+  url: http://influxdb:8086
+  jsonData:
+    version: Flux
+    organization: home
+    defaultBucket: zigbee_archive
+    tlsSkipVerify: true
+  secureJsonData:
+    token: ${INFLUX_GRAFANA_TOKEN}
+  editable: true

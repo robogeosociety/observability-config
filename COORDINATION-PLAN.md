@@ -272,8 +272,11 @@ These turn "logical collisions" into red CI instead of silent runtime breakage.
   race the scheduler. No dashboard/datasource format changes yet.
 - **Phase 1 — conf.d index.** Introduce `dashboards.index.d/`; loader reads both; migrate
   existing entries; add duplicate-uid CI check. Kills the #1 git conflict.
-- **Phase 2 — datasources `_projects/` + `buckets.yaml` reconcile.** Per-project datasource
-  files; declarative token/bucket reconciliation in the daemon.
+- **Phase 2 — datasources conf.d + `buckets.yaml` reconcile.** ✅ **conf.d done** — the
+  monolithic `datasources/influxdb.yml` is split into one `influxdb-<bucket>.yml` per
+  datasource (Grafana merges every `*.yml` in the dir), so adding a bucket is a new file,
+  never a shared-file edit. The declarative token/bucket reconciliation in the daemon
+  remains proposed.
 - **Phase 3 — lanes + helpers.** `enqueue.sh`, worktree wrapper, idea-lane auto-merge,
   post-merge deploy-job hook. Update `CLAUDE.md` for the internal-clone deploy model.
 
