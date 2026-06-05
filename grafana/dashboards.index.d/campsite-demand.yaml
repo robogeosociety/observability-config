@@ -1,0 +1,31 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+campsite-demand:
+  title: Campsite Demand
+  file: campsites/campsite-demand.json
+  purpose: 'Where campsites are filling up: most in-demand sites (fewest nights left) and campgrounds,
+    the hottest nights (weekends/holidays that fill first), and a campground×night booking heatmap. Off
+    pre-aggregated site_demand / campground_demand summaries.'
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths:
+    - campsites/ingest.py
+    produces:
+      bucket: campsites
+      via: launchd-ingest
+    cadence: 24h
+    status: active
+    note: site_demand (per-site totals) + campground_demand (per-campground per-night) are pre-aggregated
+      by ingest.py from R2 sites/ so the dashboard never scans the ~1.5M site_availability points live
+      (too slow / OOM-risky on the 2GB Influx).
+  intent: The demand lens that complements campsite-availability (which is "what's open for a chosen night").
+    Pre-aggregating in the ingest keeps it fast and Influx- only (no AE), so unlike campsite-availability
+    it renders headlessly.
+  todos:
+  - Per-site availability calendar (site×night) once a campground is selected
+  - Lead-time / burn-down once enough history accrues (robot-geographical-society#70)

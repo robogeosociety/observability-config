@@ -1,0 +1,33 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+runtime-versions:
+  title: Runtime Versions
+  file: dev/runtime-versions.json
+  purpose: Installed vs latest version of each language runtime (node/volta, python/uv, rust/rustup) from
+    the `ops` bucket `toolchain_version` measurement — a current/latest/status table (one row per runtime,
+    status colour-mapped) flagging anything behind.
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths:
+    - grafana/runtime-versions/collect.sh
+    - grafana/runtime-versions/nomad/runtime-versions.hcl
+    produces:
+      bucket: ops
+      via: nomad-periodic
+    cadence: 24h
+    status: active
+    monitor: skip
+  intent: Answer "what runtime versions are actually in use here, and is anything behind?" at a glance.
+    The three runtimes live outside Homebrew (volta/uv/ rustup own them), so `brew outdated` can't see
+    them; this is the single view that does. Complements the weekly notify-only `sys-update` job (in /Volumes/dev/scripts)
+    that pings Discord on drift — this dashboard is the steady metric feed. Versions are string fields;
+    `update_available` (0/1) is derived in the collector via `sort -V`, not in Flux.
+  todos:
+  - Add managers (uv/volta/rustup/brew) and a brew-outdated count once useful
+  - Optional history panel (version-change timeline) if upgrades get frequent
+  - Wire an alert if a runtime stays update_available=1 for N days

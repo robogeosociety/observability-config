@@ -10,7 +10,7 @@ prices change. We track raw token counts only — honest, and never wrong.
 
 Three pieces, in order — **bucket → collector → dashboard**. The first two are the
 data side; the dashboard is `claude-usage.json`. The `claude-usage` entry in
-`dashboards.index.yaml` is the one-liner.
+`dashboards.index.d/` is the one-liner.
 
 ---
 

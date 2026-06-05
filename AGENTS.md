@@ -61,11 +61,14 @@ the files must be correct as-merged:
   every `*.yml` in the dir. Adding a bucket means **adding a new file, never
   editing a shared one** — so concurrent PRs from different projects can't collide
   on it (the old single `influxdb.yml` was a conflict funnel — see COORDINATION-PLAN §5.2).
-- **Dashboard ↔ index parity.** Edit JSON in `grafana/provisioning/dashboards/`
+- **Dashboard ↔ index parity (conf.d).** Edit JSON in `grafana/provisioning/dashboards/`
   (under the right domain subdir — `infra/ ops/ campsites/ transit/ weather/ dev/`,
-  one Grafana folder per subdir) and update `grafana/dashboards.index.yaml` in the
-  *same* PR — `tests/test_dashboard_index.py` enforces title / folder-relative
-  `file` / datasource parity and fails on orphans.
+  one Grafana folder per subdir) and, in the *same* PR, add/edit the matching
+  **`grafana/dashboards.index.d/<uid>.yaml`** — one file per uid (single-key map
+  `{<uid>: {...}}`), so concurrent PRs never collide on a shared index.
+  `tests/test_dashboard_index.py` globs+merges the dir and enforces title /
+  folder-relative `file` / datasource parity, fails on orphans, and flags a
+  duplicate uid across files.
 - **The changelog is derived from git — don't hand-maintain a file.** There is no
   `changelog.jsonl` to append to (it was a shared-tail conflict funnel). Git history
   *is* the append-only, ordered, conflict-free log; just write a **clear commit

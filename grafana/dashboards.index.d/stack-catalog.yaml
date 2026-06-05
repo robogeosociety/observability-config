@@ -1,0 +1,35 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+stack-catalog:
+  title: Stack Catalog & Data Provenance
+  file: ops/stack-catalog.json
+  purpose: Authoritative catalog of every dashboard on the stack — descriptions + links grouped by domain
+    (generated from this index), a live colored health snapshot row (Influx storage, buckets, write rate,
+    series, last backup, anomalies), a dynamic Grafana dashlist, and the embedded InfluxDB source-provenance
+    audit (which buckets are cloud-duplicated vs local-only).
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths:
+    - grafana/dashboards.index.d/
+    - influxdb/bucket-stats/collect.py
+    produces:
+      bucket: ops
+      via: derived
+    cadence: 5m
+    status: active
+    note: The directory + provenance audit are generated from dashboards.index.d/ (the source of truth)
+      — regenerate when dashboards are added/changed. The stat row reads the `ops` bucket live (bucket_stats
+      / backup / anomaly); the "All dashboards (live)" panel is a built-in dashlist that auto-discovers.
+  intent: 'A single landing page answering "what dashboards exist, are they healthy, and where does each
+    Influx bucket''s data come from" — including the 2026-06-04 cloud-provenance audit (see the cloud_provenance
+    block on campsite-availability: campsites is the only Cloudflare-duplicated bucket, and even it isn''t
+    redundant).'
+  todos:
+  - Make the directory/audit truly live (serve the index as JSON for an Infinity panel) instead of regenerating
+  - Set as the Grafana home dashboard once it's proven out
+  - Colored provenance as a real table panel (Infinity inline) if emoji isn't enough

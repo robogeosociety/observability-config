@@ -1,0 +1,33 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+influxdb-buckets:
+  title: InfluxDB Buckets
+  file: infra/influx-buckets.json
+  purpose: Per-bucket inventory of the home InfluxDB instance — on-disk storage, series cardinality, measurements,
+    and write throughput (points/sec) — graphed over time and as a current snapshot table. Fed by the
+    influxdb/bucket-stats collector into the `ops` bucket (`bucket_stats` measurement).
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths:
+    - influxdb/bucket-stats/collect.py
+    produces:
+      bucket: ops
+      via: launchd-bucket-stats
+    cadence: 5m
+    status: active
+    note: Storage/series/measurements are scraped from InfluxDB's /metrics (Prometheus, keyed by hex bucket
+      id, resolved to names via the buckets API). Throughput is derived — /metrics only exposes write
+      counts globally (storage_writer_ok_points), so the collector counts each bucket's points over the
+      trailing 5-min window via Flux. `series` is cardinality, not row count.
+  intent: 'Answer "what''s eating Influx, how fast is each bucket growing, and which one is busiest" at
+    a glance — capacity planning for the 2GB Influx that backs the whole stack. Layout follows the issue
+    #74 template (headline → components → key stats → history → growth → live table → explainer).'
+  todos:
+  - Alert on a bucket's storage growth rate (runaway-cardinality early warning)
+  - Projected days-to-fill once a disk/retention cap is defined
+  - Split disk_bytes into TSM vs WAL/cache once a per-shard view is wanted

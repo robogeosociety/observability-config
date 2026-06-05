@@ -1,0 +1,26 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+ha-pi-system:
+  title: Home Assistant Pi — System
+  file: infra/ha-pi-system.json
+  purpose: Host CPU/load/temp/memory/swap/disk/network for the Home Assistant Raspberry Pi, sourced from
+    HA's System Monitor integration forwarded to the `home_assistant` bucket (measurement `sensor.system_monitor_*`,
+    field `value`) via HA's InfluxDB integration.
+  datasources:
+  - influxdb
+  source:
+    produces:
+      bucket: home_assistant
+      via: home-assistant
+    status: external
+    note: HA System Monitor → HA InfluxDB integration on the Pi (LAN IP); no repo
+  intent: The HA-native counterpart to mac-system. Unlike the Telegraf-fed ha-system dashboard (which
+    expects cpu/mem measurements in the `system` bucket), this reads HA's own System Monitor entity schema
+    — because the Pi has no Telegraf and HAOS add-on containers can't route to the mini over Tailscale,
+    so HA's built-in forwarder (over the LAN IP) is the data path that actually works.
+  todos:
+  - Enable more System Monitor entities (per-mount disks, more interfaces) if wanted — they default to
+    disabled_by integration
+  - CPU temp is °F (HA System Monitor reports °F); panel set accordingly

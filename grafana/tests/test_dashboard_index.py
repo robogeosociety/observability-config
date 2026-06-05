@@ -1,10 +1,12 @@
-"""Static, hermetic checks that `dashboards.index.yaml` stays in sync.
+"""Static, hermetic checks that the intent index stays in sync.
 
-The index (grafana/dashboards.index.yaml) captures dashboard *intent* — purpose,
-rationale, backlog. These tests make it self-maintaining: a dashboard JSON with
-no index entry, or an entry that drifts from the JSON it documents, fails CI.
-That keeps the context honest as dashboards change, which is the whole point of
-storing it as code.
+The index is **conf.d** — `grafana/dashboards.index.d/<uid>.yaml`, one file per
+dashboard (so concurrent PRs never collide on a shared file). Each file is a
+single-key mapping `{<uid>: {...}}`; the tests glob the dir and dict-merge it.
+The index captures dashboard *intent* — purpose, rationale, backlog. These tests
+make it self-maintaining: a dashboard JSON with no index entry, or an entry that
+drifts from the JSON it documents, fails CI. That keeps the context honest as
+dashboards change, which is the whole point of storing it as code.
 
 An entry may lead the JSON: mark it `status: pending` to document a dashboard
 before its JSON is committed (the orphan check tolerates only pending entries).
@@ -17,7 +19,7 @@ import yaml
 
 GRAFANA_DIR = Path(__file__).parent.parent
 DASHBOARD_DIR = GRAFANA_DIR / "provisioning" / "dashboards"
-INDEX_PATH = GRAFANA_DIR / "dashboards.index.yaml"
+INDEX_DIR = GRAFANA_DIR / "dashboards.index.d"
 
 # JSON datasource `type` -> the friendly name used in the index. Anything in
 # IGNORE_DS is a built-in/synthetic ref with no provisioned datasource and so
@@ -41,9 +43,37 @@ def _load_json(path):
         return json.load(fh)
 
 
+def _index_files():
+    return sorted(INDEX_DIR.glob("*.yaml"))
+
+
 def _index():
-    with INDEX_PATH.open() as fh:
-        return yaml.safe_load(fh)
+    """Merge every conf.d sidecar into one {uid: entry} mapping."""
+    merged = {}
+    for f in _index_files():
+        merged.update(yaml.safe_load(f.read_text()) or {})
+    return merged
+
+
+def test_each_sidecar_is_single_uid_matching_filename():
+    """One file per uid, named <uid>.yaml — so adding a dashboard is a new file,
+    never a shared-file edit, and the filename is the unique claim on the uid."""
+    for f in _index_files():
+        data = yaml.safe_load(f.read_text()) or {}
+        assert list(data.keys()) == [f.stem], (
+            f"{f.name} must contain exactly one entry keyed {f.stem!r}, got {list(data)}"
+        )
+
+
+def test_no_duplicate_uid_across_files():
+    """Two projects grabbing the same uid is a hermetic collision, caught here."""
+    seen = {}
+    for f in _index_files():
+        for uid in (yaml.safe_load(f.read_text()) or {}):
+            assert uid not in seen, (
+                f"uid {uid!r} defined in both {seen[uid]} and {f.name}"
+            )
+            seen[uid] = f.name
 
 
 def _json_datasources(dashboard):

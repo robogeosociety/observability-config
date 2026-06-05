@@ -1,0 +1,28 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+orbstack-containers:
+  title: OrbStack — Container Monitoring
+  file: infra/orbstack-containers.json
+  purpose: Per-container CPU/mem/net/blkio for the OrbStack Docker containers from Telegraf's `inputs.docker`
+    (docker_container_* measurements) in the `system` bucket — reading the OrbStack socket as the host
+    user.
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths:
+    - telegraf/telegraf.conf
+    produces:
+      bucket: system
+      via: telegraf
+    cadence: 15s
+    status: active
+  intent: Visibility into the containers that run the stack (influxdb, grafana, renderer) so an outage
+    or a runaway container is seen, not silent — the monitoring half of the 2026-05-31 InfluxDB-down incident
+    response.
+  todos:
+  - Alert when the influxdb container is down / unreachable
+  - Surface per-container restart counts and OOM-kills

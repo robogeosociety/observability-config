@@ -1,0 +1,23 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+transit-tracker-basic:
+  title: Transit Tracker — Basic
+  file: transit/transit-tracker-basic.json
+  purpose: OneBusAway transit-display app metrics — clients, API calls/errors/throttle, cache, OBA latency,
+    message throughput, predictions, next departures, and realtime-vs-scheduled (Influx).
+  datasources:
+  - influxdb
+  source:
+    produces:
+      bucket: transit_tracker
+      via: external-service
+    cadence: 1m
+    status: external
+    note: transit-tracker project writes the transit_tracker bucket; repo TBD
+  intent: Combined operational + product view of the transit display — health and what riders see, on
+    one dashboard.
+  todos:
+  - SLO / error-budget panels
+  - Clarify the split vs transit-tracker-monitor (what belongs where)

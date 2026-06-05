@@ -1,0 +1,26 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+transit-tracker-monitor:
+  title: Transit Tracker — Network Monitor
+  file: transit/transit-tracker-monitor.json
+  purpose: Network-topology lens on the transit proxy — OBA -> Proxy -> Displays flow, clients, API calls/throttle/errors,
+    latency, proxied messages by route, WS connects, recent trips, plus a Realtime Coverage row (live-vs-scheduled
+    trips, coverage %, and a per-stop breakdown) off the trip_prediction is_realtime tag (Influx).
+  datasources:
+  - influxdb
+  source:
+    produces:
+      bucket: transit_tracker
+      via: external-service
+    cadence: 1m
+    status: external
+    note: same transit-tracker project as transit-tracker-basic; repo TBD
+  intent: The topology/plumbing view that complements transit-tracker-basic — focused on the proxy and
+    its network rather than rider-facing output. The Realtime Coverage row surfaces upstream OBA gaps
+    (e.g. Judkins Park 40_E01) where the sign silently falls back to GTFS schedule.
+  todos:
+  - Document the overlap with transit-tracker-basic
+  - Per-route alerting on proxied-message dropout
+  - Alert when realtime coverage % drops below threshold for a sustained window

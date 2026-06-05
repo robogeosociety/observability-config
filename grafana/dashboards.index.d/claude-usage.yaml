@@ -1,0 +1,37 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+claude-usage:
+  title: Claude Code — Token Usage
+  file: dev/claude-usage.json
+  purpose: Claude Code token usage on this Mac — tokens by hour (stacked by class), highest-usage sessions,
+    and cache-vs-real split — from the `claude_code` InfluxDB bucket fed by grafana/claude-usage-collector/
+    parsing ~/.claude/projects/**/*.jsonl message `usage` blocks.
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths:
+    - grafana/claude-usage-collector/collector.py
+    produces:
+      bucket: claude_code
+      via: launchd-collector
+    cadence: 5m
+    status: active
+    monitor: skip
+  intent: Answer "how many tokens is Claude Code burning, and is caching working?" Cost is deliberately
+    OUT of scope — transcripts carry no cost and a per-model price table silently rots, so we track raw
+    token counts only. Tokens are shown as four distinct classes (cache-read dominates real sessions),
+    never one number — that's what the cache-vs-real panel exists to surface. Full design (bucket, collector
+    cursor/idempotency, schema, panels) is in grafana/SPEC-claude-usage.md. The collector follows the
+    dev-status rule (edit in-repo, deploy.sh copies to the internal disk, launchd runs it) because launchd
+    is TCC-blocked from /Volumes.
+  todos:
+  - Live since 2026-06-01 — `claude_code` bucket + collector (launchd com.tommy.claude-usage, 5 min) active;
+    backfilled ~18.6k points
+  - More panels — tokens by model, tokens by project, web search/fetch use, avg tokens/message
+  - Headline stat row (tokens today / this month, cache-hit ratio, messages/day)
+  - Revisit `session` tag cardinality if it ever balloons (fine for single-user now)
+  - Heartbeat to the `ops` bucket so collector liveness shows on the Backups/status pattern

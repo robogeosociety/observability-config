@@ -1,0 +1,26 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+collector-freshness:
+  title: Collector Freshness
+  file: ops/collector-freshness.json
+  purpose: Write-rate per minute for each continuously-fed bucket (transit_tracker, home_assistant, tempest_archive).
+    A line dropping to 0 (or No data) for 15m is exactly what the `collector-freshness` alert rules fire
+    on — and each rule embeds its matching panel here as the alert's screenshot (the "offending graph").
+  datasources:
+  - influxdb
+  source:
+    produces:
+      bucket: ops
+      via: derived
+    cadence: continuous
+    status: external
+    note: derived from per-bucket point counts; no collector of its own
+  intent: The visual companion to the collector-freshness alerting rules. Built so each rule's __dashboardUid__/__panelId__
+    can screenshot the exact write-rate graph into Discord, so a "Collector stalled" alert arrives with
+    the flatline shown, not just described. Panels are legitimately empty when a collector is actually
+    stalled (that's the point), so the dashboard is allow-empty in the nodata suite.
+  todos:
+  - Add a last-write-age stat row per bucket
+  - Fold in campsites (daily cadence) once its 34h-window panel shape is settled
