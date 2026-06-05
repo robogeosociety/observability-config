@@ -101,6 +101,32 @@ campsite-availability:
       bucket (the history section). The live section reads the Cloudflare
       Analytics Engine dataset (external, same upstream scraper Worker as
       campsite-collector-history) for low-latency current state.
+  cloud_provenance:
+    # InfluxDB source-provenance audit (2026-06-04): of the 9 application
+    # buckets, `campsites` is the ONLY one with a Cloudflare-side copy — raw
+    # summaries in R2 (`campsite-raw`) + a queryable Analytics Engine dataset.
+    # The audit (rendered on the `stack-catalog` dashboard) asked whether each
+    # Influx source duplicates cloud data and could be replaced by querying
+    # Cloudflare directly. For campsites the answer is "no, keep it":
+    audited: '2026-06-04'
+    cloud_copy: 'R2 (campsite-raw) + Cloudflare Analytics Engine'
+    replaceable: false
+    reason: >-
+      The dashboard is already a deliberate hybrid: the live snapshot panels query
+      Analytics Engine directly, while the `campsites` Influx bucket holds only the
+      pre-aggregated daily history (site_demand / campground_demand) + prediction
+      readiness. That Influx copy is the retention + aggregation layer Cloudflare
+      doesn't provide — AE retention is ~3 months vs Influx's infinite history, and
+      scanning the ~1.5M raw site_availability points live in AE/Influx is too slow
+      / OOM-risky on the 2 GB Influx (hence ingest.py pre-aggregates). Replacing it
+      with direct AE queries would lose long-term history and re-introduce the
+      slow-scan it was built to avoid.
+    other_buckets: >-
+      mountain is marginally cloud-backed (is-the-mountain-out CF Worker + R2) but
+      ~1.5 KB / 3 series; tempest_archive (WeatherFlow) and transit_tracker
+      (OneBusAway) are cloud-from-another-vendor where Influx is the sole archive;
+      claude_code / home_assistant / system / zigbee_archive / ops are local-origin
+      with no cloud copy. Net: no redundant Influx ingest to cut.
   intent: >-
     One home for both availability lenses — "how booked is everything right now"
     (live/AE, all nights) and "how is a chosen night filling up" (history/Influx,
@@ -575,3 +601,35 @@ influxdb-buckets:
     - Alert on a bucket's storage growth rate (runaway-cardinality early warning)
     - Projected days-to-fill once a disk/retention cap is defined
     - Split disk_bytes into TSM vs WAL/cache once a per-shard view is wanted
+
+stack-catalog:
+  title: Stack Catalog & Data Provenance
+  file: ops/stack-catalog.json
+  purpose: >-
+    Authoritative catalog of every dashboard on the stack — descriptions + links
+    grouped by domain (generated from this index), a live colored health snapshot
+    row (Influx storage, buckets, write rate, series, last backup, anomalies), a
+    dynamic Grafana dashlist, and the embedded InfluxDB source-provenance audit
+    (which buckets are cloud-duplicated vs local-only).
+  datasources: [influxdb]
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths: [grafana/dashboards.index.yaml, influxdb/bucket-stats/collect.py]
+    produces: { bucket: ops, via: derived }
+    cadence: 5m
+    status: active
+    note: >-
+      The directory + provenance audit are generated from dashboards.index.yaml
+      (the source of truth) — regenerate when dashboards are added/changed. The
+      stat row reads the `ops` bucket live (bucket_stats / backup / anomaly); the
+      "All dashboards (live)" panel is a built-in dashlist that auto-discovers.
+  intent: >-
+    A single landing page answering "what dashboards exist, are they healthy, and
+    where does each Influx bucket's data come from" — including the 2026-06-04
+    cloud-provenance audit (see the cloud_provenance block on campsite-availability:
+    campsites is the only Cloudflare-duplicated bucket, and even it isn't redundant).
+  todos:
+    - Make the directory/audit truly live (serve the index as JSON for an Infinity panel) instead of regenerating
+    - Set as the Grafana home dashboard once it's proven out
+    - Colored provenance as a real table panel (Infinity inline) if emoji isn't enough
