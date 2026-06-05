@@ -1,0 +1,60 @@
+name: lint
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+# Polyglot lint + format gate — the GitHub-native (no-model-in-the-loop) layer of the
+# machine standard. Each language is auto-detected and skipped if absent. Make the `lint`
+# check required in branch protection to turn this into a hard merge gate.
+# Source of truth: ~/.claude/lint-framework/ (see /Volumes/dev/CLAUDE.md).
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------- Python → ruff ----------
+      - name: Detect Python
+        id: py
+        run: |
+          if [ -n "$(git ls-files '*.py' '*.pyi')" ] || [ -f pyproject.toml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Set up uv
+        if: steps.py.outputs.present == 'true'
+        uses: astral-sh/setup-uv@v5
+      - name: ruff — lint + format check
+        if: steps.py.outputs.present == 'true'
+        run: |
+          uvx ruff@0.15 check .
+          uvx ruff@0.15 format --check .
+
+      # ---------- Node / JS / TS / JSON → biome ----------
+      - name: Detect Node
+        id: node
+        run: |
+          if [ -f package.json ] || [ -n "$(git ls-files '*.js' '*.jsx' '*.ts' '*.tsx' '*.json' '*.jsonc')" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: biome — lint + format check
+        if: steps.node.outputs.present == 'true'
+        run: npx --yes @biomejs/biome@2 ci .
+
+      # ---------- Rust → rustfmt + clippy ----------
+      - name: Detect Rust
+        id: rust
+        run: |
+          if [ -f Cargo.toml ] || [ -n "$(git ls-files '*.rs')" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: rustfmt + clippy
+        if: steps.rust.outputs.present == 'true'
+        run: |
+          rustup component add rustfmt clippy
+          cargo fmt --all -- --check
+          cargo clippy --all-targets --all-features -- -D warnings

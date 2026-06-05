@@ -1,0 +1,47 @@
+# Polyglot lint + format — the machine standard.
+# See /Volumes/dev/CLAUDE.md § "Language toolchains & standards".
+# Uses the installed standard tools on PATH (not pre-commit-managed copies):
+#   Python → ruff (uv tool) · Node → biome (volta) · Rust → rustfmt + clippy (rustup)
+# Each hook is gated by file type, so a repo only runs the languages it actually contains.
+#
+# Install into a repo:  pre-commit install
+# (New repos auto-install the *hook* via the global git template dir; this config file
+#  itself is dropped by `lint-scaffold`. Run linters on all files: `pre-commit run -a`.)
+minimum_pre_commit_version: "3.5.0"
+repos:
+  - repo: local
+    hooks:
+      # --- Python: ruff (lint + format) ---
+      - id: ruff-check
+        name: ruff check (--fix)
+        entry: ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format
+        entry: ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      # --- Node / JS / TS / JSON: biome (lint + format) ---
+      # filename regex (not types_or) so `.jsonc` is covered — pre-commit's identify has
+      # no `jsonc` type tag.
+      - id: biome
+        name: biome check (--write)
+        entry: biome check --write --no-errors-on-unmatched
+        language: system
+        files: '\.(jsx?|tsx?|mjs|cjs|mts|cts|jsonc?)$'
+      # --- Rust: rustfmt + clippy ---
+      - id: rustfmt
+        name: cargo fmt
+        entry: cargo fmt --
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: clippy
+        name: cargo clippy (-D warnings)
+        entry: cargo clippy --all-targets --all-features -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
