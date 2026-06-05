@@ -66,9 +66,12 @@ the files must be correct as-merged:
   one Grafana folder per subdir) and update `grafana/dashboards.index.yaml` in the
   *same* PR — `tests/test_dashboard_index.py` enforces title / folder-relative
   `file` / datasource parity and fails on orphans.
-- **Log dashboard changes.** Append one line to `grafana/changelog.jsonl` for any
-  dashboard add/remove/move/update (`{ts, pr, summary, changes:[{dashboard,
-  action}]}`, oldest-first); `tests/test_changelog.py` validates it.
+- **The changelog is derived from git — don't hand-maintain a file.** There is no
+  `changelog.jsonl` to append to (it was a shared-tail conflict funnel). Git history
+  *is* the append-only, ordered, conflict-free log; just write a **clear commit
+  subject** describing the dashboard change. Render the human view on demand with
+  `python3 grafana/render-changelog.py` (groups commits touching
+  `provisioning/dashboards/**` by date, newest first).
 - **Declare data provenance.** Every dashboard entry carries a `source:` block
   (repo / paths / produces / cadence / status) so drift is detectable. Add one for
   any new dashboard; mark usage/event-driven buckets `monitor: skip` (idle ≠
