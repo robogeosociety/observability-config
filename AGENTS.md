@@ -56,6 +56,11 @@ the files must be correct as-merged:
 
 - **Store-as-code.** Dashboards, datasources, alerting, and Telegraf are
   file-provisioned. Edit the files; the UI is read-only.
+- **Datasources are conf.d.** `provisioning/datasources/` holds **one file per
+  datasource** (`influxdb-<bucket>.yml`, `campsites-ae.yml`, …); Grafana merges
+  every `*.yml` in the dir. Adding a bucket means **adding a new file, never
+  editing a shared one** — so concurrent PRs from different projects can't collide
+  on it (the old single `influxdb.yml` was a conflict funnel — see COORDINATION-PLAN §5.2).
 - **Dashboard ↔ index parity.** Edit JSON in `grafana/provisioning/dashboards/`
   (under the right domain subdir — `infra/ ops/ campsites/ transit/ weather/ dev/`,
   one Grafana folder per subdir) and update `grafana/dashboards.index.yaml` in the

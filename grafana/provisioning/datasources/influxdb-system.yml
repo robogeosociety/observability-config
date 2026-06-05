@@ -1,0 +1,21 @@
+# InfluxDB datasource (conf.d — one file per datasource so concurrent PRs adding a
+# bucket never collide on a shared file; Grafana merges every *.yml in this dir).
+# Mac host system metrics (cpu/mem/swap/disk/diskio/net/system/docker + the
+# InfluxDB-internals prometheus scrape) written by Telegraf running natively on
+# the host. See telegraf/README.md.
+
+apiVersion: 1
+datasources:
+- name: InfluxDB - system
+  uid: system
+  type: influxdb
+  access: proxy
+  url: http://influxdb:8086
+  jsonData:
+    version: Flux
+    organization: home
+    defaultBucket: system
+    tlsSkipVerify: true
+  secureJsonData:
+    token: ${INFLUX_GRAFANA_TOKEN}
+  editable: true
