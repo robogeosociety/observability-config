@@ -1,0 +1,422 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Architecture — robot-geographical-society backend",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 22
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "# robot-geographical-society — backend deployment\n\nThe campsite read API + availability collector run as a **single Cloudflare Worker** (`robot-geographical-society-backend`, Hono). It is reachable **only** through `https://api.robogeosociety.xyz`, fronted by **Cloudflare Access** — the `*.workers.dev` route is **disabled**, so there is no unauthenticated path. Account `d7adee58513c1b2f770ccaac90cf114f`.\n\n```\n  ┌────────────────────────┐        ┌──────────────────────────────┐\n  │  Browser (prod SPA)    │        │  Local Vite dev server        │\n  │  (owner, SSO login)    │        │   /api same-origin proxy      │\n  │                        │        │   attaches service token      │\n  └───────────┬────────────┘        └───────────────┬──────────────┘\n              │  owner SSO (email)                  │ rgs-local-dev\n              │                                     │ service token\n              ▼                                     ▼\n  ┌──────────────────────────────────────────────────────────────────┐\n  │  Cloudflare Access  —  team silent-dew-44e3.cloudflareaccess.com   │\n  │  app: api.robogeosociety.xyz   (2 policies: owner SSO + svc token) │\n  │  ── workers.dev route DISABLED — no unauthenticated path ──        │\n  └───────────────────────────────┬──────────────────────────────────┘\n                                   │  (only authenticated path)\n                                   ▼\n  ┌──────────────────────────────────────────────────────────────────┐\n  │  Worker  robot-geographical-society-backend  (Hono)               │\n  │                                                                    │\n  │  Read API (behind Access)        Collector control                │\n  │   GET /availability?date=          /collect/start|site            │\n  │   GET /availability/:guid           /collect/dlq|reactivate       │\n  │   GET /availability/:guid/site/:id  /scheduler/status  /watch     │\n  │   GET /collectors                                                  │\n  │                                                                    │\n  │  CollectorLoop  —  durable self-scheduling Workflow                │\n  │   refreshes each tracked site within MAX_STALENESS_DAYS = 2        │\n  └───────┬───────────────────────┬──────────────────────┬───────────┘\n          │                       │                      │\n          ▼                       ▼                      ▼\n  ┌───────────────┐      ┌──────────────────┐    ┌──────────────────┐\n  │  R2           │      │  KV              │    │  Analytics Engine │\n  │ campsite-raw  │      │  scheduler /     │    │  campsite_collector│\n  │  raw/ summary/│      │  config state    │    │  campsite_avail-   │\n  │  sites/ dlq/  │      │                  │    │  ability           │\n  │  scheduler/   │      └──────────────────┘    └─────────┬────────┘\n  │  heartbeat    │                                        │\n  └──────┬────────┘                                        │\n         │ summary/  (R2→Influx)                           │ AE SQL\n         ▼  launchd daily 07:30                            ▼\n  ┌──────────────────┐                          ┌────────────────────┐\n  │  InfluxDB        │                          │  Grafana            │\n  │  `campsites`     │ ───────────────────────▶ │  this dashboard +   │\n  │  bucket          │                          │  Collector History  │\n  └──────────────────┘                          └────────────────────┘\n\n  Token vending:  Keychain bootstrap token ─▶ cloudflare-tfvend (Terraform)\n                  ─▶ vends rgs-access-admin ─▶ robot-geographical-society/infra/access\n                     (manages the Access app, 2 policies, rgs-local-dev service token).\n                  wrangler (OAuth) handles Worker deploys + the custom-domain bind.\n```\n\n## Components\n\n| Component | What it is | Reaches |\n|---|---|---|\n| **Frontend (prod)** | React/Vite SPA | Access via owner SSO → `api.robogeosociety.xyz` |\n| **Local dev proxy** | Vite same-origin `/api` proxy; attaches the `rgs-local-dev` Access **service token** server-side (never in the browser bundle) | Access via service token |\n| **Cloudflare Access** | Zero-trust front door, team `silent-dew-44e3.cloudflareaccess.com`; 2 policies (owner email SSO + `rgs-local-dev` service token) | Worker (the only authenticated path) |\n| **Worker** | `robot-geographical-society-backend` (Hono): read API + `CollectorLoop` Workflow | R2, KV, Analytics Engine |\n| **CollectorLoop** | Durable self-scheduling Cloudflare Workflow; refreshes each tracked site within `MAX_STALENESS_DAYS = 2` | writes R2 + AE |\n| **R2 `campsite-raw`** | `raw/`, `summary/`, `sites/`, `dlq/<id>.json`, `scheduler/heartbeat.json` | read by the Mac-side ingest |\n| **Analytics Engine** | `campsite_collector` (run rows) + `campsite_availability` | queried by Grafana over the AE SQL API |\n| **InfluxDB `campsites`** | Mac-side launchd job ingests R2 `summary/` → Influx daily 07:30 | read by Grafana |\n| **cloudflare-tfvend** | Terraform: Keychain bootstrap token → vends long-lived `rgs-access-admin` | `infra/access` |\n| **infra/access** | Terraform manages the Access app, policies, and `rgs-local-dev` service token | — |\n| **wrangler (OAuth)** | Worker deploys + custom-domain bind | — |\n\n_Read endpoints + collector control all sit behind Access. The metric panels below read the same Analytics Engine + R2 storage signals the Worker emits; the daily Influx `campsites` bucket is the long-term history copy of R2 `summary/`._"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Latest collection",
+      "description": "Collector heartbeat from Analytics Engine: most recent collection time, ok/failed counts in the last 24h, and distinct sites collected in the last 2 days (the MAX_STALENESS_DAYS = 2 SLA window). Reads `campsite_collector`.",
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "query": "SELECT max(timestamp) AS last_collection, SUMIf(_sample_interval, blob5='ok' AND timestamp > now() - INTERVAL '1' DAY) AS ok_24h, SUMIf(_sample_interval, blob5='failed' AND timestamp > now() - INTERVAL '1' DAY) AS failed_24h FROM campsite_collector WHERE timestamp > now() - INTERVAL '7' DAY"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "table",
+          "query": "SELECT count(DISTINCT index1) AS sites_2d FROM campsite_collector WHERE timestamp > now() - INTERVAL '2' DAY AND blob5 = 'ok'"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "last_collection"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Last collection"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ok_24h"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "OK (24h)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failed_24h"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Failed (24h)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sites_2d"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Sites (2d) / 140"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 100
+                    },
+                    {
+                      "color": "green",
+                      "value": 140
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "R2 stored (bytes)",
+      "description": "Bytes stored in the R2 `campsite-raw` bucket (raw/ + summary/ + sites/ + dlq/), from the Cloudflare GraphQL Analytics API (`r2StorageAdaptiveGroups`). This is what the CollectorLoop banks.",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "cloudflare_graphql"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare_graphql"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "url": "https://api.cloudflare.com/client/v4/graphql",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"query\":\"{viewer{accounts(filter:{accountTag:\\\"d7adee58513c1b2f770ccaac90cf114f\\\"}){r2StorageAdaptiveGroups(limit:1,filter:{datetime_geq:\\\"${__from:date:iso}\\\",bucketName:\\\"campsite-raw\\\"},orderBy:[datetime_DESC]){max{objectCount payloadSize}dimensions{datetime}}}}}\"}"
+          },
+          "root_selector": "data.viewer.accounts[0].r2StorageAdaptiveGroups[0].max",
+          "columns": [
+            {
+              "selector": "payloadSize",
+              "text": "bytes",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "R2 objects (records)",
+      "description": "Object count in the R2 `campsite-raw` bucket, from the Cloudflare GraphQL Analytics API (`r2StorageAdaptiveGroups`).",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "cloudflare_graphql"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 22,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare_graphql"
+          },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "url": "https://api.cloudflare.com/client/v4/graphql",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"query\":\"{viewer{accounts(filter:{accountTag:\\\"d7adee58513c1b2f770ccaac90cf114f\\\"}){r2StorageAdaptiveGroups(limit:1,filter:{datetime_geq:\\\"${__from:date:iso}\\\",bucketName:\\\"campsite-raw\\\"},orderBy:[datetime_DESC]){max{objectCount payloadSize}dimensions{datetime}}}}}\"}"
+          },
+          "root_selector": "data.viewer.accounts[0].r2StorageAdaptiveGroups[0].max",
+          "columns": [
+            {
+              "selector": "objectCount",
+              "text": "objects",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Collection rate (collections / hour)",
+      "description": "Successful collections per hour from the CollectorLoop Workflow, summing sampling weights over `campsite_collector` where blob5='ok'. Follows the time picker.",
+      "datasource": {
+        "type": "vertamedia-clickhouse-datasource",
+        "uid": "campsites_ae"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "vertamedia-clickhouse-datasource",
+            "uid": "campsites_ae"
+          },
+          "format": "time_series",
+          "meta": {
+            "timezone": "UTC"
+          },
+          "dateTimeColDataType": "timestamp",
+          "dateTimeType": "DATETIME",
+          "query": "SELECT toStartOfHour(timestamp) AS t, SUM(_sample_interval) AS collections FROM campsite_collector WHERE $timeFilter AND blob5 = 'ok' GROUP BY t ORDER BY t",
+          "extrapolate": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 1
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [
+    "cloudflare",
+    "backend"
+  ],
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Backend Deployment",
+  "uid": "backend-deployment",
+  "version": 1,
+  "weekStart": ""
+}

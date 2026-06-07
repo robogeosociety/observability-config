@@ -1,0 +1,47 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+backend-deployment:
+  title: Backend Deployment
+  file: ops/backend-deployment.json
+  purpose: Living architecture map of the robot-geographical-society backend — the Cloudflare Worker
+    (read API + CollectorLoop Workflow), its Cloudflare Access front door (api.robogeosociety.xyz, workers.dev
+    disabled), and the R2 / KV / Analytics Engine it writes, plus the token-vending and observability
+    paths — alongside a few proven liveness signals (collector heartbeat, collection rate, R2 stored
+    bytes/objects).
+  datasources:
+  - analytics-engine
+  - infinity
+  source:
+    repo: tommyroar/robot-geographical-society
+    ref: main
+    paths:
+    - backend/
+    - infra/access/
+    produces:
+      dataset: analytics-engine
+      via: cf-analytics-engine
+    cadence: continuous
+    status: active
+    monitor: live
+    note: The Worker's CollectorLoop emits campsite_collector / campsite_availability rows to Cloudflare
+      Analytics Engine and banks raw/summary/sites to R2 campsite-raw; R2 storage stats come from the
+      Cloudflare GraphQL API. The architecture text panel is documentation, not a query.
+  intent: A deployment/onboarding reference — answer "how does the backend actually run, what's the auth
+    boundary, and where does each signal come from" in one panel, then prove it's alive with a small set
+    of known-good Analytics-Engine + R2 panels copied from campsite-collector-history (no fragile new
+    queries). Worker request/error volume is deliberately omitted — there is no proven Cloudflare GraphQL
+    httpRequests target for this Worker in the repo yet, so it would risk a broken panel.
+  notes:
+  - The metric panels reuse the exact known-good targets from campsite-collector-history (AE collector
+    heartbeat + collection rate; Infinity r2StorageAdaptiveGroups for stored bytes/objects). The collection-rate
+    timeseries follows the picker via $timeSeries/$timeFilter; the "Latest collection" stat keeps fixed
+    24h/2d health windows on purpose (right-now status, not a range view); R2 stats key off ${__from}.
+  - The CENTERPIECE is a markdown text panel (no mermaid plugin exists in this stack) carrying an ASCII
+    box diagram + a component table.
+  todos:
+  - Add a Worker request/error-rate panel once a proven Cloudflare GraphQL httpRequestsAdaptiveGroups
+    target for this Worker exists in the repo.
+  - Consider folding in the daily `campsites` InfluxDB freshness (R2 summary -> Influx 07:30) as a stat.
+  - The "140 sites" SLA denominator is shared with campsite-collector-history; derive it rather than hard-code.
