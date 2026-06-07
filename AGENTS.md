@@ -69,6 +69,11 @@ the files must be correct as-merged:
   `tests/test_dashboard_index.py` globs+merges the dir and enforces title /
   folder-relative `file` / datasource parity, fails on orphans, and flags a
   duplicate uid across files.
+- **Dashboard layout — info panel at the bottom.** A dashboard's info/architecture
+  panel (a `text`/markdown panel) **always goes at the bottom**, below the
+  graph/stat panels — never at the top. The graphs are the point; the prose is
+  reference. Lay panels out graphs-first (`gridPos.y` starting at 0), full-width
+  text panel (`w: 24`) last, with no overlaps or gaps.
 - **The changelog is derived from git — don't hand-maintain a file.** There is no
   `changelog.jsonl` to append to (it was a shared-tail conflict funnel). Git history
   *is* the append-only, ordered, conflict-free log; just write a **clear commit
