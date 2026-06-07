@@ -18,7 +18,7 @@
       "title": "Architecture — robot-geographical-society backend",
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 14,
         "w": 24,
         "h": 22
       },
@@ -34,7 +34,7 @@
       "description": "Collector heartbeat from Analytics Engine: most recent collection time, ok/failed counts in the last 24h, and distinct sites collected in the last 2 days (the MAX_STALENESS_DAYS = 2 SLA window). Reads `campsite_collector`.",
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 0,
         "w": 12,
         "h": 6
       },
@@ -216,7 +216,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 22,
+        "y": 0,
         "w": 6,
         "h": 6
       },
@@ -284,7 +284,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 22,
+        "y": 0,
         "w": 6,
         "h": 6
       },
@@ -352,7 +352,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 6,
         "w": 24,
         "h": 8
       },
