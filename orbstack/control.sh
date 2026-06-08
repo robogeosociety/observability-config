@@ -16,7 +16,7 @@ set -euo pipefail
 # Long-lived stack containers worth one-touch control. Pass an explicit name to
 # act on anything the engine knows (e.g. an ad-hoc mcp/grafana helper); --all is
 # deliberately scoped to these so it can't sweep ephemeral containers.
-MANAGED=(grafana influxdb transit-tracker grafana-renderer)
+MANAGED=(grafana influxdb transit-tracker grafana-renderer realitycapture-viewer)
 
 action="${1:-}"
 target="${2:-}"

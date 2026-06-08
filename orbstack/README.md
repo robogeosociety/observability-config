@@ -46,7 +46,7 @@ nomad job dispatch -meta action=stop    -meta container=transit-tracker containe
 # …or via the wrapper:
 ./control.sh restart grafana
 ./control.sh stop    transit-tracker
-./control.sh restart --all        # grafana, influxdb, transit-tracker, grafana-renderer
+./control.sh restart --all        # grafana, influxdb, transit-tracker, grafana-renderer, realitycapture-viewer
 
 # Inspect runs:
 nomad job status container-control
