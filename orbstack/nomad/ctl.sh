@@ -10,6 +10,9 @@
 set -euo pipefail
 cd "${0:A:h}"
 
+# All ctl-* jobs live in the orbstack namespace (the "parent" grouping).
+export NOMAD_NAMESPACE="orbstack"
+
 action="${1:-}"
 container="${2:-}"
 if [[ -z "$action" || -z "$container" ]]; then

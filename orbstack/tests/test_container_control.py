@@ -51,6 +51,8 @@ def test_job_is_a_service_supervisor(hcl):
         "must be a service job so the UI shows live Running/Dead state"
     )
     assert f'job "ctl-{container}"' in body, "job name must match the file/container"
+    # Grouped under the orbstack namespace (the "parent" grouping).
+    assert 'namespace   = "orbstack"' in body or 'namespace = "orbstack"' in body
     assert 'driver       = "raw_exec"' in body or 'driver = "raw_exec"' in body
     # Reflect state, don't fight a redeploy.
     assert "attempts = 0" in body
@@ -73,7 +75,14 @@ def test_supervisor_lifecycle():
 def test_deploy_and_ctl_drive_nomad_jobs():
     deploy = DEPLOY.read_text()
     assert "nomad job run" in deploy and "nomad job stop" in deploy
+    # `up` must create the namespace before registering into it.
+    assert "nomad namespace apply" in deploy
     ctl = CTL.read_text()
     assert "nomad job run" in ctl
     assert "nomad job stop" in ctl
     assert "nomad job restart" in ctl
+
+
+def test_scripts_scope_to_orbstack_namespace():
+    for p in (DEPLOY, CTL):
+        assert 'NOMAD_NAMESPACE="orbstack"' in p.read_text(), f"{p.name} must scope to the namespace"

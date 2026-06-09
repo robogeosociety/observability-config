@@ -1,9 +1,11 @@
 # orbstack/ — container control as Nomad service jobs
 
-A **Nomad service job per OrbStack container** turns the Nomad UI into a real
-container console: each container shows up as its own **Running/Dead** row with
-native **Stop / Start / Restart**, logs, exec, and live CPU/mem graphs. It's the
-*control* companion to the read-only
+A **Nomad service job per OrbStack container**, all in the **`orbstack` namespace**
+(the "parent" grouping), turns the Nomad UI into a real container console: each
+container shows up as its own **Running/Dead** row with native **Stop / Start /
+Restart**, logs, exec, and live CPU/mem graphs. Filter the Jobs list to the
+`orbstack` namespace to see just the containers, grouped away from the periodic ops
+jobs. It's the *control* companion to the read-only
 [`orbstack-containers`](../grafana/provisioning/dashboards/infra/orbstack-containers.json)
 dashboard (all containers + a btop-style memory treemap): the dashboard shows you
 a container is wedged or near its mem cap; here you bounce it.
@@ -31,16 +33,19 @@ state, it doesn't fight whatever stopped it.
 - `supervise.sh` — the service task: `docker start`, then block on `docker wait`
   with a SIGTERM trap that `docker stop`s the container. raw_exec, host user.
 - `ctl-<container>.hcl` — one service job per container (grafana, influxdb,
-  transit-tracker, grafana-renderer, realitycapture-viewer). Conf.d style: add a
-  container = add a file. A `supervise` var defaults to the canonical script path.
-- `deploy-jobs.sh` — `up` / `down` / `status` over every `ctl-*.hcl`.
+  transit-tracker, grafana-renderer, realitycapture-viewer), each pinned to
+  `namespace = "orbstack"`. Conf.d style: add a container = add a file. A
+  `supervise` var defaults to the canonical script path.
+- `deploy-jobs.sh` — `up` (creates the `orbstack` namespace, then registers every
+  `ctl-*.hcl`) / `down` / `status`. Scopes all nomad calls to the namespace.
 - `ctl.sh` — terminal companion: `./ctl.sh <start|stop|restart> <container>`.
 
 ## Usage
 
-Primary surface is the **Nomad UI** — <http://127.0.0.1:4646/ui/jobs?search=ctl->
-(tailnet: `https://tommys-mac-mini.tail59a169.ts.net:4646`). Each `ctl-*` row is a
-container; click in for Stop/Start/Restart, logs, exec.
+Primary surface is the **Nomad UI**, filtered to the `orbstack` namespace —
+<http://127.0.0.1:4646/ui/jobs?namespace=orbstack> (tailnet:
+`https://tommys-mac-mini.tail59a169.ts.net:4646`). Each `ctl-*` row is a container;
+click in for Stop/Start/Restart, logs, exec.
 
 ```sh
 # Register every supervisor job (maintainer step, after merge):

@@ -1,13 +1,15 @@
-# Nomad service job supervising the OrbStack `realitycapture-viewer` container. One file per
-# container (the repo's conf.d ethos) so each shows as its own Running/Dead row in
-# the Nomad UI with native Stop / Start / Restart. Run via ../nomad/deploy-jobs.sh
-# (or directly: nomad job run ctl-realitycapture-viewer.hcl). See supervise.sh for the lifecycle.
+# Nomad service job supervising the OrbStack `realitycapture-viewer` container, in the `orbstack`
+# namespace (the "parent" grouping — `nomad ... -namespace orbstack`, or the UI
+# namespace filter). One file per container (the repo's conf.d ethos) so each shows
+# as its own Running/Dead row with native Stop / Start / Restart. Deploy via
+# deploy-jobs.sh (creates the namespace first). See supervise.sh for the lifecycle.
 variable "supervise" {
   type    = string
   default = "/Volumes/dev/observability/orbstack/nomad/supervise.sh"
 }
 
 job "ctl-realitycapture-viewer" {
+  namespace   = "orbstack"
   type        = "service"
   datacenters = ["*"]
 
