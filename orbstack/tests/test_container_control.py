@@ -1,86 +1,79 @@
-"""Static guards for the orbstack container-control Nomad job (hermetic — no Nomad
-or Docker needed). These encode the safety invariants the job relies on: it can't
-act without explicit dispatch meta, the action is allowlisted, the target must
-exist, and the HCL points at the real on-disk script."""
+"""Static guards for the orbstack container-control service jobs (hermetic — no
+Nomad or Docker). They encode the design that makes the Nomad UI a real container
+console: one service job per container, a supervisor that mirrors + controls the
+container lifecycle, and HCL that points at the real script."""
 
 from pathlib import Path
 
 import pytest
 
-ORBSTACK = Path(__file__).resolve().parent.parent
-HCL = ORBSTACK / "nomad" / "container-control.hcl"
-TASK = ORBSTACK / "nomad" / "container-control.sh"
-WRAPPER = ORBSTACK / "control.sh"
+NOMAD = Path(__file__).resolve().parent.parent / "nomad"
+SUPERVISE = NOMAD / "supervise.sh"
+DEPLOY = NOMAD / "deploy-jobs.sh"
+CTL = NOMAD / "ctl.sh"
+JOB_FILES = sorted(NOMAD.glob("ctl-*.hcl"))
 
-# Canonical live path the Nomad agent reads at dispatch time (NOT the worktree
-# path) — the agent runs against the merged /Volumes checkout.
-LIVE_SCRIPT = "/Volumes/dev/observability/orbstack/nomad/container-control.sh"
+# Canonical live path the Nomad agent reads at run time (NOT a worktree path).
+LIVE_SCRIPT = "/Volumes/dev/observability/orbstack/nomad/supervise.sh"
+
+# Containers that must each have a supervisor job.
+EXPECTED = {
+    "grafana",
+    "influxdb",
+    "transit-tracker",
+    "grafana-renderer",
+    "realitycapture-viewer",
+}
 
 
-@pytest.fixture(scope="module")
-def hcl() -> str:
-    return HCL.read_text()
-
-
-@pytest.fixture(scope="module")
-def task() -> str:
-    return TASK.read_text()
-
-
-def test_files_exist():
-    for p in (HCL, TASK, WRAPPER):
+def test_core_files_exist():
+    for p in (SUPERVISE, DEPLOY, CTL):
         assert p.is_file(), f"missing {p}"
+    assert JOB_FILES, "no ctl-*.hcl service jobs found"
 
 
-def test_job_is_parameterized_batch(hcl):
-    assert 'type        = "batch"' in hcl or 'type = "batch"' in hcl
-    assert "parameterized {" in hcl, "must be a parameterized job (no bare run can act)"
+def test_old_parameterized_job_is_gone():
+    # The bad approach was replaced, not left lying around.
+    assert not (NOMAD / "container-control.hcl").exists()
+    assert not (NOMAD / "container-control.sh").exists()
 
 
-def test_both_meta_required(hcl):
-    # Without these, dispatch could omit a field and interpolate to empty.
-    assert "meta_required" in hcl
-    assert '"action"' in hcl and '"container"' in hcl
+def test_expected_containers_have_jobs():
+    have = {p.stem.removeprefix("ctl-") for p in JOB_FILES}
+    assert EXPECTED <= have, f"missing job(s) for {EXPECTED - have}"
 
 
-def test_raw_exec_via_zsh(hcl):
-    assert 'driver = "raw_exec"' in hcl
-    assert '"/bin/zsh"' in hcl
+@pytest.mark.parametrize("hcl", JOB_FILES, ids=lambda p: p.name)
+def test_job_is_a_service_supervisor(hcl):
+    body = hcl.read_text()
+    container = hcl.stem.removeprefix("ctl-")
+    assert 'type        = "service"' in body or 'type = "service"' in body, (
+        "must be a service job so the UI shows live Running/Dead state"
+    )
+    assert f'job "ctl-{container}"' in body, "job name must match the file/container"
+    assert 'driver       = "raw_exec"' in body or 'driver = "raw_exec"' in body
+    # Reflect state, don't fight a redeploy.
+    assert "attempts = 0" in body
+    # SIGTERM is what the supervisor traps to docker-stop the container.
+    assert "SIGTERM" in body
+    # Points at the canonical script (via the supervise var default) + names the container.
+    assert LIVE_SCRIPT in body
+    assert f'"{container}"' in body
 
 
-def test_hcl_points_at_real_script(hcl):
-    assert LIVE_SCRIPT in hcl, "HCL must invoke the canonical live script path"
-    assert TASK.exists(), "the referenced script must exist in the repo"
+def test_supervisor_lifecycle():
+    body = SUPERVISE.read_text()
+    assert "docker start" in body, "must start the container"
+    assert "docker wait" in body, "must block while the container runs"
+    assert "docker stop" in body, "must stop the container on signal"
+    assert "trap " in body and "TERM" in body, "must trap SIGTERM to stop cleanly"
+    assert "docker inspect" in body, "must verify the container exists"
 
 
-def test_meta_interpolated_into_args(hcl):
-    assert "${NOMAD_META_action}" in hcl
-    assert "${NOMAD_META_container}" in hcl
-
-
-def test_no_retry_or_reschedule(hcl):
-    # A one-shot op should die visibly, not loop against a flapping container.
-    assert "attempts = 0" in hcl
-
-
-def test_script_allowlists_action(task):
-    assert "start|stop|restart)" in task, "action must be allowlisted"
-
-
-def test_script_checks_container_exists(task):
-    assert "docker inspect" in task, "must verify the container exists before acting"
-
-
-def test_script_is_strict(task):
-    assert "set -euo pipefail" in task
-
-
-def test_script_execs_only_allowed_verb(task):
-    # The exec'd docker verb comes from the validated $action, not free text.
-    assert 'exec docker "$action" "$container"' in task
-
-
-def test_wrapper_dispatches_the_job():
-    body = WRAPPER.read_text()
-    assert "nomad job dispatch" in body
-    assert "container-control" in body
+def test_deploy_and_ctl_drive_nomad_jobs():
+    deploy = DEPLOY.read_text()
+    assert "nomad job run" in deploy and "nomad job stop" in deploy
+    ctl = CTL.read_text()
+    assert "nomad job run" in ctl
+    assert "nomad job stop" in ctl
+    assert "nomad job restart" in ctl
