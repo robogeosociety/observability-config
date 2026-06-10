@@ -2,7 +2,7 @@
 # Migrated from launchd (dev.tommydoerr.influxdb-backup) to Nomad periodic 2026-06-04.
 #
 #   nomad job run nomad/influxdb-backup.nomad
-#   nomad job periodic force influxdb-backup     # run now
+#   nomad job periodic force -namespace backup influxdb-backup   # run now
 #
 # /bin/zsh holds Full Disk Access (granted originally for this very backup) and the
 # nomad agent binary also has FDA, so its raw_exec child inherits /Volumes access.
@@ -10,6 +10,7 @@
 # lands in the `ops` bucket for the Grafana "Backups" dashboard. raw_exec inherits a
 # minimal env, so PATH/HOME are set explicitly (docker, influx CLI, wrangler under HOME).
 job "influxdb-backup" {
+  namespace   = "backup"
   type        = "batch"
   datacenters = ["*"]
 
