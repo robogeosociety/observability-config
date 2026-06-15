@@ -267,11 +267,11 @@
       "type": "stat",
       "title": "tempest",
       "gridPos": {"x": 0, "y": 27, "w": 8, "h": 6},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "datasource": {"type": "influxdb", "uid": "home_assistant"},
       "targets": [{
         "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"weather\")\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> group()\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])"
+        "datasource": {"type": "influxdb", "uid": "home_assistant"},
+        "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_temperature\")\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> group()\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])"
       }],
       "fieldConfig": {
         "defaults": {

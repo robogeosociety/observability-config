@@ -6,15 +6,19 @@ tempest-basic:
   title: Tempest — Basic
   file: weather/tempest-basic.json
   purpose: Tempest weather-station readout — temp/humidity/pressure, wind (live/avg/gust/direction), solar/UV/illuminance,
-    rain, lightning, and battery (Influx `tempest_archive`).
+    rain, lightning, and battery (Influx `home_assistant`; lightning strike-events from the frozen `tempest_archive`).
   datasources:
   - influxdb
   source:
     produces:
-      bucket: tempest_archive
-      via: external-collector
+      bucket: home_assistant
+      via: ha-weatherflow-influxdb-export
     status: external
-    note: Tempest hub (home-weather-hub repo) writes the tempest_archive bucket; repo TBD
+    note: >-
+      Home Assistant's weatherflow integration (device st_00204728) exports to the home_assistant
+      bucket via HA's influxdb integration (sensor.st_00204728_*, field value, HA display units).
+      The old Mac tempest-bridge → tempest_archive was retired 2026-06-14; tempest_archive is now a
+      frozen archive read only by the two per-strike lightning panels.
   intent: Home weather-station dashboard — current conditions and recent trends.
   todos:
   - Derived comfort metrics (dew point, heat index, wind chill)

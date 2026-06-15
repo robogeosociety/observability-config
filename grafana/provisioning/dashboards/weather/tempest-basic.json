@@ -1,5 +1,7 @@
 {
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -12,31 +14,66 @@
       "type": "row",
       "title": "Atmosphere",
       "collapsed": false,
-      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 1},
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
       "panels": []
     },
     {
       "id": 1,
       "type": "stat",
       "title": "Air Temperature",
-      "gridPos": {"x": 0, "y": 1, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"air_temp_c\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 1.8 + 32.0 }))"
-      }],
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_temperature\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "fahrenheit",
           "decimals": 1,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "blue", "value": null},
-            {"color": "green", "value": 50},
-            {"color": "orange", "value": 77},
-            {"color": "red", "value": 95}
-          ]}
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 50
+              },
+              {
+                "color": "orange",
+                "value": 77
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -46,31 +83,67 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 2,
       "type": "stat",
       "title": "Humidity",
-      "gridPos": {"x": 8, "y": 1, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"humidity_pct\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_humidity\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "humidity",
           "decimals": 1,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "orange", "value": null},
-            {"color": "green", "value": 30},
-            {"color": "blue", "value": 70},
-            {"color": "purple", "value": 90}
-          ]}
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 30
+              },
+              {
+                "color": "blue",
+                "value": 70
+              },
+              {
+                "color": "purple",
+                "value": 90
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -80,25 +153,47 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 7,
       "type": "stat",
       "title": "Pressure",
-      "gridPos": {"x": 16, "y": 1, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"pressure_mb\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_air_pressure\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "pressurehpa",
+          "unit": "pressureinhg",
           "decimals": 1,
-          "color": {"mode": "fixed", "fixedColor": "purple"}
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
         },
         "overrides": []
       },
@@ -108,25 +203,45 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 5,
       "type": "timeseries",
       "title": "Temperature & Humidity",
-      "gridPos": {"x": 0, "y": 5, "w": 24, "h": 8},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"air_temp_c\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value * 1.8 + 32.0 }))"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_temperature\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         },
         {
           "refId": "B",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"humidity_pct\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_humidity\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         }
       ],
       "fieldConfig": {
@@ -140,49 +255,107 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "color": {"mode": "palette-classic"}
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": [
           {
-            "matcher": {"id": "byFrameRefID", "options": "A"},
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
             "properties": [
-              {"id": "unit", "value": "fahrenheit"},
-              {"id": "displayName", "value": "Air Temp (°F)"},
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "displayName",
+                "value": "Air Temp (\u00b0F)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
             ]
           },
           {
-            "matcher": {"id": "byFrameRefID", "options": "B"},
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
             "properties": [
-              {"id": "unit", "value": "humidity"},
-              {"id": "displayName", "value": "Humidity (%)"},
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}},
-              {"id": "custom.axisPlacement", "value": "right"}
+              {
+                "id": "unit",
+                "value": "humidity"
+              },
+              {
+                "id": "displayName",
+                "value": "Humidity (%)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
             ]
           }
         ]
       },
       "options": {
-        "tooltip": {"mode": "multi", "sort": "none"},
-        "legend": {"displayMode": "list", "placement": "bottom", "calcs": ["min", "max", "mean", "lastNotNull"]}
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        }
       }
     },
     {
       "id": 16,
       "type": "timeseries",
       "title": "Pressure",
-      "gridPos": {"x": 0, "y": 13, "w": 24, "h": 7},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"pressure_mb\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_air_pressure\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "pressurehpa",
+          "unit": "pressureinhg",
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "smooth",
@@ -192,13 +365,24 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "color": {"mode": "fixed", "fixedColor": "purple"}
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
         },
         "overrides": []
       },
       "options": {
-        "tooltip": {"mode": "single", "sort": "none"},
-        "legend": {"showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": []}
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
       }
     },
     {
@@ -206,31 +390,66 @@
       "type": "row",
       "title": "Wind",
       "collapsed": false,
-      "gridPos": {"x": 0, "y": 20, "w": 24, "h": 1},
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 1
+      },
       "panels": []
     },
     {
       "id": 3,
       "type": "stat",
       "title": "Wind (live)",
-      "gridPos": {"x": 0, "y": 21, "w": 12, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"wind_rapid\" and r._field == \"wind_avg_mps\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_wind_speed\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "velocityms",
+          "unit": "velocitymph",
           "decimals": 1,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "green", "value": null},
-            {"color": "yellow", "value": 5},
-            {"color": "orange", "value": 10},
-            {"color": "red", "value": 15}
-          ]}
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -240,25 +459,47 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 12,
       "type": "stat",
       "title": "Wind Direction",
-      "gridPos": {"x": 12, "y": 21, "w": 12, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"wind_rapid\" and r._field == \"wind_dir_deg\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_wind_direction\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "degree",
           "decimals": 0,
-          "color": {"mode": "fixed", "fixedColor": "blue"}
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
         },
         "overrides": []
       },
@@ -268,25 +509,42 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 6,
       "type": "timeseries",
       "title": "Wind (avg / gust / lull)",
-      "gridPos": {"x": 0, "y": 25, "w": 12, "h": 8},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and (r._field == \"wind_avg_mps\" or r._field == \"wind_gust_mps\" or r._field == \"wind_lull_mps\"))\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => (r._measurement == \"sensor.st_00204728_wind_speed_average\" or r._measurement == \"sensor.st_00204728_wind_gust\" or r._measurement == \"sensor.st_00204728_wind_lull\") and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "velocityms",
+          "unit": "velocitymph",
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "smooth",
@@ -296,30 +554,108 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "color": {"mode": "palette-classic"}
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": [
-          {"matcher": {"id": "byRegexp", "options": ".*wind_gust.*"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}, {"id": "displayName", "value": "Gust"}]},
-          {"matcher": {"id": "byRegexp", "options": ".*wind_avg.*"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}, {"id": "displayName", "value": "Average"}]},
-          {"matcher": {"id": "byRegexp", "options": ".*wind_lull.*"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}, {"id": "displayName", "value": "Lull"}]}
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*wind_gust.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Gust"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*wind_speed_average.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Average"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*wind_lull.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Lull"
+              }
+            ]
+          }
         ]
       },
       "options": {
-        "tooltip": {"mode": "multi", "sort": "none"},
-        "legend": {"displayMode": "list", "placement": "bottom", "calcs": ["max", "mean", "lastNotNull"]}
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        }
       }
     },
     {
       "id": 15,
       "type": "timeseries",
       "title": "Wind Direction",
-      "gridPos": {"x": 12, "y": 25, "w": 12, "h": 8},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"wind_dir_deg\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_wind_direction_average\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)"
         }
       ],
       "fieldConfig": {
@@ -338,15 +674,37 @@
             "axisSoftMin": 0,
             "axisSoftMax": 360
           },
-          "color": {"mode": "fixed", "fixedColor": "super-light-blue"}
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "super-light-blue"
+          }
         },
         "overrides": [
-          {"matcher": {"id": "byFrameRefID", "options": "A"}, "properties": [{"id": "displayName", "value": "Direction (°)"}]}
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Direction (\u00b0)"
+              }
+            ]
+          }
         ]
       },
       "options": {
-        "tooltip": {"mode": "single", "sort": "none"},
-        "legend": {"showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": []}
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
       }
     },
     {
@@ -354,31 +712,66 @@
       "type": "row",
       "title": "Sky / Light",
       "collapsed": false,
-      "gridPos": {"x": 0, "y": 33, "w": 24, "h": 1},
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 1
+      },
       "panels": []
     },
     {
       "id": 9,
       "type": "stat",
       "title": "Solar Radiation",
-      "gridPos": {"x": 0, "y": 34, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"solar_w_m2\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_irradiance\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "W/m²",
+          "unit": "W/m\u00b2",
           "decimals": 0,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "dark-blue", "value": null},
-            {"color": "yellow", "value": 120},
-            {"color": "orange", "value": 500},
-            {"color": "red", "value": 900}
-          ]}
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-blue",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 120
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 900
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -388,25 +781,47 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 10,
       "type": "stat",
       "title": "Illuminance",
-      "gridPos": {"x": 8, "y": 34, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"illuminance_lux\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 8,
+        "y": 34,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_illuminance\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "lux",
           "decimals": 0,
-          "color": {"mode": "fixed", "fixedColor": "yellow"}
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "yellow"
+          }
         },
         "overrides": []
       },
@@ -416,32 +831,71 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 8,
       "type": "stat",
       "title": "UV Index",
-      "gridPos": {"x": 16, "y": 34, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"uv_index\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 16,
+        "y": 34,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_uv_index\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "green", "value": null},
-            {"color": "yellow", "value": 3},
-            {"color": "orange", "value": 6},
-            {"color": "red", "value": 8},
-            {"color": "purple", "value": 11}
-          ]}
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "orange",
+                "value": 6
+              },
+              {
+                "color": "red",
+                "value": 8
+              },
+              {
+                "color": "purple",
+                "value": 11
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -451,30 +905,53 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 17,
       "type": "timeseries",
-      "title": "Sky — Solar, UV & Illuminance",
-      "gridPos": {"x": 0, "y": 38, "w": 24, "h": 8},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "title": "Sky \u2014 Solar, UV & Illuminance",
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"solar_w_m2\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_irradiance\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         },
         {
           "refId": "B",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"uv_index\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_uv_index\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         },
         {
           "refId": "C",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"illuminance_lux\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_illuminance\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         }
       ],
       "fieldConfig": {
@@ -488,43 +965,115 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "color": {"mode": "palette-classic"}
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": [
           {
-            "matcher": {"id": "byFrameRefID", "options": "A"},
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
             "properties": [
-              {"id": "unit", "value": "W/m²"},
-              {"id": "displayName", "value": "Solar (W/m²)"},
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}
+              {
+                "id": "unit",
+                "value": "W/m\u00b2"
+              },
+              {
+                "id": "displayName",
+                "value": "Solar (W/m\u00b2)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
             ]
           },
           {
-            "matcher": {"id": "byFrameRefID", "options": "B"},
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
             "properties": [
-              {"id": "unit", "value": "short"},
-              {"id": "displayName", "value": "UV Index"},
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}},
-              {"id": "custom.axisPlacement", "value": "right"}
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "displayName",
+                "value": "UV Index"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
             ]
           },
           {
-            "matcher": {"id": "byFrameRefID", "options": "C"},
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
             "properties": [
-              {"id": "unit", "value": "lux"},
-              {"id": "displayName", "value": "Illuminance (lux)"},
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}},
-              {"id": "custom.axisPlacement", "value": "right"},
-              {"id": "custom.axisLabel", "value": ""},
-              {"id": "custom.fillOpacity", "value": 0},
-              {"id": "custom.lineWidth", "value": 1}
+              {
+                "id": "unit",
+                "value": "lux"
+              },
+              {
+                "id": "displayName",
+                "value": "Illuminance (lux)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": ""
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              }
             ]
           }
         ]
       },
       "options": {
-        "tooltip": {"mode": "multi", "sort": "none"},
-        "legend": {"displayMode": "list", "placement": "bottom", "calcs": ["max", "lastNotNull"]}
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        }
       }
     },
     {
@@ -532,30 +1081,62 @@
       "type": "row",
       "title": "Precipitation & Storm",
       "collapsed": false,
-      "gridPos": {"x": 0, "y": 46, "w": 24, "h": 1},
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 24,
+        "h": 1
+      },
       "panels": []
     },
     {
       "id": 11,
       "type": "stat",
       "title": "Rain (last 1h)",
-      "gridPos": {"x": 0, "y": 47, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"rain_mm\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> sum()"
-      }],
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_precipitation\" and r._field == \"value\")\n  |> sum()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "lengthmm",
+          "unit": "lengthin",
           "decimals": 2,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "green", "value": null},
-            {"color": "blue", "value": 0.01},
-            {"color": "purple", "value": 5}
-          ]}
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "blue",
+                "value": 0.001
+              },
+              {
+                "color": "purple",
+                "value": 0.2
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -565,30 +1146,63 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 13,
       "type": "stat",
       "title": "Lightning (last 1h)",
-      "gridPos": {"x": 8, "y": 47, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"lightning_count\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> sum()"
-      }],
+      "gridPos": {
+        "x": 8,
+        "y": 47,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_lightning_count\" and r._field == \"value\")\n  |> sum()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "green", "value": null},
-            {"color": "yellow", "value": 1},
-            {"color": "red", "value": 10}
-          ]}
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -598,31 +1212,64 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 14,
       "type": "stat",
       "title": "Nearest Strike (avg, 1h)",
-      "gridPos": {"x": 16, "y": 47, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"lightning_avg_km\" and r._value > 0.0)\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> mean()"
-      }],
+      "gridPos": {
+        "x": 16,
+        "y": 47,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_lightning_average_distance\" and r._field == \"value\" and r._value > 0.0)\n  |> mean()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "lengthkm",
+          "unit": "lengthmi",
           "decimals": 1,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "red", "value": null},
-            {"color": "orange", "value": 10},
-            {"color": "green", "value": 25}
-          ]},
-          "noValue": "—"
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 6
+              },
+              {
+                "color": "green",
+                "value": 16
+              }
+            ]
+          },
+          "noValue": "\u2014"
         },
         "overrides": []
       },
@@ -632,25 +1279,42 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     },
     {
       "id": 18,
       "type": "timeseries",
       "title": "Rain (accumulation per window)",
-      "gridPos": {"x": 0, "y": 51, "w": 12, "h": 8},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"rain_mm\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_precipitation\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "lengthmm",
+          "unit": "lengthin",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -659,32 +1323,70 @@
             "showPoints": "never",
             "spanNulls": false
           },
-          "color": {"mode": "fixed", "fixedColor": "blue"}
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
         },
         "overrides": [
-          {"matcher": {"id": "byFrameRefID", "options": "A"}, "properties": [{"id": "displayName", "value": "Rain (mm)"}]}
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Rain (mm)"
+              }
+            ]
+          }
         ]
       },
       "options": {
-        "tooltip": {"mode": "single", "sort": "none"},
-        "legend": {"displayMode": "list", "placement": "bottom", "calcs": ["sum", "max"]}
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ]
+        }
       }
     },
     {
       "id": 19,
       "type": "timeseries",
-      "title": "Lightning — strike count & distance",
-      "gridPos": {"x": 12, "y": 51, "w": 12, "h": 8},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "title": "Lightning \u2014 strike count & distance",
+      "gridPos": {
+        "x": 12,
+        "y": 51,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"lightning_count\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_lightning_count\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)"
         },
         {
           "refId": "B",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+          "datasource": {
+            "type": "influxdb",
+            "uid": "tempest_archive"
+          },
           "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"lightning_strike\" and r._field == \"distance_km\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         }
       ],
@@ -698,45 +1400,107 @@
             "showPoints": "auto",
             "spanNulls": false
           },
-          "color": {"mode": "palette-classic"}
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": [
           {
-            "matcher": {"id": "byFrameRefID", "options": "A"},
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
             "properties": [
-              {"id": "unit", "value": "short"},
-              {"id": "displayName", "value": "Strike count"},
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "displayName",
+                "value": "Strike count"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
             ]
           },
           {
-            "matcher": {"id": "byFrameRefID", "options": "B"},
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
             "properties": [
-              {"id": "unit", "value": "lengthkm"},
-              {"id": "displayName", "value": "Distance (km)"},
-              {"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}},
-              {"id": "custom.axisPlacement", "value": "right"},
-              {"id": "custom.drawStyle", "value": "points"},
-              {"id": "custom.showPoints", "value": "always"}
+              {
+                "id": "unit",
+                "value": "lengthkm"
+              },
+              {
+                "id": "displayName",
+                "value": "Distance (km)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "points"
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "always"
+              }
             ]
           }
         ]
       },
       "options": {
-        "tooltip": {"mode": "multi", "sort": "none"},
-        "legend": {"displayMode": "list", "placement": "bottom", "calcs": ["sum", "min"]}
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "min"
+          ]
+        }
       }
     },
     {
       "id": 20,
       "type": "timeseries",
-      "title": "Lightning — strike energy (events)",
-      "gridPos": {"x": 0, "y": 59, "w": 24, "h": 7},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+      "title": "Lightning \u2014 strike energy (events)",
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 24,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "tempest_archive"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": {"type": "influxdb", "uid": "tempest_archive"},
+          "datasource": {
+            "type": "influxdb",
+            "uid": "tempest_archive"
+          },
           "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"lightning_strike\" and r._field == \"energy\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)"
         }
       ],
@@ -751,15 +1515,37 @@
             "showPoints": "always",
             "spanNulls": false
           },
-          "color": {"mode": "fixed", "fixedColor": "purple"}
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
         },
         "overrides": [
-          {"matcher": {"id": "byFrameRefID", "options": "A"}, "properties": [{"id": "displayName", "value": "Strike energy"}]}
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Strike energy"
+              }
+            ]
+          }
         ]
       },
       "options": {
-        "tooltip": {"mode": "single", "sort": "none"},
-        "legend": {"showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": []}
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
       }
     },
     {
@@ -767,31 +1553,66 @@
       "type": "row",
       "title": "Station Health",
       "collapsed": false,
-      "gridPos": {"x": 0, "y": 66, "w": 24, "h": 1},
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 24,
+        "h": 1
+      },
       "panels": []
     },
     {
       "id": 4,
       "type": "stat",
       "title": "Battery",
-      "gridPos": {"x": 0, "y": 67, "w": 8, "h": 4},
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "targets": [{
-        "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-        "query": "from(bucket: \"tempest_archive\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"battery_v\")\n  |> filter(fn: (r) => r.sensor_id =~ /${sensor_id:regex}/)\n  |> last()"
-      }],
+      "gridPos": {
+        "x": 0,
+        "y": 67,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "home_assistant"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "home_assistant"
+          },
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement == \"sensor.st_00204728_battery_voltage\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "volt",
           "decimals": 2,
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "red", "value": null},
-            {"color": "orange", "value": 2.5},
-            {"color": "yellow", "value": 2.7},
-            {"color": "green", "value": 2.8}
-          ]}
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2.5
+              },
+              {
+                "color": "yellow",
+                "value": 2.7
+              },
+              {
+                "color": "green",
+                "value": 2.8
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -801,36 +1622,57 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "textMode": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["tempest", "weather"],
-  "templating": {"list": [
-    {
-      "name": "sensor_id",
-      "label": "Sensor",
-      "type": "query",
-      "datasource": {"type": "influxdb", "uid": "tempest_archive"},
-      "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"tempest_archive\", tag: \"sensor_id\")",
-      "definition": "schema.tagValues(bucket: \"tempest_archive\", tag: \"sensor_id\")",
-      "refresh": 1,
-      "includeAll": true,
-      "allValue": ".*",
-      "multi": true,
-      "hide": 0,
-      "sort": 1,
-      "current": {"selected": false, "text": "All", "value": "$__all"},
-      "options": [],
-      "regex": ""
-    }
-  ]},
-  "time": {"from": "now-3h", "to": "now"},
+  "tags": [
+    "tempest",
+    "weather"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "sensor_id",
+        "label": "Sensor",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "tempest_archive"
+        },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"tempest_archive\", tag: \"sensor_id\")",
+        "definition": "schema.tagValues(bucket: \"tempest_archive\", tag: \"sensor_id\")",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "hide": 0,
+        "sort": 1,
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [],
+        "regex": ""
+      }
+    ]
+  },
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Tempest — Basic",
+  "title": "Tempest \u2014 Basic",
   "uid": "tempest-basic",
   "version": 3,
   "weekStart": ""
