@@ -100,4 +100,4 @@ groups:
                 - evaluator:
                     type: gt
                     params:
-                      - 25
+                      - 50
