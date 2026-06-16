@@ -38,9 +38,9 @@ Claude Code via Docker.
      "mcpServers": {
        "grafana": {
          "command": "docker",
-         "args": ["run","--rm","-i","-e","GRAFANA_URL","-e","GRAFANA_SERVICE_ACCOUNT_TOKEN","mcp/grafana","-t","stdio"],
+         "args": ["run","--rm","-i","--network","grafana_default","-e","GRAFANA_URL","-e","GRAFANA_SERVICE_ACCOUNT_TOKEN","mcp/grafana","-t","stdio"],
          "env": {
-           "GRAFANA_URL": "http://host.docker.internal:3001",
+           "GRAFANA_URL": "http://grafana:3000",
            "GRAFANA_SERVICE_ACCOUNT_TOKEN": "${GRAFANA_SA_TOKEN}"
          }
        }
@@ -48,7 +48,11 @@ Claude Code via Docker.
    }
    ```
 
-   `host.docker.internal:3001` is how the MCP container reaches Grafana on the host.
+   The MCP container joins the `grafana_default` docker network and reaches Grafana
+   at `grafana:3000` (the container, not the host port). The old
+   `host.docker.internal:3001` path was retired when the host port was bound to
+   loopback (Grafana's Tailscale auth proxy requires the LAN port closed). The SA
+   token authenticates the MCP, so it bypasses the auth proxy.
 
 4. **Restart Claude Code** in `/Volumes/dev` and approve the `grafana` MCP server
    when prompted (`/mcp` lists it).
@@ -60,7 +64,7 @@ printf '%s\n%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"x","version":"0"}}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
-| docker run -i --rm -e GRAFANA_URL=http://host.docker.internal:3001 \
+| docker run -i --rm --network grafana_default -e GRAFANA_URL=http://grafana:3000 \
     -e GRAFANA_SERVICE_ACCOUNT_TOKEN="$GRAFANA_SA_TOKEN" mcp/grafana -t stdio
 # expect a tools/list response with ~56 tools
 ```
