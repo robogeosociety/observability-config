@@ -10,7 +10,13 @@ services:
     cpus: 2.0
     pids_limit: 512
     ports:
-      - "3001:3000"
+      # Bound to loopback ONLY. Grafana's auth proxy (below) trusts the
+      # Tailscale-User-Login header, so the port must be unreachable from the LAN
+      # — otherwise anyone on the network could spoof that header and log in as
+      # anyone. `tailscale serve` (host) reaches it on 127.0.0.1; host-local
+      # tooling (telegraf/coordination health probes, integration tests) uses
+      # localhost:3001; containers use the docker network (grafana:3000).
+      - "127.0.0.1:3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       # Provisioning relocated OFF the external /Volumes/dev disk to internal
@@ -38,17 +44,24 @@ services:
       # Same scope (Account Analytics: Read) for the campsites_ae ClickHouse
       # datasource — feeds the campsite-collector-history + live-availability dashboards.
       GF_SERVER_ROOT_URL: "https://tommys-mac-mini.tail59a169.ts.net:3000"
-      GF_AUTH_GOOGLE_ENABLED: "true"
-      GF_AUTH_GOOGLE_NAME: "Google (passkey)"
-      GF_AUTH_GOOGLE_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
-      GF_AUTH_GOOGLE_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET}
-      GF_AUTH_GOOGLE_SCOPES: "openid email profile"
-      GF_AUTH_GOOGLE_AUTH_URL: "https://accounts.google.com/o/oauth2/v2/auth"
-      GF_AUTH_GOOGLE_TOKEN_URL: "https://oauth2.googleapis.com/token"
-      GF_AUTH_GOOGLE_API_URL: "https://openidconnect.googleapis.com/v1/userinfo"
-      GF_AUTH_GOOGLE_ALLOWED_EMAILS: "tommy.b.doerr@gmail.com"
-      GF_AUTH_GOOGLE_ALLOW_SIGN_UP: "true"
-      GF_AUTH_GOOGLE_SKIP_ORG_ROLE_SYNC: "true"
+      # User login via Tailscale identity (auth proxy) — replaces Google OAuth, so
+      # there is no Google Cloud dependency. `tailscale serve` fronts Grafana on the
+      # tailnet (https://…ts.net:3000 -> 127.0.0.1:3001) and injects the
+      # authenticated caller as Tailscale-User-* headers (stripping any client-sent
+      # copies); Grafana trusts that header. The loopback port bind (above) is what
+      # makes this safe — only `tailscaled` can reach Grafana, so the header can't be
+      # spoofed from the LAN. WHITELIST = the Docker-NAT source (grafana_default
+      # subnet) that Grafana sees the proxied request arrive from. The admin login
+      # form stays enabled as a break-glass (a header misfire can't lock you out).
+      # Service-account / basic-auth / render-token requests bypass the proxy, so the
+      # MCP, ask-dash, renderer, and health probes are unaffected.
+      GF_AUTH_PROXY_ENABLED: "true"
+      GF_AUTH_PROXY_HEADER_NAME: "Tailscale-User-Login"
+      GF_AUTH_PROXY_HEADER_PROPERTY: "username"
+      GF_AUTH_PROXY_HEADERS: "Email:Tailscale-User-Login Name:Tailscale-User-Name"
+      GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
+      GF_AUTH_PROXY_SYNC_TTL: "60"
+      GF_AUTH_PROXY_WHITELIST: "192.168.117.0/24"
       GF_USERS_AUTO_ASSIGN_ORG_ROLE: "Admin"
       # Server-side panel rendering (PNG via /render/...). Grafana calls the
       # renderer, which loads panels back from Grafana via the callback URL.
