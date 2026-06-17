@@ -60,8 +60,18 @@ outputs the S3 creds for `influxdb/.env` — see `terraform/README.md`.
 
 File-provisioned Grafana alerting lives in `grafana/provisioning/alerting/`
 (contact points, root notification policy, rules) — deployed by the same
-`deploy-provisioning.sh` sync as dashboards. The rules, all routed to the same
-Discord contact point:
+`deploy-provisioning.sh` sync as dashboards. These are **platform-health** rules,
+all routed to the same Discord contact point.
+
+> The daily/weekly-note + asset-graph **job-staleness** alarms were **retired**
+> (2026-06-17): those pydoit jobs now self-report a rich *errors-only, once per
+> run* Discord embed (obsidian-automations `weekly/lib/notify.py`), and "didn't run
+> at all" shows as a stale node on the Automations Status canvas. The
+> campsite-collector + collector-freshness rules were **kept** — they watch the
+> Cloudflare Worker / continuous telemetry, which don't self-report. **Gotcha:**
+> removing a rule's YAML does *not* delete a provisioned rule (file provisioning is
+> additive) — `alerting/retired-rules.yml` uses Grafana's `deleteRules` directive to
+> actually remove them.
 
 - **InfluxDB availability** (`influxdb-availability.yml`, issue #11) — counts a
   cheap telegraf series (`cpu`/`usage_idle`/`cpu-total`) in the `system` bucket

@@ -1,0 +1,21 @@
+apiVersion: 1
+
+# Tombstone — explicitly DELETE provisioned alert rules that were retired.
+#
+# Removing a rule's YAML file does NOT delete the rule from Grafana: file provisioning
+# of alert rules is additive (the rule persists in Grafana's DB across restarts). Grafana's
+# `deleteRules` directive is the store-as-code way to remove them on the next provisioning
+# reload. This file stays as a permanent record; deleting an already-absent rule is a no-op.
+#
+# Retired 2026-06-17 — the daily/weekly-note + asset-graph job-staleness pages are replaced
+# by the jobs' own rich Discord report (errors-only, once per run; obsidian-automations
+# weekly/lib/notify.py), with "didn't run at all" shown as a stale node on the Automations
+# Status canvas. The campsite-collector + collector-freshness rules were deliberately KEPT —
+# they watch the Cloudflare Worker / continuous telemetry, which don't self-report.
+deleteRules:
+  - orgId: 1
+    uid: daily-note-stale
+  - orgId: 1
+    uid: weekly-note-stale
+  - orgId: 1
+    uid: asset-graph-stale
