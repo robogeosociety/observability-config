@@ -4,12 +4,13 @@
       "command": "docker",
       "args": [
         "run", "--rm", "-i",
+        "--network", "grafana_default",
         "-e", "GRAFANA_URL",
         "-e", "GRAFANA_SERVICE_ACCOUNT_TOKEN",
         "mcp/grafana", "-t", "stdio"
       ],
       "env": {
-        "GRAFANA_URL": "http://host.docker.internal:3001",
+        "GRAFANA_URL": "http://grafana:3000",
         "GRAFANA_SERVICE_ACCOUNT_TOKEN": "${GRAFANA_SA_TOKEN}"
       }
     }
