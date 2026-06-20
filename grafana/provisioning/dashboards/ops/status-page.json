@@ -335,11 +335,11 @@
       "type": "stat",
       "title": "zigbee",
       "gridPos": {"x": 16, "y": 27, "w": 8, "h": 6},
-      "datasource": {"type": "influxdb", "uid": "zigbee_archive"},
+      "datasource": {"type": "influxdb", "uid": "home_assistant"},
       "targets": [{
         "refId": "A",
-        "datasource": {"type": "influxdb", "uid": "zigbee_archive"},
-        "query": "import \"array\"\n\nreal = from(bucket: \"zigbee_archive\")\n  |> range(start: -30d)\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> group()\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])\n\nplaceholder = array.from(rows: [{ _value: 999999.0 }])\n\nunion(tables: [real, placeholder])\n  |> sort(columns: [\"_value\"])\n  |> limit(n: 1)"
+        "datasource": {"type": "influxdb", "uid": "home_assistant"},
+        "query": "import \"array\"\n\nreal = from(bucket: \"home_assistant\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement =~ /_temp_temperature$/)\n  |> keep(columns: [\"_time\"])\n  |> max(column: \"_time\")\n  |> group()\n  |> max(column: \"_time\")\n  |> map(fn: (r) => ({ _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_value\"])\n\nplaceholder = array.from(rows: [{ _value: 999999.0 }])\n\nunion(tables: [real, placeholder])\n  |> sort(columns: [\"_value\"])\n  |> limit(n: 1)"
       }],
       "fieldConfig": {
         "defaults": {
@@ -348,8 +348,8 @@
           "color": {"mode": "thresholds"},
           "thresholds": {"mode": "absolute", "steps": [
             {"color": "green", "value": null},
-            {"color": "orange", "value": 120},
-            {"color": "red", "value": 600}
+            {"color": "orange", "value": 1800},
+            {"color": "red", "value": 3600}
           ]},
           "mappings": [
             {"type": "value", "options": {"999999": {"text": "STALE", "color": "red"}}}
