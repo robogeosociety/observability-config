@@ -3,7 +3,8 @@
 Closes a self-monitoring blind spot: **every Grafana alert rule lives inside Grafana, a
 container.** When OrbStack/Docker stops, Grafana stops with it, so *none* of the rules
 (InfluxDB-availability, container-health, …) can fire — the stack goes dark and never
-pages. On 2026-06-20 the stack was down for ~3 days after a reboot and nothing alerted.
+pages. On 2026-06-19→20 the stack was down ~36h (OrbStack stopped) and nothing alerted —
+the InfluxDB write gap confirms 06-19T03:49Z → 06-20T16:09Z.
 
 This watchdog runs on the **host** under launchd (not a container), every 2 min, and posts
 **straight to Discord via curl** — so it works precisely when the rest doesn't.
