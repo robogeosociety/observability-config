@@ -5,7 +5,7 @@
 collector-freshness:
   title: Collector Freshness
   file: ops/collector-freshness.json
-  purpose: Write-rate per minute for each continuously-fed bucket (transit_tracker, home_assistant, tempest_archive).
+  purpose: Write-rate per minute for each continuously-fed bucket (transit_tracker, home_assistant; Tempest now folds into home_assistant).
     A line dropping to 0 (or No data) for 15m is exactly what the `collector-freshness` alert rules fire
     on — and each rule embeds its matching panel here as the alert's screenshot (the "offending graph").
   datasources:

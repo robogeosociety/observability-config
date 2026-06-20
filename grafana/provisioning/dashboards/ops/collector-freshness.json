@@ -171,8 +171,8 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "tempest_archive \u2014 write rate",
-      "description": "Points written to the `tempest_archive` bucket per scrape interval (scales with the time range). Flat/empty = the collector stalled \u2014 this is the panel the `Collector stalled \u2014 tempest_archive` alert screenshots into Discord.",
+      "title": "Tempest (HA) \u2014 write rate",
+      "description": "Points written to the `home_assistant` bucket by the Tempest entities (sensor.st_00204728_*) per scrape interval. Flat/empty = the HA weatherflow\u2192influxdb export stalled \u2014 this is the panel the `Collector stalled \u2014 Tempest via HA` alert screenshots into Discord.",
       "gridPos": {
         "x": 0,
         "y": 17,
@@ -181,16 +181,16 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "tempest_archive"
+        "uid": "home_assistant"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "influxdb",
-            "uid": "tempest_archive"
+            "uid": "home_assistant"
           },
-          "query": "from(bucket: \"tempest_archive\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> aggregateWindow(every: v.windowPeriod, fn: count, createEmpty: false)\n  |> group(columns: [\"_time\"])\n  |> sum()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> set(key: \"_field\", value: \"points\")"
+          "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^sensor.st_00204728_/)\n  |> aggregateWindow(every: v.windowPeriod, fn: count, createEmpty: false)\n  |> group(columns: [\"_time\"])\n  |> sum()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> set(key: \"_field\", value: \"points\")"
         }
       ],
       "fieldConfig": {
