@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- External watchdog for the observability container stack. Runs on the host (NOT a
+     container) every 2 min, so it can page when OrbStack/Grafana itself is down. Loaded
+     by watchdog/deploy.sh. Runs the internal-disk copy (never /Volumes under launchd). -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.tommydoerr.stack-watchdog</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/tommydoerr/.local/share/stack-watchdog/stack-watchdog.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- docker + orb live in /usr/local/bin; keep the rest for date/hostname/curl. -->
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key>
+    <string>/Users/tommydoerr</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>120</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/tommydoerr/Library/Logs/stack-watchdog.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/tommydoerr/Library/Logs/stack-watchdog.log</string>
+</dict>
+</plist>

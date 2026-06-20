@@ -63,6 +63,13 @@ File-provisioned Grafana alerting lives in `grafana/provisioning/alerting/`
 `deploy-provisioning.sh` sync as dashboards. These are **platform-health** rules,
 all routed to the same Discord contact point.
 
+> **The Grafana rules can't detect their own outage** — they run *inside* Grafana, a
+> container, so when OrbStack/Docker stops they all go silent (this bit us 2026-06-20:
+> the stack was down ~3 days, no page). `watchdog/` is the external backstop — a
+> **host launchd** job (not a container) that checks the engine + influxdb/grafana
+> health every 2 min and posts **straight to Discord via curl**, independent of
+> Grafana. Deploy with `watchdog/deploy.sh`; details in `watchdog/README.md`.
+
 > The daily/weekly-note + asset-graph **job-staleness** alarms were **retired**
 > (2026-06-17): those pydoit jobs now self-report a rich *errors-only, once per
 > run* Discord embed (obsidian-automations `weekly/lib/notify.py`), and "didn't run
