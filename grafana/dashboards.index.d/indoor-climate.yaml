@@ -1,0 +1,27 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+indoor-climate:
+  title: Indoor Climate
+  file: weather/indoor-climate.json
+  purpose: Per-room indoor temperature, humidity, and sensor-battery from the Zigbee (ZHA) climate
+    sensors, read from the `home_assistant` bucket (`sensor.*_temp_*`). The indoor companion to
+    the outdoor Tempest dashboard.
+  datasources:
+  - influxdb
+  source:
+    produces:
+      bucket: home_assistant
+      via: ha-zha-influxdb-export
+    status: external
+    note: >-
+      ZHA Zigbee temp/humidity sensors paired to Home Assistant (Sonoff dongle) export to the
+      home_assistant bucket via HA's influxdb integration. That integration uses an allowlist —
+      globs sensor.*_temp_temperature/_humidity/_battery in HA configuration.yaml — so a new
+      sensor named "<room> temp" (entity sensor.<room>_temp_*) auto-appears here; any other
+      naming needs its glob added + ha core restart.
+  intent: Indoor companion to the outdoor Tempest dashboard — current room conditions and recent trends.
+  todos:
+  - Comfort overlay (dew point / mold-risk band) once more rooms exist
+  - Alert on low sensor battery
