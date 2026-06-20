@@ -1,0 +1,155 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [{"title": "Tempest — Outdoor", "type": "link", "url": "/d/tempest-basic", "icon": "external link"}],
+  "liveNow": false,
+  "panels": [
+    {"id": 100, "type": "row", "title": "Now", "collapsed": false, "gridPos": {"x": 0, "y": 0, "w": 24, "h": 1}, "panels": []},
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Temperature",
+      "gridPos": {"x": 0, "y": 1, "w": 12, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "home_assistant"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "home_assistant"},
+        "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement =~ /_temp_temperature$/ and r._field == \"value\")\n  |> last()"
+      }],
+      "transformations": [{"id": "renameByRegex", "options": {"regex": "sensor\\.(.*)_temp_.*", "renamePattern": "$1"}}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "blue", "value": null},
+            {"color": "green", "value": 64},
+            {"color": "orange", "value": 76},
+            {"color": "red", "value": 82}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "textMode": "value_and_name", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Humidity",
+      "gridPos": {"x": 12, "y": 1, "w": 12, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "home_assistant"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "home_assistant"},
+        "query": "from(bucket: \"home_assistant\")\n  |> range(start: -30m)\n  |> filter(fn: (r) => r._measurement =~ /_temp_humidity$/ and r._field == \"value\")\n  |> last()"
+      }],
+      "transformations": [{"id": "renameByRegex", "options": {"regex": "sensor\\.(.*)_temp_.*", "renamePattern": "$1"}}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "decimals": 0,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "orange", "value": null},
+            {"color": "green", "value": 30},
+            {"color": "blue", "value": 60},
+            {"color": "purple", "value": 70}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "textMode": "value_and_name", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {"id": 101, "type": "row", "title": "Trends", "collapsed": false, "gridPos": {"x": 0, "y": 7, "w": 24, "h": 1}, "panels": []},
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Temperature by room",
+      "gridPos": {"x": 0, "y": 8, "w": 24, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "home_assistant"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "home_assistant"},
+        "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /_temp_temperature$/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+      }],
+      "transformations": [{"id": "renameByRegex", "options": {"regex": "sensor\\.(.*)_temp_.*", "renamePattern": "$1"}}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 8, "showPoints": "never", "spanNulls": true},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}, "legend": {"displayMode": "table", "placement": "right", "calcs": ["min", "max", "mean", "lastNotNull"]}}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Humidity by room",
+      "gridPos": {"x": 0, "y": 16, "w": 24, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "home_assistant"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "home_assistant"},
+        "query": "from(bucket: \"home_assistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /_temp_humidity$/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+      }],
+      "transformations": [{"id": "renameByRegex", "options": {"regex": "sensor\\.(.*)_temp_.*", "renamePattern": "$1"}}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 8, "showPoints": "never", "spanNulls": true},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}, "legend": {"displayMode": "table", "placement": "right", "calcs": ["min", "max", "mean", "lastNotNull"]}}
+    },
+    {"id": 102, "type": "row", "title": "Sensors", "collapsed": false, "gridPos": {"x": 0, "y": 24, "w": 24, "h": 1}, "panels": []},
+    {
+      "id": 5,
+      "type": "bargauge",
+      "title": "Sensor battery",
+      "gridPos": {"x": 0, "y": 25, "w": 24, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "home_assistant"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "home_assistant"},
+        "query": "from(bucket: \"home_assistant\")\n  |> range(start: -2h)\n  |> filter(fn: (r) => r._measurement =~ /_temp_battery$/ and r._field == \"value\")\n  |> last()"
+      }],
+      "transformations": [{"id": "renameByRegex", "options": {"regex": "sensor\\.(.*)_temp_.*", "renamePattern": "$1"}}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "orange", "value": 20},
+            {"color": "yellow", "value": 40},
+            {"color": "green", "value": 60}
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {"orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["weather", "indoor", "zigbee"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Indoor Climate",
+  "uid": "indoor-climate",
+  "version": 1,
+  "weekStart": ""
+}
