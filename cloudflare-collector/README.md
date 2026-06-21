@@ -107,17 +107,23 @@ Deployed Mac-system work (PR #2) is unaffected — separate worktree/branch.
 
 ## Full AE schema + the two production dashboards (`cloudflare-worker-dashboard`)
 
-The collector grew from one AE dataset to **four**. The RGS Worker (account
-`d7adee58513c1b2f770ccaac90cf114f`, `tommyroar-dev`) now emits these Workers
-Analytics Engine datasets (authoritative contracts — AE is sampled, so weight
-every count by `SUM(_sample_interval)`):
+The RGS Worker (account `d7adee58513c1b2f770ccaac90cf114f`, `tommyroar-dev`) emits
+these observability Workers Analytics Engine datasets (authoritative contracts — AE
+is sampled, so weight every count by `SUM(_sample_interval)`):
 
 | dataset | grain | `index1` | blobs | doubles |
 |---|---|---|---|---|
 | `campsite_collector` | per site, per run | `site.id` | `blob1`=date, `blob2`=agency, `blob3`=kind, `blob4`=name, `blob5`=status (`ok`\|`failed`) | `double1`=datesCollected, `double2`=durationMs |
 | `campsite_collector_runs` | per run | `date` | `blob1`=date | `double1`=total, `double2`=ok, `double3`=failed, `double4`=empty |
 | `campsite_availability` | per site, per run | `site.id` | `blob1`=date, `blob2`=agency, `blob3`=name | `double1`=siteNightsAvailable, `double2`=siteNightsReserved, `double3`=siteNightsTotal, `double4`=datesOpen |
-| `campsite_watch` | per hot-date check | `site.id` | `blob1`=target_date, `blob2`=agency, `blob3`=name | `double1`=available, `double2`=reserved, `double3`=total |
+
+> **Retired — `campsite_watch`.** The hot-date watcher used to emit a `campsite_watch`
+> dataset (per-check `target_date`/`available`/`reserved`/`total`). It's a **product**
+> signal, not observability, so it moved to the webapp: `HotDateWatchWorkflow` now banks
+> its fill-curve to R2 `watch/<id>/<targetDate>.json` and the app reads it directly
+> (robot-geographical-society#107 / #109). The Worker no longer declares or writes
+> `campsite_watch`; the dataset is **unwritten and ages out at AE's ~90-day retention**
+> (Cloudflare has no dataset-delete API). The Grafana watch panel was removed in #113.
 
 There are **61 reservable campsites** total (rec.gov + WA), so "of 61" is the
 coverage denominator.
@@ -167,9 +173,9 @@ the exact AE SQL in each panel target. Counts are sampling-weighted
 2. **`campsite-live-availability.json`** ("Live availability", uid
    `campsite-live-availability`) — system-wide site-nights-available stat and
    % reserved (latest per-site rows of `campsite_availability`), by-agency bars
-   (`GROUP BY blob2`), a fully-booked campground count (`datesOpen=0`), a
-   per-campground availability table, and a hot-date burn-down timeseries from
-   `campsite_watch` (`double1` available over time, one series per target_date).
+   (`GROUP BY blob2`), a fully-booked campground count (`datesOpen=0`), and a
+   per-campground availability table. (The hot-date burn-down panel that read
+   `campsite_watch` was removed in #113 — that signal now lives in the webapp.)
 
 These supersede the exploration `collector-history.json` once the schema settles;
 both are left provisioned for now (distinct uids, no collision).
