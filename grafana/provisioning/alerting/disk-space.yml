@@ -95,6 +95,18 @@ groups:
             Check ~/Library/Caches and ~/Library/Containers for runaway caches
             (e.g. the mediaanalysisd e5bundlecache leak), Docker/OrbStack data,
             and ~/Downloads before it fills and stalls the machine.
+          runbook: |
+            Most likely the mediaanalysisd ANE cache leak — it duplicates a ~64MB
+            model into thousands of bundles under com.apple.e5rt.e5bundlecache (hit
+            42GB once). It is an Apple bug in the macOS 15.x ANE cache; updating macOS
+            is the real fix. Until/unless it recurs, purge manually — the cache is
+            regenerable and macOS rebuilds a clean ~0.6GB copy:
+
+              du -sh ~/Library/Containers/com.apple.mediaanalysisd          # confirm
+              killall mediaanalysisd mediaanalysisd-access
+              rm -rf ~/Library/Containers/com.apple.mediaanalysisd/Data/Library/Caches/com.apple.mediaanalysisd/com.apple.e5rt.e5bundlecache
+
+            Still tight? brew cleanup -s; docker system prune; empty ~/.Trash.
         data:
           - refId: A
             relativeTimeRange:
