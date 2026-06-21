@@ -6,28 +6,32 @@ campsite-predictions:
   title: Campsite Predictions
   file: campsites/campsite-predictions.json
   purpose: 'Prediction-readiness gauge (plus its component sub-scores and history) for the sell-out model:
-    how much usable collection history exists and whether predictions can be trusted yet. Reads the `predict_readiness`
-    measurement in the `campsites` InfluxDB bucket.'
+    how much usable collection history exists and whether predictions can be trusted yet. Reads the
+    `campsite_readiness` Cloudflare Analytics Engine dataset (singleton row per daily run).'
   datasources:
-  - influxdb
+  - analytics-engine
   source:
-    repo: tommyroar/observability-config
+    repo: tommyroar/robot-geographical-society
     ref: main
     paths:
-    - campsites/
+    - backend/src/readiness-workflow.ts
     produces:
-      bucket: campsites
-      via: launchd-ingest
+      dataset: campsite_readiness
+      via: cloudflare-worker
     cadence: 24h
     status: active
-    note: The readiness metric is computed by the daily campsites/ingest.py (scanning the sites/ history
-      in R2) and written to the `campsites` bucket. The formula mirrors robot-geographical-society predict/readiness.py
-      and must stay in lockstep with it.
+    note: Readiness is computed by the RGS ReadinessWorkflow (a daily Cloudflare Workflow that scans ~60
+      days of R2 sites/ history) and written to the `campsite_readiness` AE dataset. Ported from
+      robot-geographical-society predict/readiness.py; replaced the host campsites/ingest.py compute in the
+      2026-06 native-Cloudflare migration. Panels take the latest singleton via argMax(timestamp); the two
+      time-series panels use $timeSeries/$timeFilter and build up one point per daily run.
   intent: Make "can we trust sell-out predictions yet?" a first-class, visible signal. The gauge fills
     as history accrues (geometric mean of events, coverage, and depth, so one lagging term holds it down);
     the band gates whether the model's ETAs are surfaced — hidden / low-confidence / shown.
+  notes:
+  - AE-only. double1..13 = readiness, event_score, coverage, depth_score, events, active_cells, cells,
+    median_depth, history_months, expected_accuracy, campgrounds, collect_days, ready_eta_days; blob1=band;
+    index1="readiness". Verified rendering against the live AE row 2026-06-21 (readiness 0.735, directional).
   todos:
-  - Re-point at an rgs-emitted readiness JSON once history grows, so the ingest stops re-scanning the
-    full sites/ history each run.
   - Add per-cohort readiness (which date/site classes are still data-starved).
   - Add C2-vs-C1 backtest panels once readiness clears the directional band.

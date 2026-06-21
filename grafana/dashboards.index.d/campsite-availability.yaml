@@ -7,7 +7,7 @@ campsite-availability:
   file: campsites/campsite-availability.json
   purpose: 'System-wide *live* campsite availability overview, sourced entirely from Cloudflare
     Analytics Engine (`campsite_availability` dataset): site-nights available, % reserved,
-    fully-booked campgrounds, per-agency split, per-campground latest, and watched hot dates.
+    fully-booked campgrounds, per-agency split and per-campground latest.
     Always "now"; no time-range history. Interactive per-night / per-site exploration has moved
     to the webapp.'
   datasources:
