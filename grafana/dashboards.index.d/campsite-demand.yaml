@@ -5,27 +5,36 @@
 campsite-demand:
   title: Campsite Demand
   file: campsites/campsite-demand.json
-  purpose: 'Where campsites are filling up: most in-demand sites (fewest nights left) and campgrounds,
-    the hottest nights (weekends/holidays that fill first), and a campground×night booking heatmap. Off
-    pre-aggregated site_demand / campground_demand summaries.'
+  purpose: 'Where campgrounds are filling up: most in-demand campgrounds, the hottest nights
+    (weekends/holidays that fill first), and a campground×night booking heatmap — all from the
+    Cloudflare Analytics Engine `campsite_demand` dataset (per-campground per-night, soonest ~240
+    nights). Per-individual-site demand (survival / soonest-to-run-out) is the webapp''s job.'
   datasources:
-  - influxdb
+  - analytics-engine
   source:
-    repo: tommyroar/observability-config
+    repo: tommyroar/robot-geographical-society
     ref: main
     paths:
-    - campsites/ingest.py
+    - backend/src/workflows.ts
     produces:
-      bucket: campsites
-      via: launchd-ingest
-    cadence: 24h
+      dataset: campsite_demand
+      via: cloudflare-worker
+    cadence: continuous
     status: active
-    note: site_demand (per-site totals) + campground_demand (per-campground per-night) are pre-aggregated
-      by ingest.py from R2 sites/ so the dashboard never scans the ~1.5M site_availability points live
-      (too slow / OOM-risky on the 2GB Influx).
-  intent: The demand lens that complements campsite-availability (which is "what's open for a chosen night").
-    Pre-aggregating in the ingest keeps it fast and Influx- only (no AE), so unlike campsite-availability
-    it renders headlessly.
+    note: The RGS collector Worker writes one campsite_demand row per campground per target night
+      per run (collectSite, soonest 240 nights); queries take the latest snapshot per cell via
+      argMax(timestamp). Replaced the host ingest.py site_demand/campground_demand InfluxDB
+      aggregation in the 2026-06 native-Cloudflare migration (Cloudflare-migration-plan.md).
+  intent: The demand lens complementing campsite-availability. Now AE-backed like the rest of the
+    campsite dashboards. The former per-individual-site panel ("most in-demand sites — fewest nights
+    left") was dropped — that granularity isn't in AE (only per-campground is); the webapp's Survival
+    view (campsites.robogeosociety.xyz) covers it.
+  notes:
+  - AE-only. agency/campsite template variables are sourced from AE (campsite_availability, GROUP BY
+    blob2/blob3) and filter the panels via IN (${var:singlequote}).
+  - The booking heatmap (state-timeline) plots target nights on the time axis via toDateTime(blob1);
+    confirm its time-range behaviour once campsite_demand has a collection cycle of data.
   todos:
-  - Per-site availability calendar (site×night) once a campground is selected
-  - Lead-time / burn-down once enough history accrues (robot-geographical-society#70)
+  - Verify all panels render once the collector loop continues-as-new onto the demand-writing code
+    (campsite_demand was 0 rows at repoint time).
+  - Lead-time / burn-down once enough history accrues (robot-geographical-society#70).
