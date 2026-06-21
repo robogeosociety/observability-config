@@ -32,9 +32,16 @@ campsite-demand:
   notes:
   - AE-only. agency/campsite template variables are sourced from AE (campsite_availability, GROUP BY
     blob2/blob3) and filter the panels via IN (${var:singlequote}).
-  - The booking heatmap (state-timeline) plots target nights on the time axis via toDateTime(blob1);
-    confirm its time-range behaviour once campsite_demand has a collection cycle of data.
+  - 'The two tables use latest-snapshot AE queries (argMax over timestamp). The by-night strip
+    ("Demand by upcoming night — % booked") is a single-series state-timeline keyed on
+    toDateTime(blob1); the dashboard time range is set forward (now → now+90d) so future nights
+    land on its axis (the tables use fixed now()-48h windows, so the forward range does not affect
+    them). Verified rendering against live partial data 2026-06-21.'
+  - 'Why not a campground×night heatmap: vertamedia/ClickHouse builds series from numeric COLUMNS,
+    not from a dynamic row-label, so ~138 campgrounds can''t be per-row series over a night axis.
+    The per-campground × night grid + per-site survival live in the webapp
+    (campsites.robogeosociety.xyz); Grafana keeps the system-wide (var-sliceable) by-night view.'
   todos:
-  - Verify all panels render once the collector loop continues-as-new onto the demand-writing code
-    (campsite_demand was 0 rows at repoint time).
+  - 'campsite_demand fills as the CollectorLoop continues-as-new onto the demand-writing code
+    (~16/138 campgrounds at repoint time); panels are correct now and complete as coverage grows.'
   - Lead-time / burn-down once enough history accrues (robot-geographical-society#70).

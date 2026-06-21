@@ -21,7 +21,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Campsite Demand** — where campgrounds are filling up, from Cloudflare Analytics Engine (`campsite_demand`, per-campground per-night, soonest ~240 nights). Filter by Agency / Site (campground). For per-individual-site demand (survival / soonest-to-run-out), use the **[webapp](https://campsites.robogeosociety.xyz)**."
+        "content": "**Campsite Demand** — where campgrounds are filling up, from Cloudflare Analytics Engine (`campsite_demand`, per-campground per-night, soonest ~240 nights). Tables are latest-snapshot; the by-night strip uses a forward time range. For the per-campground × night grid and per-site survival, use the **[webapp](https://campsites.robogeosociety.xyz)**. Filter by Agency / Site (campground)."
       }
     },
     {
@@ -276,8 +276,8 @@
     {
       "id": 5,
       "type": "state-timeline",
-      "title": "Booking heatmap — campground × night (% booked)",
-      "description": "Each row a campground, each cell a night, colour = % of its sites booked (green→red). Next 90 nights. Tip: pick one Agency to keep it readable.",
+      "title": "Demand by upcoming night — % booked",
+      "description": "How booked each upcoming night is across the selected campgrounds (green→red). System-wide by night; for the per-campground × night grid use the webapp (campsites.robogeosociety.xyz). Filter with Agency / Site (campground).",
       "gridPos": {
         "x": 0,
         "y": 23,
@@ -299,7 +299,7 @@
           "meta": {
             "timezone": "UTC"
           },
-          "query": "SELECT toDateTime(night) AS t, name, IF(av + rs > 0, rs / (av + rs) * 100, 0.0) AS booked_pct FROM (SELECT index1, blob1 AS night, argMax(double1, timestamp) AS av, argMax(double2, timestamp) AS rs, argMax(blob2, timestamp) AS agency, argMax(blob3, timestamp) AS name FROM campsite_demand WHERE timestamp > now() - INTERVAL '48' HOUR GROUP BY index1, night) WHERE agency IN (${agency:singlequote}) AND name IN (${campsite:singlequote}) ORDER BY name, t",
+          "query": "SELECT toDateTime(night) AS t, IF(SUM(av) + SUM(rs) > 0, SUM(rs) / (SUM(av) + SUM(rs)) * 100, 0.0) AS booked_pct FROM (SELECT index1, blob1 AS night, argMax(double1, timestamp) AS av, argMax(double2, timestamp) AS rs, argMax(blob2, timestamp) AS agency, argMax(blob3, timestamp) AS name FROM campsite_demand WHERE timestamp > now() - INTERVAL '48' HOUR GROUP BY index1, night) WHERE agency IN (${agency:singlequote}) AND name IN (${campsite:singlequote}) GROUP BY night ORDER BY t",
           "extrapolate": false
         }
       ],
@@ -390,8 +390,8 @@
     ]
   },
   "time": {
-    "from": "now-1d",
-    "to": "now"
+    "from": "now",
+    "to": "now+90d"
   },
   "timepicker": {},
   "timezone": "browser",
