@@ -31,12 +31,15 @@ Telegraf config.)
   not macOS), writing cpu/mem/swap/disk/diskio/net/system to the `system` bucket
   every 15s for the `mac-system` dashboard. Config is `telegraf.conf`; `deploy.sh`
   bakes the token from `.env` into Homebrew's config path and restarts the service.
-- `campsites/` — R2→InfluxDB ingest for the `campsites` bucket (launchd, daily).
-  Reads R2 via the existing `wrangler login` OAuth session (Cloudflare R2 API
-  over **curl**) — no S3 key/token. Runs `python3` from the **internal disk**
-  (`deploy.sh` → `~/.local/share/campsite-ingest/`) because a launchd-spawned
-  `python3`/`uv` hangs on both /Volumes reads (TCC) and its own TLS. Staleness →
-  `campsite-collector-stale` Discord alert.
+- `campsites/` — **retired 2026-06-21** (dir removed; in git history). The old
+  R2→InfluxDB ingest (launchd `campsite-ingest` → `campsites` bucket) is gone:
+  campsite monitoring is now native Cloudflare. **Readiness** is computed by the RGS
+  `ReadinessWorkflow` → `campsite_readiness` AE (Predictions dashboard); **demand** and
+  **hot-date watch** moved to the webapp (`robot-geographical-society#107`); availability
+  + collector health already came from the RGS Worker's AE writes. Every campsite Grafana
+  dashboard + alert reads Analytics Engine (`campsites_ae`). The `campsites` InfluxDB
+  bucket is **frozen** (no writes; pending deletion after a safety window). See
+  `Cloudflare-migration-plan.md`.
 - `ask-dash/` — read-only natural-language Q&A over the stack. Shared tool core
   (`ask_dash/tools.py`) exposed two ways: a Discord gateway bot (`/ask`, the
   long-running OrbStack container) and an MCP server for Claude CLI sessions
