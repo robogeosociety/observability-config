@@ -70,6 +70,10 @@ Dashboards / alerting that consume the above:
 | **Worker + Cron Trigger → AE** *(recommended)* | A Worker `scheduled()` handler `fetch()`es any public URL, asserts status/latency/body, `writeDataPoint()`s the result | Cron + Workers: on existing **Workers Paid**. AE: free tier 100k writes/day, 10k reads/day; paid 10M writes + 1M reads/mo included (CF currently not billing AE). | **Strong** | Cron min granularity **1 minute** (vs 120 s today — fine). AE is **sampled** — weight counts by `SUM(_sample_interval)`. AE retention **3 months**. No built-in alerting (Grafana rules do it). |
 | **Browser Rendering / Puppeteer (Workers Binding)** | Real headless-Chrome canary: full page load, DOM/visual assertions, screenshot | Paid: 10 browser-hours/mo included, then $0.09/hr; 10 concurrent included. Free: 10 min/day, 3 concurrent. | **Overkill now** (static site) | Heavier + slower; per-session browser time billed. Reserve for a future DOM/visual canary. |
 | **Web Analytics / Observatory / Speed** | RUM + scheduled Lighthouse-style page-speed (Observatory) | Free/Pro | **Adjacent, not uptime** | Measures real-user perf / scheduled Lighthouse, **not** a synthetic up/down probe. Observatory needs the zone on CF. Optional later signal, not a replacement. |
+| **DEX synthetic tests** (Cloudflare One / Zero Trust) | Scheduled HTTP GET + traceroute against **any public hostname** from CF's network (and enrolled WARP devices); status-code time series + hop-by-hop path telemetry | **Free on all Zero Trust plans** | **Viable alt** | Probes non-CF hostnames (works for GitHub-Pages walksheds), but results live in the **Zero Trust DEX dashboard, not AE/Grafana** — no unified pane without export. HTTP **GET only**, no body/latency-budget assertions. Per-test interval floor. |
+| **Load Balancing health monitors** | Origin/pool monitors, multi-region, Monitor Groups | **Enterprise + LB subscription** | **No fit** | Targets a CF-proxied origin/pool, not an arbitrary URL; gated to a plan we don't have. |
+| **Cloudflare Notifications** (Origin Error Rate / Health-Check status / Workers errors) | Event alerts off **real traffic** through a CF zone | Free–Pro by type | **Passive, not synthetic** | No active probe; needs traffic *through* a CF zone (N/A for GitHub-Pages walksheds, but relevant for the proxied `*.robogeosociety.xyz` apps). |
+| **Durable Object alarms** (as canary scheduler) | Stateful, **sub-1-minute** scheduling + flap/streak state for a Worker canary | On Workers Paid | **Upgrade path** | Only needed if checks must run faster than Cron's 1-min floor or hold streak state; otherwise Cron is simpler. |
 
 ### Why Worker-canary over Health Checks (the decision)
 
@@ -80,6 +84,37 @@ Dashboards / alerting that consume the above:
    already provision and query. One Grafana pattern, not a new CF-analytics surface.
 4. **Assertions are code.** Status range, latency budget, and body-substring checks live in
    the Worker — richer than a Health Check's expected-codes match.
+
+### DEX synthetic tests — the one real alternative
+
+[DEX synthetic application monitoring](https://developers.cloudflare.com/cloudflare-one/insights/dex/tests/)
+(part of Cloudflare One / Zero Trust) is the only *other* option that genuinely fits the
+"probe a public site from Cloudflare's network" shape, so it's worth a deliberate weigh-up
+rather than a one-line dismissal:
+
+- **What it gives us, for free.** Scheduled HTTP GET + traceroute against any public hostname
+  — including GitHub-Pages `walksheds.xyz` (no CF zone required) — with a status-code time
+  series and hop-by-hop path telemetry, on **every Zero Trust plan at no extra cost**. Zero
+  code, zero Worker to maintain.
+- **Why it still loses to the Worker canary *here*.** Its results live in the **Zero Trust DEX
+  dashboard**, not in Analytics Engine — so they never reach the `campsites_ae` Grafana
+  datasource, breaking the "one Grafana pane" goal that motivates this whole plan. It's also
+  **GET-only**: no latency-budget or body-substring assertion, which the Worker does in code.
+- **Where it would win.** If we ever want *network-path* diagnosis (which hop is slow/dropping)
+  or end-user-perspective probes from enrolled WARP devices, DEX is the right tool and the
+  Worker canary isn't — they're complementary, not redundant.
+- **Verdict.** Keep the Worker→AE canary as the primary (Grafana-native). Optionally stand up a
+  **DEX synthetic test for walksheds in parallel** — it's free and adds path telemetry the
+  Worker can't — and treat its dashboard as a secondary, CF-side view. Revisit DEX-over-Worker
+  only if we abandon the single-Grafana-pane requirement.
+
+**Passive companions (not synthetic, but relevant signal):** for the *proxied*
+`*.robogeosociety.xyz` apps (which the Worker/webapp already serve through CF), **Origin Error
+Rate Notifications** and the **GraphQL Analytics API** give real-traffic 5xx/health alerting
+for free — the GraphQL feed can land in Grafana via the **Infinity** datasource (the same
+pattern `campsite-collector-history` already uses for R2 GraphQL). And building the canary as a
+Worker gets **Workers Observability** (invocation logs, error-rate metrics, Query Builder) on
+the canary itself at no extra cost.
 
 ## 3. Target architecture
 
@@ -307,5 +342,11 @@ surface — explicitly rejected.)
   <https://developers.cloudflare.com/workers/configuration/cron-triggers/>
 - Browser Rendering pricing (10 hrs/mo paid, $0.09/hr; 10 min/day free) —
   <https://developers.cloudflare.com/browser-rendering/platform/pricing/>
+- DEX synthetic tests (HTTP GET + traceroute, free on Zero Trust) —
+  <https://developers.cloudflare.com/cloudflare-one/insights/dex/tests/>
+- Load Balancing monitors / Monitor Groups (Enterprise) —
+  <https://developers.cloudflare.com/load-balancing/monitors/>
+- Workers Observability (logs, metrics, Query Builder) + Origin Error Rate notifications —
+  <https://developers.cloudflare.com/workers/observability/>
 - In-repo prior art: `cloudflare-collector/README.md`, `grafana/provisioning/datasources/campsites-ae.yml`,
   `grafana/walksheds-uptime/` (collector being retired).
