@@ -3,56 +3,48 @@
 # duplicate uid across files is a hermetic CI failure.)
 
 campsite-availability:
-  title: Campsite Availability
+  title: Campsite Availability — Overview
   file: campsites/campsite-availability.json
-  purpose: 'Campsite availability in two sections: a live system-wide snapshot from Cloudflare AE (site-nights
-    available, % reserved, fully-booked campgrounds, per-agency, per-campground latest, watched hot dates)
-    and a per-night history from the `campsites` InfluxDB bucket (totals, booked %, the available/booked
-    trend, booked-by-agency, per-campsite table for a chosen target date).'
+  purpose: 'System-wide *live* campsite availability overview, sourced entirely from Cloudflare
+    Analytics Engine (`campsite_availability` dataset): site-nights available, % reserved,
+    fully-booked campgrounds, per-agency split, per-campground latest, and watched hot dates.
+    Always "now"; no time-range history. Interactive per-night / per-site exploration has moved
+    to the webapp.'
   datasources:
   - analytics-engine
-  - influxdb
   source:
-    repo: tommyroar/observability-config
+    repo: tommyroar/robot-geographical-society
     ref: main
     paths:
-    - campsites/
+    - src/
     produces:
-      bucket: campsites
-      via: launchd-ingest
-    cadence: 24h
+      dataset: campsite_availability
+      via: cloudflare-worker
+    cadence: continuous
     status: active
-    note: Primary source is the in-repo daily ingest into the `campsites` InfluxDB bucket (the history
-      section). The live section reads the Cloudflare Analytics Engine dataset (external, same upstream
-      scraper Worker as campsite-collector-history) for low-latency current state.
+    note: Fed directly by the RGS collector Worker's Analytics Engine writes (same upstream as
+      campsite-collector-history). No host-side ingest — the launchd `campsite-ingest` job and the
+      `campsites` InfluxDB bucket were retired in the 2026-06 native-Cloudflare migration
+      (`Cloudflare-migration-plan.md`).
   cloud_provenance:
-    audited: '2026-06-04'
-    cloud_copy: R2 (campsite-raw) + Cloudflare Analytics Engine
-    replaceable: false
-    reason: 'The dashboard is already a deliberate hybrid: the live snapshot panels query Analytics Engine
-      directly, while the `campsites` Influx bucket holds only the pre-aggregated daily history (site_demand
-      / campground_demand) + prediction readiness. That Influx copy is the retention + aggregation layer
-      Cloudflare doesn''t provide — AE retention is ~3 months vs Influx''s infinite history, and scanning
-      the ~1.5M raw site_availability points live in AE/Influx is too slow / OOM-risky on the 2 GB Influx
-      (hence ingest.py pre-aggregates). Replacing it with direct AE queries would lose long-term history
-      and re-introduce the slow-scan it was built to avoid.'
-    other_buckets: 'mountain is marginally cloud-backed (is-the-mountain-out CF Worker + R2) but ~1.5
-      KB / 3 series; tempest_archive (WeatherFlow) and transit_tracker (OneBusAway) are cloud-from-another-vendor
-      where Influx is the sole archive; claude_code / home_assistant / system / zigbee_archive / ops are
-      local-origin with no cloud copy. Net: no redundant Influx ingest to cut.'
-  intent: One home for both availability lenses — "how booked is everything right now" (live/AE, all nights)
-    and "how is a chosen night filling up" (history/Influx, burn-down + forecast). Merged from campsite-availability-metrics
-    + campsite-live-availability (2026-06-02) to end their documented overlap.
+    audited: '2026-06-20'
+    cloud_copy: Cloudflare Analytics Engine (campsite_availability) + R2 (campsite-raw)
+    replaceable: true
+    reason: 'Fully cloud-native after the migration: every panel reads Analytics Engine via the
+      `campsites_ae` datasource. No InfluxDB dependency remains. AE retention is ~3 months — this
+      overview is current-state only, so that is sufficient; long-horizon trend lives in the Demand
+      / Predictions dashboards (also moving to AE) and full interactive history in the webapp.'
+  intent: The "how booked is everything right now" lens — system-wide, all-nights live state. The
+    former "how is a chosen night filling up" InfluxDB history section and the per-site drill-down
+    were retired 2026-06-20; that interactive use-case is now the webapp
+    (campsites.robogeosociety.xyz), which does it better (map, per-site calendar, survival/layout views).
   notes:
-  - Mixed-datasource dashboard. The target_date/agency/campsite variables drive ONLY the history (Influx)
-    section; the live (AE) section is system-wide and ignores them. target_date is filtered to today-and-future
-    (computed in-Flux from now(), this Flux build lacks date.format) and sorted ascending, so the history
-    section opens on the soonest upcoming night rather than an empty past date. The time picker drives
-    the history trend; the live section is "now". A Per-site section (Loop/Site cascading dropdowns +
-    a per-site table for the chosen Target date) reads the `site_availability` measurement, where the
-    night is modelled as the point timestamp (bounded cardinality) — ingested from R2 `sites/` by campsites/ingest.py.
+  - AE-only. The agency/campsite template variables are now sourced from AE (`campsite_availability`,
+    GROUP BY blob2/blob3) and scope the overview panels; the night-specific InfluxDB variables
+    (target_date/loop/site) were removed with the explorer section.
+  - Deprecation banner (top text panel) links interactive users to the webapp.
   todos:
-  - Optionally wire the agency filter into the live (AE) section too
-  - '"Watched hot dates" is a manual list — source it from collector config'
-  - Wire the agency/campground filters into the live (AE) section too (currently system-wide)
-  - Per-site section is Influx-only (site_availability); could add an AE live equivalent
+  - Optional follow-up — add an AE-backed multi-day trend row (SUM(double1) over $timeSeries on
+    campsite_availability) if a time view is wanted back on this dashboard.
+  - Consider retiring this dashboard entirely once Demand/Predictions are on AE and the webapp is
+    the accepted explorer (decide after the live review).
