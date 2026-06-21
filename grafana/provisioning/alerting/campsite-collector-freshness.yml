@@ -1,22 +1,28 @@
 apiVersion: 1
 
 # Campsite collector freshness — page when the deadline-driven CollectorLoop
-# stops landing data. The loop (a Cloudflare Worker) writes R2 summary/<date>/
-# continuously; the campsites ingest (launchd 07:30 daily, pulls R2 → InfluxDB
-# `campsites`) materializes those snapshots into the `availability` measurement.
-# If the collector dies, the next daily ingest finds nothing new and the
-# measurement goes stale.
+# stops landing data. The loop (a Cloudflare Worker) writes the `campsite_availability`
+# Analytics Engine dataset continuously (one point per campground per target_date,
+# every collection). If the collector dies, no new AE rows land and the window
+# empties.
+#
+# Migrated 2026-06-20 off InfluxDB: the host `campsite-ingest` launchd job and the
+# `campsites` bucket were retired, so this rule now reads Analytics Engine directly
+# (the `campsites_ae` ClickHouse datasource, same source as the failure-ratio rule)
+# instead of the daily InfluxDB `availability` measurement. Same uid
+# (campsite-collector-stale), so provisioning updates it in place.
 #
 # This REPLACES the in-Worker liveness supervisor we dropped: instead of a cron
 # auto-restarting a dead loop, alert a human, who restarts it with
 #   POST /collect/start?force=1   (after checking GET /scheduler/status).
 #
-# Window = 34h, deliberately > the 24h ingest cadence, so a healthy daily
-# snapshot never false-fires, while a dead collector fires ~1 day in — inside the
-# 2-day staleness SLA the loop guarantees. noDataState=Alerting: an empty 34h
-# window IS the alert. execErrState=OK: an InfluxDB outage is covered by
-# influxdb-availability, so don't double-page. Routed to Discord by the root
-# notification policy (folder: Alerts).
+# Window = 34h. Writes are now continuous (dozens of availability rows/day), so a
+# 34h window with zero rows unambiguously means the collector is dead — well inside
+# the 2-day staleness SLA the loop guarantees, with no risk of false-firing on the
+# old 24h ingest cadence (which no longer exists). noDataState=Alerting: an empty
+# 34h window IS the alert. execErrState=OK: an AE/token hiccup shouldn't page (the
+# failure-ratio + InfluxDB-availability rules cover the engine). Routed to Discord
+# by the root notification policy (folder: Alerts).
 groups:
   - orgId: 1
     name: campsite-collector
@@ -35,32 +41,36 @@ groups:
           collector: campsites
         annotations:
           summary: >-
-            No new campsite availability snapshots in InfluxDB for 34+ hours. The
-            deadline-driven CollectorLoop (Cloudflare Worker) or the 07:30 ingest
-            has stalled — every campsite should refresh within 2 days.
+            No new campsite availability rows in Analytics Engine for 34+ hours.
+            The deadline-driven CollectorLoop (Cloudflare Worker) has stalled —
+            every campsite should refresh within 2 days.
           runbook: >-
             Check GET /scheduler/status on the backend Worker. If the heartbeat is
             stale, the loop crashed: restart it with POST /collect/start?force=1.
-            If the heartbeat is fresh, the 07:30 R2→InfluxDB ingest is the culprit.
+            Then confirm new rows land in the campsite_availability AE dataset
+            (Campsite Availability — Overview dashboard).
         data:
           - refId: A
             relativeTimeRange:
               from: 122400
               to: 0
-            datasourceUid: campsites
+            datasourceUid: campsites_ae
             model:
               refId: A
               datasource:
-                type: influxdb
-                uid: campsites
-              query: |
-                from(bucket: "campsites")
-                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-                  |> filter(fn: (r) => r._measurement == "availability" and r._field == "available")
-                  |> count()
-                  |> group()
-                  |> sum()
-                  |> keep(columns: ["_value"])
+                type: vertamedia-clickhouse-datasource
+                uid: campsites_ae
+              format: time_series
+              dateTimeColDataType: timestamp
+              dateTimeType: DATETIME
+              intervalMs: 60000
+              maxDataPoints: 100
+              query: >-
+                SELECT (intDiv(toUInt32(now()), 60) * 60) * 1000 AS t,
+                SUM(_sample_interval) AS rows_seen
+                FROM campsite_availability
+                WHERE timestamp > now() - INTERVAL '34' HOUR
+                GROUP BY t
           - refId: B
             relativeTimeRange:
               from: 122400
