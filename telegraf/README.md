@@ -63,6 +63,13 @@ Edit `telegraf.conf` here, then `./deploy.sh`. Check status with
 
 ## Notes
 
+- **Missing `telegraf.d` crash-loops the service.** Homebrew's plist runs
+  telegraf with `-config-directory $(brew --prefix)/etc/telegraf.d`; since
+  v1.38 a *missing* dir is fatal, so the service crash-loops, writes nothing,
+  and the InfluxDB-availability alert fires even though InfluxDB is healthy
+  (bit us 2026-06-23). We use no drop-ins, but the dir must exist — `deploy.sh`
+  now `mkdir -p`s it. Symptom in `var/log/telegraf.log`:
+  `E! reading config directory failed: ... telegraf.d: no such file or directory`.
 - No `/Volumes` TCC issue: the deployed config lives on the internal disk, and
   the disk input reads filesystem **stats** (statfs), not file contents.
 - `inputs.disk` skips macOS synthetic filesystems (`devfs`, `autofs`, …) so only

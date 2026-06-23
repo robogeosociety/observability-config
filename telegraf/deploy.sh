@@ -13,6 +13,13 @@ SRC="${0:A:h}/telegraf.conf"
 ENV_FILE="${0:A:h}/.env"
 DEST="$(brew --prefix)/etc/telegraf.conf"
 
+# Homebrew's launchd plist runs telegraf with `-config-directory etc/telegraf.d`
+# unconditionally (since v1.38), and a *missing* dir is now a fatal error that
+# crash-loops the service — no writes, which trips the InfluxDB-availability
+# alert even though InfluxDB is healthy. We don't use drop-ins, but the dir must
+# exist; create it idempotently so a fresh install/upgrade can't strand telegraf.
+mkdir -p "$(brew --prefix)/etc/telegraf.d"
+
 [[ -f "$ENV_FILE" ]] || { echo "missing $ENV_FILE (copy .env.example, add the token)"; exit 1; }
 set -a; source "$ENV_FILE"; set +a
 [[ -n "${INFLUX_TOKEN:-}" ]] || { echo "INFLUX_TOKEN empty in $ENV_FILE"; exit 1; }
