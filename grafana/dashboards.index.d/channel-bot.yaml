@@ -1,0 +1,34 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+channel-bot:
+  title: Channel Bots (Discord + iMessage)
+  file: infra/channel-bot.json
+  purpose: 'Up/down status + history for the Claude Code messaging bridges (Discord cc-chat-bridge / dev-dev
+    session, iMessage quick session), from the `ops` bucket `channel_health` measurement. up=1 means GROUND
+    TRUTH connectivity — for Discord, the plugin server is holding a live :443 gateway socket, not merely a
+    "live" tmux session.'
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/observability-config
+    ref: main
+    paths:
+    - grafana/provisioning/alerting/channel-bot-health.yml
+    produces:
+      bucket: ops
+      via: claude-channels-babysitter
+    cadence: 120s
+    status: active
+    note: 'Fed by ~/.local/share/claude-channels/ensure-sessions.sh (emit_health), the launchd babysitter
+      com.tommydoerr.claude-channels (StartInterval 120). The probe checks a `bun server.ts` whose cwd is the
+      discord plugin dir holds an ESTABLISHED :443 socket (discord) and the quick session + imessage bun
+      server (imessage), writing channel_health,channel=… up=0/1 to ops. The babysitter is NOT in this repo
+      (lives in ~/.local/share); these files are the repo-side alert + dashboard that consume its metric.'
+  intent: 'Make the 2026-06-26 silent failure impossible to miss: the Discord bot was dead for hours while
+    its tmux session looked "live". This board (and the paired channel-*-down alerts) watch the real gateway
+    connection, so a silent drop is visible at a glance and pages within 5m.'
+  todos:
+  - Add a "time since last up" stat once there is enough history for it to be meaningful
+  - Per-project rows if more discord sessions than dev-dev are added to DISCORD_PROJECTS
