@@ -66,3 +66,22 @@ still come from Grafana + the watcher, not here.
   green). launchd is TCC-blocked from `/Volumes`, so it runs from an
   internal-disk copy and gets its webhook from the plist `EnvironmentVariables`
   (see README deploy steps).
+
+## 4. Claude output-token milestones → Discord (`claude_tokens.py`)
+
+- **Requirement:** a celebratory ping every time cumulative **non-cache output
+  tokens** used by Claude Code crosses another 1,000,000. Output tokens are
+  inherently non-cached (caching is input-side), so this is the `output_tokens`
+  field.
+- **Data source:** InfluxDB `claude_code` bucket, `tokens` measurement,
+  `output_tokens` field — `sum()` over all time (grouped) = cumulative total. Read
+  creds via `run-claude-tokens.sh` (ask-dash `INFLUX_READ_TOKEN` → `INFLUXDB_TOKEN`).
+- **Trigger:** Nomad periodic, every 15 min (`nomad/discord-claude-tokens.hcl`).
+  Last-notified milestone index persists in
+  `~/.local/share/claude-tokens-discord/state.json`. **First run seeds** at the
+  current milestone and posts nothing (the total is already tens of millions); each
+  later run fires once per newly-crossed 1M boundary (announcing the latest with a
+  "since last check" count if several were crossed at once).
+- **Output:** a gold Discord embed — milestone (e.g. "80M"), exact total, and step
+  — to the #claude-usage channel (`DISCORD_WEBHOOK_URL_CLAUDE`, falling back to
+  `DISCORD_WEBHOOK_URL`).
