@@ -1,0 +1,148 @@
+apiVersion: 1
+
+# Claude Code channel-bot health — alerts when the Discord or iMessage bridge stops
+# actually working. Source metric: channel_health,channel=…  up=0/1, written to the
+# `ops` bucket every ~120s by the channels babysitter
+# (~/.local/share/claude-channels/ensure-sessions.sh → emit_health).
+#
+# WHY THIS EXISTS: on 2026-06-26 the Discord bot failed to launch SILENTLY for hours —
+# the tmux session showed "live (channels listening)" while the discord server never
+# connected to the gateway (token written to the wrong state dir, then Claude Code's
+# mcp-needs-auth-cache.json vetoed every relaunch). Nothing watched it. The probe behind
+# this alert checks GROUND TRUTH (discord server holding an ESTABLISHED :443 gateway
+# socket), not the session merely existing — so the same silent failure now pages.
+#
+# noDataState=Alerting: no fresh up samples means the babysitter/collector itself is dead
+# → monitoring is blind → page it. execErrState=OK: if InfluxDB is unreachable the query
+# errors, but influxdb-availability already covers that — don't double-page.
+groups:
+  - orgId: 1
+    name: channels
+    folder: Alerts
+    interval: 1m
+    rules:
+      - uid: channel-discord-down
+        title: Discord bot is down (not connected to the gateway)
+        condition: C
+        for: 5m
+        noDataState: Alerting
+        execErrState: OK
+        labels:
+          severity: warning
+          component: channels
+        annotations:
+          summary: >-
+            The Claude Code Discord bridge (cc-chat-bridge / dev-dev session) has had
+            up=0 (or no heartbeat) for 5m — DMs to the bot are going nowhere. Likely the
+            same silent-launch failure as 2026-06-26: check the discord MCP log
+            (~/Library/Caches/claude-cli-nodejs/-Volumes-dev/mcp-logs-plugin-discord-discord/)
+            and clear the discord key from ~/.claude/mcp-needs-auth-cache.json, then
+            launchctl kickstart -k gui/$(id -u)/com.tommydoerr.claude-channels.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: ops
+            model:
+              refId: A
+              datasource:
+                type: influxdb
+                uid: ops
+              query: |
+                from(bucket: "ops")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "channel_health" and r._field == "up" and r.channel == "discord")
+                  |> last()
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: last
+              expression: A
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+
+      - uid: channel-imessage-down
+        title: iMessage bridge is down
+        condition: C
+        for: 5m
+        noDataState: Alerting
+        execErrState: OK
+        labels:
+          severity: warning
+          component: channels
+        annotations:
+          summary: >-
+            The Claude Code iMessage bridge (quick session) has had up=0 (or no heartbeat)
+            for 5m — texts to yourself won't reach the assistant. Check the quick tmux
+            session (tmux attach -t quick), Full Disk Access on the bun runtime for
+            chat.db, and the babysitter log (~/Library/Logs/claude-channels.log).
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: ops
+            model:
+              refId: A
+              datasource:
+                type: influxdb
+                uid: ops
+              query: |
+                from(bucket: "ops")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "channel_health" and r._field == "up" and r.channel == "imessage")
+                  |> last()
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: last
+              expression: A
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
