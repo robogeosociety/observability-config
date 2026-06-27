@@ -17,6 +17,16 @@ policies:
     group_interval: 5m
     repeat_interval: 4h
     routes:
+      # Weather alerts (domain=weather, the Tempest rules) go to their own
+      # #weather channel rather than the platform-health #alerts channel.
+      - receiver: discord-weather
+        matchers:
+          - domain = weather
+        group_by:
+          - alertname
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 4h
       # Collector-stalled alerts (component=collector) are usually a *known*,
       # multi-hour/day outage once you've seen the first page. Back the
       # re-notification off to 24h so a sustained stall reminds daily, not every
