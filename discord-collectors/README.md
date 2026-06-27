@@ -20,19 +20,18 @@ Convention-aligned with `/Volumes/dev/CLAUDE.md` + this repo's `AGENTS.md`:
 
 | File | What |
 | --- | --- |
-| `github_discord.py` | GitHub PRs/issues → Discord (fetches full PR to fix "Untitled PR") |
 | `transit_discord.py` | OneBusAway per-route situations → Discord |
 | `digest.py` | Weekly InfluxDB + dev-status ops digest → Discord |
 | `watcher.py` | Long-running dev-status UP/DOWN watcher → Discord |
 | `run-transit.sh` | Wrapper: sources the OBA key, `uv run` transit |
 | `run-digest.sh` | Wrapper: maps ask-dash creds, `uv run` digest |
-| `nomad/*.hcl` | Nomad periodic specs (github 30m, transit 5m, digest Mon 08:15) |
+| `nomad/*.hcl` | Nomad periodic specs (transit 5m, digest Mon 08:15) |
 | `launchd/com.tommydoerr.discord-watcher.plist` | launchd KeepAlive spec for the watcher |
 | `tests/` | Hermetic pytest for the pure logic |
 
 ## Secrets / inputs
 
-- **`DISCORD_WEBHOOK_URL`** — the channel webhook. The Nomad jobs (github/transit/
+- **`DISCORD_WEBHOOK_URL`** — the channel webhook. The Nomad jobs (transit/
   digest) self-discover it from `grafana/.env` (the Nomad agent has Full Disk
   Access, so `raw_exec` can read `/Volumes`). The **watcher cannot** (launchd is
   TCC-blocked from `/Volumes`) — it gets the webhook from the plist
@@ -48,9 +47,6 @@ From this dir, with the webhook in env for a real dry-run:
 
 ```sh
 source /Volumes/dev/observability/grafana/.env   # DISCORD_WEBHOOK_URL
-
-# GitHub (httpx only):
-uv run --with httpx github_discord.py --dry
 
 # Transit (wrapper sources the OBA key):
 ./run-transit.sh --dry
@@ -70,15 +66,14 @@ uv run --with httpx --with pytest pytest tests/ -q
 
 ## Deploy (maintainer, after merge — NOT the PR agent)
 
-### Nomad jobs (github / transit / digest)
+### Nomad jobs (transit / digest)
 
 ```sh
 cd /Volumes/dev/observability/discord-collectors
-nomad job run nomad/discord-github.hcl
 nomad job run nomad/discord-transit.hcl
 nomad job run nomad/discord-digest.hcl
 # run one now to verify:
-nomad job periodic force discord-github
+nomad job periodic force discord-transit
 ```
 
 These reference `/Volumes/dev/observability/discord-collectors/...` directly; the
@@ -114,3 +109,8 @@ runs). The uv cache stays on the internal disk — do **not** set
 - `notify_v2.py` lives in **obsidian-automations**, and the `.ts` notifiers live
   in **is-the-mountain-out** / **robot-geographical-society** — deliberately not
   here.
+- **GitHub activity → Discord** is handled by **GitHub's native Discord
+  integration** (per-repo webhook), not a collector. The old `github_discord.py`
+  poller was retired: it only emitted PR/issue embeds on a 30-min poll and read the
+  *public* user-events feed (blind to private repos), where the native webhook is
+  real-time and visibility-agnostic.

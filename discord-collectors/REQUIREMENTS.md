@@ -5,26 +5,15 @@ These are the contracts the scripts implement; the README covers how to run/depl
 
 ---
 
-## 1. GitHub activity → Discord (`github_discord.py`)
+## GitHub activity → Discord — RETIRED (use the native integration)
 
-- **Requirement:** when I open or merge a PR (or open an issue) on `tommyroar`'s
-  repos, drop a readable embed in the ops channel — with the real PR/issue
-  **title**, author, and a working link (never "Untitled PR").
-- **Data source:** `gh api /users/tommyroar/events`. The events feed returns a
-  **trimmed** `pull_request` (`base/head/id/number/url` only — no title/url/
-  merged), so for each relevant event the script fetches the **full** PR via
-  `gh api <path-after-api.github.com>` (from `pull_request.url`) and reads
-  title / user.login / html_url / merged from that.
-- **Trigger:** Nomad periodic, every 30 min (`nomad/discord-github.hcl`). Dedup
-  by event id in `~/.local/share/github-discord/state.json` (capped 500).
-- **Output:** Discord embeds — PR opened (green), PR merged (purple, the
-  synthetic `action=="merged"` event), PR closed-unmerged (grey), issue opened
-  (teal). A `closed` event whose full PR is `merged==true` is dropped so a merge
-  posts once, not twice. WorkflowRun/Deployment events are **not** in the user
-  feed and are intentionally unsupported here (CI/deploy alarms come from
-  Grafana + the watcher).
+The `github_discord.py` poller was removed. GitHub's **native Discord integration**
+(per-repo webhook) covers the same PR/issue activity — but real-time instead of a
+30-min poll, and across **private** repos too (the old poller read the *public*
+`/users/tommyroar/events` feed, blind to private-repo activity). CI/deploy alarms
+still come from Grafana + the watcher, not here.
 
-## 2. Transit service alerts → Discord (`transit_discord.py`)
+## 1. Transit service alerts → Discord (`transit_discord.py`)
 
 - **Requirement:** notify when a watched bus/train route has an active service
   alert (detour, reduced service, etc.), and clear it when resolved.
@@ -45,7 +34,7 @@ These are the contracts the scripts implement; the README covers how to run/depl
   with summary/description/affected-routes/severity/reason/active-window; a
   green "Cleared" embed when a tracked situation disappears.
 
-## 3. Weekly ops digest → Discord (`digest.py`)
+## 2. Weekly ops digest → Discord (`digest.py`)
 
 - **Requirement:** a Monday-morning health snapshot — per-bucket last-write age,
   job heartbeats, deployment status, and the week's notable failures.
@@ -62,7 +51,7 @@ These are the contracts the scripts implement; the README covers how to run/depl
   Jobs (ok/total/fail per task), Deployments (N/total up + list of any down),
   Notable Events (recent heartbeat failures).
 
-## 4. Deployment-status watcher → Discord (`watcher.py`)
+## 3. Deployment-status watcher → Discord (`watcher.py`)
 
 - **Requirement:** real-time-ish paging when a dev deployment flips UP↔DOWN, or
   when the dev-status server itself goes away.
