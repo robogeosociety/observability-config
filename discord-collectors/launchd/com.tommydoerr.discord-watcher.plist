@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  com.tommydoerr.discord-watcher — long-running deployment-status watcher.
+
+  This is a KeepAlive daemon (watcher.py loops internally). launchd is TCC-blocked
+  from /Volumes, so this plist MUST point at an INTERNAL-disk copy of watcher.py
+  (and the uv cache must stay on the internal disk — NO UV_CACHE_DIR=/Volumes).
+
+  DEPLOY (run by the maintainer — NOT by the PR agent):
+    mkdir -p ~/.local/share/discord-collectors
+    cp /Volumes/dev/observability/discord-collectors/watcher.py \
+       ~/.local/share/discord-collectors/watcher.py
+    # Fill in the real webhook below (replace REPLACE_WITH_DISCORD_WEBHOOK_URL),
+    # then install — the committed copy keeps the placeholder, never the secret:
+    cp /Volumes/dev/observability/discord-collectors/launchd/com.tommydoerr.discord-watcher.plist \
+       ~/Library/LaunchAgents/com.tommydoerr.discord-watcher.plist
+    # edit ~/Library/LaunchAgents/...plist -> set DISCORD_WEBHOOK_URL
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.tommydoerr.discord-watcher.plist
+
+  The webhook is injected here via EnvironmentVariables (watcher.py can't read
+  grafana/.env on /Volumes). Do NOT commit the real URL — keep the placeholder.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tommydoerr.discord-watcher</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/tommydoerr/.local/bin/uv</string>
+        <string>run</string>
+        <string>--with</string>
+        <string>httpx</string>
+        <string>/Users/tommydoerr/.local/share/discord-collectors/watcher.py</string>
+        <string>--interval</string>
+        <string>30</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/tommydoerr/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/tommydoerr</string>
+        <key>DEV_STATUS_URL</key>
+        <string>http://localhost:8077</string>
+        <!-- Replace at deploy time; NEVER commit the real webhook. -->
+        <key>DISCORD_WEBHOOK_URL</key>
+        <string>REPLACE_WITH_DISCORD_WEBHOOK_URL</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/tommydoerr/Library/Logs/discord-watcher.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tommydoerr/Library/Logs/discord-watcher.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
