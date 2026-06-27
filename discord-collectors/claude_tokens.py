@@ -102,13 +102,55 @@ def _human(n: int) -> str:
     return f"{m:.0f}M" if m == int(m) else f"{m:.1f}M"
 
 
-def build_embed(total: int, current: int, crossed: int, step: int = MILESTONE_STEP) -> dict:
+def _fmt(n: int) -> str:
+    """Compact token count: 14_618_886 -> '14.6M'; 286_810 -> '287k'; 42 -> '42'."""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.0f}k"
+    return str(n)
+
+
+def _short_model(m: str) -> str:
+    """'claude-opus-4-8' -> 'opus-4-8'; strip date suffix on dated ids."""
+    return m.replace("claude-", "").rsplit("-2", 1)[0]
+
+
+def _breakdown_field(rows: list[tuple[str, int]], total: int) -> str:
+    """Render 'name — 14.6M (18%)' lines for an embed field."""
+    if not rows:
+        return "—"
+    out = []
+    for name, val in rows:
+        pct = f" ({100 * val / total:.0f}%)" if total else ""
+        out.append(f"`{_fmt(val)}`{pct} {name}")
+    return "\n".join(out)
+
+
+def build_embed(
+    total: int,
+    current: int,
+    crossed: int,
+    step: int = MILESTONE_STEP,
+    projects: list[tuple[str, int]] | None = None,
+    models: list[tuple[str, int]] | None = None,
+) -> dict:
     reached = current * step
     since = (
         f"+{crossed} milestone{'s' if crossed != 1 else ''} since last check"
         if crossed > 1
         else "next milestone reached"
     )
+    fields = [
+        {"name": "Milestone", "value": _human(reached), "inline": True},
+        {"name": "Exact total", "value": f"{total:,}", "inline": True},
+        {"name": "Step", "value": _human(step), "inline": True},
+    ]
+    if projects:
+        fields.append({"name": "Top projects (all-time)", "value": _breakdown_field(projects, total), "inline": False})
+    if models:
+        short = [(_short_model(n), v) for n, v in models]
+        fields.append({"name": "By model (all-time)", "value": _breakdown_field(short, total), "inline": False})
     return {
         "embeds": [
             {
@@ -118,11 +160,7 @@ def build_embed(total: int, current: int, crossed: int, step: int = MILESTONE_ST
                     f"({since})."
                 ),
                 "color": GOLD,
-                "fields": [
-                    {"name": "Milestone", "value": _human(reached), "inline": True},
-                    {"name": "Exact total", "value": f"{total:,}", "inline": True},
-                    {"name": "Step", "value": _human(step), "inline": True},
-                ],
+                "fields": fields,
             }
         ]
     }
@@ -163,6 +201,26 @@ from(bucket: "{BUCKET}")
     return 0
 
 
+def query_breakdown(client, org: str, tag: str, limit: int = 5) -> list[tuple[str, int]]:
+    """All-time output_tokens grouped by a tag (project/model/session), top `limit`."""
+    flux = f'''
+from(bucket: "{BUCKET}")
+  |> range(start: 0)
+  |> filter(fn: (r) => r._measurement == "tokens" and r._field == "output_tokens")
+  |> group(columns: ["{tag}"])
+  |> sum()
+  |> group()
+  |> sort(columns: ["_value"], desc: true)
+  |> limit(n: {limit})
+'''
+    rows: list[tuple[str, int]] = []
+    for table in client.query_api().query(flux, org=org):
+        for record in table.records:
+            name = record.values.get(tag) or "(none)"
+            rows.append((name, int(record.get_value())))
+    return rows
+
+
 def post_to_discord(webhook_url: str, payload: dict) -> None:
     resp = httpx.post(webhook_url, json=payload, timeout=15)
     resp.raise_for_status()
@@ -187,11 +245,12 @@ def main() -> None:
     from influxdb_client import InfluxDBClient  # lazy: keeps unit tests hermetic
 
     client = InfluxDBClient(url=cfg["influxdb_url"], token=cfg["influxdb_token"], org=cfg["influxdb_org"])
-    total = query_total_output_tokens(client, cfg["influxdb_org"])
-    client.close()
+    org = cfg["influxdb_org"]
+    total = query_total_output_tokens(client, org)
     print(f"[*] cumulative output_tokens = {total:,}")
 
     if args.reseed:
+        client.close()
         cur = milestone_index(total)
         if not args.dry_run:
             save_state(cur)
@@ -202,20 +261,29 @@ def main() -> None:
     d = decide(total, last)
 
     if d["seed"]:
+        client.close()
         if not args.dry_run:
             save_state(d["current"])
         print(f"[seed] first run — recorded milestone {d['current']} ({_human(d['current']*MILESTONE_STEP)}), no notification")
         return
 
     if not d["notify"]:
+        client.close()
         print(f"[*] no new milestone (at {d['current']}, last notified {last})")
         return
 
     if not args.dry_run and not cfg["discord_webhook_url"]:
+        client.close()
         print("[error] DISCORD_WEBHOOK_URL(_CLAUDE) not set and not found in .env", file=sys.stderr)
         sys.exit(1)
 
-    payload = build_embed(total, d["current"], d["crossed"])
+    # Milestone crossed — pull the session breakdown (by project + model) for the embed.
+    print("[*] querying token breakdown (project, model) ...")
+    projects = query_breakdown(client, org, "project", limit=5)
+    models = query_breakdown(client, org, "model", limit=4)
+    client.close()
+
+    payload = build_embed(total, d["current"], d["crossed"], projects=projects, models=models)
     if args.dry_run:
         print("\n--- DRY RUN — embed payload: ---")
         print(json.dumps(payload, indent=2))

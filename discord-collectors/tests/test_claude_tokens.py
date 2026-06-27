@@ -47,3 +47,30 @@ def test_build_embed_shape():
     assert "80M" in e["title"]
     assert e["color"] == ct.GOLD
     assert any(f["value"] == "80,010,000" for f in e["fields"])
+
+
+def test_fmt():
+    assert ct._fmt(14_618_886) == "14.6M"
+    assert ct._fmt(286_810) == "287k"
+    assert ct._fmt(42) == "42"
+
+
+def test_short_model():
+    assert ct._short_model("claude-opus-4-8") == "opus-4-8"
+
+
+def test_breakdown_field():
+    rows = [("observability", 14_618_886), ("dev", 6_126_987)]
+    out = ct._breakdown_field(rows, 80_000_000)
+    assert "observability" in out and "14.6M" in out and "18%" in out
+
+
+def test_build_embed_with_breakdown():
+    p = ct.build_embed(
+        80_010_000, 80, 1,
+        projects=[("observability", 14_618_886)],
+        models=[("claude-opus-4-8", 72_873_027)],
+    )
+    names = [f["name"] for f in p["embeds"][0]["fields"]]
+    assert "Top projects (all-time)" in names
+    assert "By model (all-time)" in names
