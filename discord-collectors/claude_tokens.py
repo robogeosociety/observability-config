@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -134,6 +135,7 @@ def build_embed(
     step: int = MILESTONE_STEP,
     projects: list[tuple[str, int]] | None = None,
     models: list[tuple[str, int]] | None = None,
+    window_total: int = 0,
 ) -> dict:
     reached = current * step
     since = (
@@ -146,11 +148,14 @@ def build_embed(
         {"name": "Exact total", "value": f"{total:,}", "inline": True},
         {"name": "Step", "value": _human(step), "inline": True},
     ]
+    # Breakdown is scoped to "what drove this milestone" — the window since the last
+    # one — so percentages are a share of `window_total`, not the cumulative grand total.
+    denom = window_total or sum(v for _, v in (projects or []))
     if projects:
-        fields.append({"name": "Top projects (all-time)", "value": _breakdown_field(projects, total), "inline": False})
+        fields.append({"name": "Top projects (this milestone)", "value": _breakdown_field(projects, denom), "inline": False})
     if models:
         short = [(_short_model(n), v) for n, v in models]
-        fields.append({"name": "By model (all-time)", "value": _breakdown_field(short, total), "inline": False})
+        fields.append({"name": "By model (this milestone)", "value": _breakdown_field(short, denom), "inline": False})
     return {
         "embeds": [
             {
@@ -170,26 +175,33 @@ def build_embed(
 # State
 # ---------------------------------------------------------------------------
 
-def load_state() -> int | None:
+def load_state() -> tuple[int | None, str | None]:
+    """Returns (last_milestone, last_ts). last_ts marks when that milestone was
+    recorded, so the breakdown window is 'since the last milestone'."""
     try:
-        return int(json.loads(STATE_FILE.read_text())["last_milestone"])
+        d = json.loads(STATE_FILE.read_text())
+        return int(d["last_milestone"]), d.get("last_ts")
     except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError):
-        return None
+        return None, None
 
 
-def save_state(milestone: int) -> None:
+def save_state(milestone: int, ts: str) -> None:
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps({"last_milestone": int(milestone)}) + "\n")
+    STATE_FILE.write_text(json.dumps({"last_milestone": int(milestone), "last_ts": ts}) + "\n")
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ---------------------------------------------------------------------------
 # InfluxDB
 # ---------------------------------------------------------------------------
 
-def query_total_output_tokens(client, org: str) -> int:
+def query_total_output_tokens(client, org: str, start: str = "0") -> int:
     flux = f'''
 from(bucket: "{BUCKET}")
-  |> range(start: 0)
+  |> range(start: {start})
   |> filter(fn: (r) => r._measurement == "tokens" and r._field == "output_tokens")
   |> group()
   |> sum()
@@ -201,11 +213,12 @@ from(bucket: "{BUCKET}")
     return 0
 
 
-def query_breakdown(client, org: str, tag: str, limit: int = 5) -> list[tuple[str, int]]:
-    """All-time output_tokens grouped by a tag (project/model/session), top `limit`."""
+def query_breakdown(client, org: str, tag: str, start: str = "0", limit: int = 5) -> list[tuple[str, int]]:
+    """output_tokens grouped by a tag (project/model/session) over [start, now), top `limit`.
+    `start` is a Flux time literal — an RFC3339 stamp (since last milestone) or `0` (all-time)."""
     flux = f'''
 from(bucket: "{BUCKET}")
-  |> range(start: 0)
+  |> range(start: {start})
   |> filter(fn: (r) => r._measurement == "tokens" and r._field == "output_tokens")
   |> group(columns: ["{tag}"])
   |> sum()
@@ -246,6 +259,7 @@ def main() -> None:
 
     client = InfluxDBClient(url=cfg["influxdb_url"], token=cfg["influxdb_token"], org=cfg["influxdb_org"])
     org = cfg["influxdb_org"]
+    now = _now_iso()
     total = query_total_output_tokens(client, org)
     print(f"[*] cumulative output_tokens = {total:,}")
 
@@ -253,23 +267,23 @@ def main() -> None:
         client.close()
         cur = milestone_index(total)
         if not args.dry_run:
-            save_state(cur)
+            save_state(cur, now)
         print(f"[done] reseeded state to milestone {cur} ({_human(cur * MILESTONE_STEP)})")
         return
 
-    last = load_state()
-    d = decide(total, last)
+    last_milestone, last_ts = load_state()
+    d = decide(total, last_milestone)
 
     if d["seed"]:
         client.close()
         if not args.dry_run:
-            save_state(d["current"])
+            save_state(d["current"], now)
         print(f"[seed] first run — recorded milestone {d['current']} ({_human(d['current']*MILESTONE_STEP)}), no notification")
         return
 
     if not d["notify"]:
         client.close()
-        print(f"[*] no new milestone (at {d['current']}, last notified {last})")
+        print(f"[*] no new milestone (at {d['current']}, last notified {last_milestone})")
         return
 
     if not args.dry_run and not cfg["discord_webhook_url"]:
@@ -277,21 +291,24 @@ def main() -> None:
         print("[error] DISCORD_WEBHOOK_URL(_CLAUDE) not set and not found in .env", file=sys.stderr)
         sys.exit(1)
 
-    # Milestone crossed — pull the session breakdown (by project + model) for the embed.
-    print("[*] querying token breakdown (project, model) ...")
-    projects = query_breakdown(client, org, "project", limit=5)
-    models = query_breakdown(client, org, "model", limit=4)
+    # Milestone crossed — break down "what drove it" over the window since the last
+    # milestone (fall back to 30d if state predates timestamping).
+    window_start = last_ts or "-30d"
+    print(f"[*] querying token breakdown (project, model) since {window_start} ...")
+    window_total = query_total_output_tokens(client, org, start=window_start)
+    projects = query_breakdown(client, org, "project", start=window_start, limit=5)
+    models = query_breakdown(client, org, "model", start=window_start, limit=4)
     client.close()
 
-    payload = build_embed(total, d["current"], d["crossed"], projects=projects, models=models)
+    payload = build_embed(total, d["current"], d["crossed"], projects=projects, models=models, window_total=window_total)
     if args.dry_run:
         print("\n--- DRY RUN — embed payload: ---")
         print(json.dumps(payload, indent=2))
-        print(f"(would update state {last} -> {d['current']})")
+        print(f"(would update state {last_milestone} -> {d['current']} @ {now})")
     else:
         print(f"[*] Posting milestone {d['current']} to Discord ...")
         post_to_discord(cfg["discord_webhook_url"], payload)
-        save_state(d["current"])
+        save_state(d["current"], now)
     print("[done]")
 
 

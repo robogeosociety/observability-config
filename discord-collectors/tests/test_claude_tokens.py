@@ -68,9 +68,14 @@ def test_breakdown_field():
 def test_build_embed_with_breakdown():
     p = ct.build_embed(
         80_010_000, 80, 1,
-        projects=[("observability", 14_618_886)],
-        models=[("claude-opus-4-8", 72_873_027)],
+        projects=[("observability", 600_000), ("dev", 400_000)],
+        models=[("claude-opus-4-8", 1_000_000)],
+        window_total=1_000_000,
     )
-    names = [f["name"] for f in p["embeds"][0]["fields"]]
-    assert "Top projects (all-time)" in names
-    assert "By model (all-time)" in names
+    fields = p["embeds"][0]["fields"]
+    names = [f["name"] for f in fields]
+    assert "Top projects (this milestone)" in names
+    assert "By model (this milestone)" in names
+    # % is a share of the window total (600k/1M = 60%), not the cumulative grand total
+    proj = next(f for f in fields if f["name"] == "Top projects (this milestone)")
+    assert "60%" in proj["value"]
