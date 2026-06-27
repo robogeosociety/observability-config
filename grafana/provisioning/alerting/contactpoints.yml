@@ -34,3 +34,23 @@ contactPoints:
             {{ if .PanelURL }}[graph]({{ .PanelURL }}) · {{ end }}{{ if .DashboardURL }}[dashboard]({{ .DashboardURL }}) · {{ end }}[silence]({{ .SilenceURL }})
             {{ end }}
         disableResolveMessage: false
+
+  # Weather alerts route here (a separate #weather channel) instead of the
+  # platform-health #alerts channel — they're personal/planning, not stack health.
+  # Same template; its own webhook from $__env{DISCORD_WEBHOOK_URL_WEATHER}
+  # (grafana/docker-compose.yml passes it through from grafana/.env).
+  - orgId: 1
+    name: discord-weather
+    receivers:
+      - uid: discord-weather
+        type: discord
+        settings:
+          url: $__env{DISCORD_WEBHOOK_URL_WEATHER}
+          use_discord_username: false
+          title: '{{ if eq .Status "firing" }}FIRING{{ else }}RESOLVED{{ end }} · {{ if .CommonLabels.alertname }}{{ .CommonLabels.alertname }}{{ else }}{{ len .Alerts }} alert(s){{ end }}'
+          message: |
+            {{ range .Alerts }}**{{ .Labels.alertname }}**
+            {{ .Annotations.summary }}
+            {{ if .PanelURL }}[graph]({{ .PanelURL }}) · {{ end }}{{ if .DashboardURL }}[dashboard]({{ .DashboardURL }}) · {{ end }}[silence]({{ .SilenceURL }})
+            {{ end }}
+        disableResolveMessage: false

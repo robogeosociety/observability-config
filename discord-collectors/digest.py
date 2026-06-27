@@ -69,7 +69,14 @@ def load_config() -> dict:
         "influxdb_url": os.environ.get("INFLUXDB_URL", ask_dash_env.get("INFLUX_URL", "http://localhost:8086")),
         "influxdb_token": os.environ.get("INFLUXDB_TOKEN", ask_dash_env.get("INFLUX_READ_TOKEN", "")),
         "influxdb_org": os.environ.get("INFLUXDB_ORG", ask_dash_env.get("INFLUX_ORG", "home")),
-        "discord_webhook_url": os.environ.get("DISCORD_WEBHOOK_URL", grafana_env.get("DISCORD_WEBHOOK_URL", "")),
+        # Prefer a digest-specific webhook (its own #ops-digest channel); fall back
+        # to the shared platform webhook so a single-channel setup still works.
+        "discord_webhook_url": (
+            os.environ.get("DISCORD_WEBHOOK_URL_DIGEST")
+            or grafana_env.get("DISCORD_WEBHOOK_URL_DIGEST")
+            or os.environ.get("DISCORD_WEBHOOK_URL")
+            or grafana_env.get("DISCORD_WEBHOOK_URL", "")
+        ),
         "dev_status_url": os.environ.get("DEV_STATUS_URL", "http://localhost:8077"),
     }
 

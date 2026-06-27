@@ -76,6 +76,9 @@ services:
       # alerting/). Expanded into contactpoints.yml via $__env{} at provisioning
       # time so the channel webhook URL never lives in a committed file.
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
+      # Separate #weather channel webhook for the Tempest weather alerts
+      # (contactpoints.yml `discord-weather`). Same $__env{} passthrough.
+      DISCORD_WEBHOOK_URL_WEATHER: ${DISCORD_WEBHOOK_URL_WEATHER}
     depends_on:
       - renderer
     networks:
