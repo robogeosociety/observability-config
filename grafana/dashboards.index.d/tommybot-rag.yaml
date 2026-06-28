@@ -19,6 +19,7 @@ tommybot-rag:
     - tommybot/metrics.py
     produces:
       bucket: tommybot
+      via: tommybot-metrics-sampler
       measurements:
       - process_memory (rss_mb — sampled every 30s)
       - query (duration_s + snippet, tagged by source routing)
