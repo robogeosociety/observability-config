@@ -1,0 +1,287 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "name": "Queries",
+        "datasource": { "type": "influxdb", "uid": "tommybot" },
+        "enable": true,
+        "iconColor": "#FF9830",
+        "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"query\" and r._field == \"snippet\")\n  |> keep(columns: [\"_time\", \"_value\", \"source\"])",
+        "textColumn": "_value",
+        "tagsColumn": "source",
+        "type": "tags"
+      }
+    ]
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Process Memory (RSS)",
+      "description": "Resident set size of the tommybot process over time. Query annotations overlay as vertical markers so you can see memory impact of each inference run.",
+      "datasource": { "type": "influxdb", "uid": "tommybot" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisLabel": "MB",
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "scheme",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "unit": "decmbytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2500 },
+              { "color": "red", "value": 3500 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "tommybot" },
+          "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"process_memory\" and r._field == \"rss_mb\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Query Duration",
+      "description": "End-to-end time per query (model load + retrieval + inference). Colored by source routing (obsidian, influx, or both).",
+      "datasource": { "type": "influxdb", "uid": "tommybot" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "seconds",
+            "drawStyle": "points",
+            "pointSize": 8,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "tommybot" },
+          "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"query\" and r._field == \"duration_s\")\n  |> group(columns: [\"source\"])"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Queries Today",
+      "datasource": { "type": "influxdb", "uid": "tommybot" },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "blue", "value": null } ] },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": [ "count" ], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "tommybot" },
+          "query": "from(bucket: \"tommybot\")\n  |> range(start: today())\n  |> filter(fn: (r) => r._measurement == \"query\" and r._field == \"duration_s\")"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Avg Duration",
+      "datasource": { "type": "influxdb", "uid": "tommybot" },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 30 },
+            { "color": "red", "value": 60 }
+          ] },
+          "unit": "s",
+          "noValue": "—"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": [ "mean" ], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "tommybot" },
+          "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"query\" and r._field == \"duration_s\")"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Current RSS",
+      "datasource": { "type": "influxdb", "uid": "tommybot" },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 14 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 2500 },
+            { "color": "red", "value": 3500 }
+          ] },
+          "unit": "decmbytes",
+          "noValue": "—"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "tommybot" },
+          "query": "from(bucket: \"tommybot\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"process_memory\" and r._field == \"rss_mb\")\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Peak RSS",
+      "datasource": { "type": "influxdb", "uid": "tommybot" },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 14 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 2500 },
+            { "color": "red", "value": 3500 }
+          ] },
+          "unit": "decmbytes",
+          "noValue": "—"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": [ "max" ], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "tommybot" },
+          "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"process_memory\" and r._field == \"rss_mb\")"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Recent Queries",
+      "description": "Last 20 queries with source routing, duration, and snippet.",
+      "datasource": { "type": "influxdb", "uid": "tommybot" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "_time" }, "properties": [ { "id": "displayName", "value": "Time" } ] },
+          { "matcher": { "id": "byName", "options": "source" }, "properties": [ { "id": "displayName", "value": "Source" } ] },
+          { "matcher": { "id": "byName", "options": "duration (s)" }, "properties": [ { "id": "unit", "value": "s" }, { "id": "decimals", "value": 1 } ] }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [ { "displayName": "Time", "desc": true } ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "tommybot" },
+          "query": "import \"strings\"\n\nduration = from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"query\" and r._field == \"duration_s\")\n  |> keep(columns: [\"_time\", \"_value\", \"source\"])\n  |> rename(columns: {_value: \"duration (s)\"})\n\nsnippet = from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"query\" and r._field == \"snippet\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"query\"})\n\njoin(tables: {d: duration, s: snippet}, on: [\"_time\"])\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 20)"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "_time_d": true, "_time_s": true },
+            "renameByName": {}
+          }
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [ "infra", "tommybot", "rag" ],
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "tommybot RAG",
+  "uid": "tommybot-rag",
+  "version": 1
+}
