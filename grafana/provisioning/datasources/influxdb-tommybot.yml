@@ -1,0 +1,19 @@
+# InfluxDB datasource (conf.d — one file per datasource so concurrent PRs adding a
+# bucket never collide on a shared file; Grafana merges every *.yml in this dir).
+# tommybot RAG metrics: process_memory (RSS) and query events.
+
+apiVersion: 1
+datasources:
+- name: InfluxDB - tommybot
+  uid: tommybot
+  type: influxdb
+  access: proxy
+  url: http://influxdb:8086
+  jsonData:
+    version: Flux
+    organization: home
+    defaultBucket: tommybot
+    tlsSkipVerify: true
+  secureJsonData:
+    token: ${INFLUX_GRAFANA_TOKEN}
+  editable: true

@@ -1,0 +1,32 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+tommybot-rag:
+  title: tommybot RAG
+  file: infra/tommybot-rag.json
+  purpose: 'Memory and query performance for the tommybot Discord bot (local MLX RAG
+    over Obsidian vaults + InfluxDB). Top panel: process RSS over time with query
+    annotations overlaid as vertical markers so memory spikes from model load /
+    inference are visually aligned with each query. Bottom: query duration scatter,
+    today count, avg duration, current/peak RSS stats, and a recent-queries table.'
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/tommybot
+    ref: main
+    paths:
+    - tommybot/metrics.py
+    produces:
+      bucket: tommybot
+      measurements:
+      - process_memory (rss_mb — sampled every 30s)
+      - query (duration_s + snippet, tagged by source routing)
+    cadence: 30s (memory), per-query (events)
+    status: active
+  intent: 'Correlate memory usage with query load to catch model-resident memory
+    creep, verify the lazy-load / GC lifecycle, and spot inference latency regressions.
+    The 8 GB M1 constraint makes memory the primary bottleneck.'
+  todos:
+  - Add model load/unload event annotations once engine.py emits them
+  - Gateway reconnect annotations (from discord.py logs)
