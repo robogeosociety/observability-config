@@ -93,12 +93,27 @@ piece this migration is trying to move away from. *(These are live-stack changes
 applies them via the coordinator; not done in this PR.)*
 
 **Option B — render bot-side, delete the renderer (recommended).** Static PNGs for Discord
-do not require Chromium. `ask-dash` is already a Discord bot with a read-only Flux tool core;
-have it query InfluxDB and draw the chart with a lightweight server-side library
-(matplotlib / Vega / QuickChart), then post to Discord. Removes the single most fragile and
-heaviest component, is far more robust than spawning Chrome per image, and matches the
+do not require Chromium — and the service to produce them **already exists in this repo**.
+`ask-dash/` is a long-running OrbStack container that today answers natural-language
+questions over the stack, exposed two ways from one shared tool core
+(`ask_dash/tools.py`): a **Discord gateway bot** (`/ask` slash command) and an **MCP
+server** for Claude CLI sessions. That core is already read-only and already connected to
+exactly the right places:
+
+- holds a **read-scoped InfluxDB token** (all buckets) + a **Grafana viewer token** —
+  read-only is enforced by the credentials, not the prompt;
+- ships data tools `list_buckets` · `list_measurements` · read-only `query_influx` (Flux) ·
+  `search_dashboards` · `get_dashboard_queries`;
+- is already wired into Discord as a deployed bot.
+
+So bot-side rendering is an **extension of an existing, deployed service**, not a new one:
+add a tool/command (e.g. `/dash <panel>` alongside `/ask`) that runs a Flux query and draws
+the result with a lightweight server-side library (matplotlib / Vega / QuickChart), then
+posts the PNG to the channel. Removes the single most fragile and heaviest component
+(headless Chromium), is far more robust than spawning Chrome per image, and matches the
 "lightweight, Discord-clickable" goal. Cost: panels are re-drawn in code rather than reusing
-Grafana's rendering, and alert-embedded graphs need rewiring to the bot path.
+Grafana's rendering, and the alert-embedded graphs (`collector-freshness`,
+`influxdb-write-health`) must be repointed to the bot path.
 
 ---
 
@@ -106,8 +121,9 @@ Grafana's rendering, and alert-embedded graphs need rewiring to the bot path.
 
 1. **Unblock rendering (decision above).** Nothing else proceeds until PNGs are produced
    reliably — it is the foundation of the whole approach.
-2. **Wire a `/dash <panel>` Discord path** — on-demand render → PNG → channel post (bot or
-   render API, per the decision).
+2. **Wire a `/dash <panel>` Discord path** — on-demand render → PNG → channel post. Under
+   Option B this is a new command/tool in the existing `ask-dash` bot; under Option A it
+   calls the Grafana render API.
 3. **Confirm alert-embed images** post correctly end-to-end (the existing
    `collector-freshness` / `influxdb-write-health` embeds, re-validated).
 4. **Drop the Grafana UI exposure** (`tailscale serve` for :3000) once Discord coverage is
