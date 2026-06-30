@@ -20,5 +20,5 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y zsh
       - name: Tier 1 — unit + static
         run: >
-          pytest grafana/tests grafana/dev-status grafana/claude-usage-collector discord-mini-mem coordination influxdb/tests orbstack/tests
+          pytest grafana/tests grafana/dev-status grafana/claude-usage-collector discord-mini-mem discord-orbstack-mem coordination influxdb/tests orbstack/tests
           -m "not integration" --import-mode=importlib -q
