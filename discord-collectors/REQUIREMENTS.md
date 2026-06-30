@@ -67,21 +67,12 @@ still come from Grafana + the watcher, not here.
   internal-disk copy and gets its webhook from the plist `EnvironmentVariables`
   (see README deploy steps).
 
-## 4. Claude output-token milestones → Discord (`claude_tokens.py`)
+## 4. Claude token usage → Discord — RETIRED (cumulative) → `discord-claude-heatmap` (live)
 
-- **Requirement:** a celebratory ping every time cumulative **non-cache output
-  tokens** used by Claude Code crosses another 1,000,000. Output tokens are
-  inherently non-cached (caching is input-side), so this is the `output_tokens`
-  field.
-- **Data source:** InfluxDB `claude_code` bucket, `tokens` measurement,
-  `output_tokens` field — `sum()` over all time (grouped) = cumulative total. Read
-  creds via `run-claude-tokens.sh` (ask-dash `INFLUX_READ_TOKEN` → `INFLUXDB_TOKEN`).
-- **Trigger:** Nomad periodic, every 15 min (`nomad/discord-claude-tokens.hcl`).
-  Last-notified milestone index persists in
-  `~/.local/share/claude-tokens-discord/state.json`. **First run seeds** at the
-  current milestone and posts nothing (the total is already tens of millions); each
-  later run fires once per newly-crossed 1M boundary (announcing the latest with a
-  "since last check" count if several were crossed at once).
-- **Output:** a gold Discord embed — milestone (e.g. "80M"), exact total, and step
-  — to the #claude-usage channel (`DISCORD_WEBHOOK_URL_CLAUDE`, falling back to
-  `DISCORD_WEBHOOK_URL`).
+- **Was:** `claude_tokens.py` posted a cumulative milestone ping every time output
+  tokens crossed another 1M, to #claude-usage. **Retired 2026-06-30** — a cumulative
+  counter that only goes up doesn't show *where* tokens go.
+- **Now:** the `discord-claude-heatmap` container (top-level `discord-claude-heatmap/`)
+  renders a live, tick-updated **heatmap** of `output_tokens` from the same
+  `claude_code` `tokens` series — rows = projects, columns = recent hourly buckets,
+  color = intensity — as one self-editing message in **#ops**. See its README.

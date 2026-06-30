@@ -25,6 +25,7 @@ EXPECTED = {
     "realitycapture-viewer",
     "discord-mini-mem",
     "discord-orbstack-mem",
+    "discord-claude-heatmap",
 }
 
 
