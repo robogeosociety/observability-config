@@ -14,6 +14,8 @@ prompt.
 from __future__ import annotations
 
 import json
+import re
+import time
 
 import requests
 from influxdb_client import InfluxDBClient
@@ -138,6 +140,91 @@ def get_dashboard_queries(uid: str) -> list[dict]:
     return out
 
 
+def list_panels(uid: str) -> list[dict]:
+    """The renderable panels of a dashboard: panel id + title + type (the id feeds render_panel)."""
+    dash = _grafana(f"/api/dashboards/uid/{uid}")["dashboard"]
+    out: list[dict] = []
+
+    def walk(panels):
+        for p in panels:
+            if p.get("type") == "row":
+                if p.get("panels"):
+                    walk(p["panels"])
+                continue
+            out.append({
+                "id": p.get("id"),
+                "title": p.get("title") or "(untitled)",
+                "type": p.get("type"),
+            })
+
+    walk(dash.get("panels", []))
+    return out
+
+
+# --- Grafana panel rendering (PNG via the image renderer) ------------------
+
+_REL_TIME = re.compile(r"^(?:now-)?(\d+)([smhdw])$")
+_UNIT_S = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+
+
+def _to_ms(t: str | int) -> int:
+    """Grafana /render wants epoch ms. Accept 'now', a relative shorthand
+    ('6h', '7d', 'now-30m'), or a raw epoch-ms integer."""
+    t = str(t).strip()
+    if t in ("", "now"):
+        return int(time.time() * 1000)
+    if t.lstrip("-").isdigit():
+        return int(t)
+    m = _REL_TIME.match(t)
+    if m:
+        return int((time.time() - int(m.group(1)) * _UNIT_S[m.group(2)]) * 1000)
+    raise ValueError(
+        f"unrecognized time {t!r} (use 'now', a shorthand like '6h'/'7d'/'now-30m', or epoch ms)"
+    )
+
+
+def render_panel(
+    uid: str,
+    panel_id: int,
+    *,
+    from_: str | int = "6h",
+    to: str | int = "now",
+    width: int = 1000,
+    height: int = 500,
+    tz: str | None = "America/Los_Angeles",
+    theme: str = "dark",
+) -> bytes:
+    """Render one panel to a PNG via Grafana's image renderer. Returns the PNG bytes.
+
+    Uses the same read-only GRAFANA_TOKEN as the rest of ask-dash (a Viewer can
+    render panels it can see). Raises if the renderer doesn't return an image —
+    e.g. an auth redirect (HTML) or the renderer being down."""
+    params: dict = {
+        "panelId": panel_id,
+        "from": _to_ms(from_),
+        "to": _to_ms(to),
+        "width": width,
+        "height": height,
+        "theme": theme,
+    }
+    if tz:
+        params["tz"] = tz
+    r = requests.get(
+        config.GRAFANA_URL + f"/render/d-solo/{uid}/x",
+        headers={"Authorization": f"Bearer {config.GRAFANA_TOKEN}"},
+        params=params,
+        timeout=config.RENDER_TIMEOUT_S,
+    )
+    r.raise_for_status()
+    ct = r.headers.get("Content-Type", "")
+    if "image/png" not in ct:
+        raise RuntimeError(
+            f"renderer did not return a PNG (Content-Type: {ct or 'none'}); "
+            "check GRAFANA_TOKEN/permissions, the uid/panel, or that the renderer is up"
+        )
+    return r.content
+
+
 # --- Tool registry (shared by Anthropic tool-use and MCP) -----------------
 
 # name -> (callable, anthropic-style JSON schema)
@@ -200,6 +287,13 @@ REGISTRY: dict[str, tuple] = {
          "properties": {"uid": {"type": "string"}},
          "required": ["uid"]},
         "Return the queries each panel of a dashboard runs, so an answer can mirror it.",
+    ),
+    "list_panels": (
+        list_panels,
+        {"type": "object",
+         "properties": {"uid": {"type": "string"}},
+         "required": ["uid"]},
+        "List a dashboard's panels (id + title + type); the id feeds panel rendering.",
     ),
 }
 

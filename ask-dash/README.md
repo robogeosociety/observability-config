@@ -1,11 +1,14 @@
 # ask-dash
 
 Read-only, natural-language Q&A over the local Grafana/InfluxDB stack — exposed
-two ways:
+three ways:
 
 - **Discord** — a gateway bot with an `/ask` slash command.
 - **Claude CLI** — an MCP server, so any `claude` session (interactive or a
   scripted `claude -p` weekly job) can query the stack natively.
+- **Local CLI utility** — `ask-dash` on the Mac mini's PATH: ask questions, and
+  `ask-dash render` a Grafana panel to a PNG and open it (so you can glance at a
+  panel without browsing the Grafana UI over Tailscale).
 
 Both share one core: read-only data tools in `ask_dash/tools.py`. Nothing here can
 write or delete — the InfluxDB token is read-scoped across all buckets and the
@@ -17,9 +20,11 @@ surface, not by the prompt.
                  │  list_buckets · list_measurements · …       │
    Discord  ─────┤  query_influx (read-only Flux)              ├──▶ InfluxDB :8086 (read token)
    Claude CLI ───┤  search_dashboards · get_dashboard_queries  ├──▶ Grafana  :3000 (viewer token)
+   Local CLI  ───┤  list_panels · render_panel (PNG)           ├──▶ image renderer (PNG)
                  └─────────────────────────────────────────────┘
    Discord bot + CLI drive their own Claude loop (agent.py); the MCP path lets the
-   caller's Claude CLI session be the loop.
+   caller's Claude CLI session be the loop. `ask-dash render` skips the loop and
+   pulls a panel PNG straight from the renderer.
 ```
 
 ## Layout
@@ -28,7 +33,7 @@ surface, not by the prompt.
 - `ask_dash/agent.py` — Claude tool-use loop (Discord bot + CLI).
 - `ask_dash/discord_bot.py` — gateway bot, `/ask` (the long-running container).
 - `ask_dash/mcp_server.py` — MCP stdio server for Claude CLI sessions.
-- `ask_dash/cli.py` — `ask-dash "question"` for scripted summaries.
+- `ask_dash/cli.py` — the `ask-dash` CLI: `ask` / `dashboards` / `panels` / `render`.
 
 ## Setup
 
@@ -70,6 +75,24 @@ Now a session can call `list_buckets`, `query_influx`, `get_dashboard_queries`, 
 uv run ask-dash "Summarize transit_tracker trends over the last 7 days; call out anomalies."
 ```
 Wrap that in a launchd/cron job to post a weekly digest.
+
+**Local CLI utility** (on the Mac mini) — install once on PATH as an editable tool,
+so it always runs the live tree and reads this dir's `.env`:
+```sh
+uv tool install --editable /Volumes/dev/observability/ask-dash
+```
+Then, from anywhere:
+```sh
+ask-dash "how many sites are open at Goodell Creek this week?"   # ask the agent
+ask-dash dashboards backup        # find a dashboard uid by title
+ask-dash panels backups           # list that dashboard's panel ids
+ask-dash render backups 2         # render panel 2 → PNG, opens it (last 6h)
+ask-dash render backups 2 --from 7d --width 1200 --no-open --out /tmp/p.png
+```
+`render` keeps Grafana headless — it talks to the image renderer with the same
+read-only Viewer token, no Tailscale UI needed. `--from`/`--to` accept `now`, a
+shorthand like `6h`/`7d`/`now-30m`, or epoch ms. Headless Chromium is slow
+(~5–7s/render, slower under host load); the timeout is `RENDER_TIMEOUT_S` (45s).
 
 ## Test
 

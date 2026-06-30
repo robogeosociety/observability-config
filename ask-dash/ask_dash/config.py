@@ -48,3 +48,7 @@ ALLOWED_USER_IDS = {
 # Guard rails — a vague question must not trigger a full-history scan.
 QUERY_TIMEOUT_S = int(os.environ.get("QUERY_TIMEOUT_S", "20"))
 MAX_ROWS = int(os.environ.get("MAX_ROWS", "500"))
+
+# Panel PNG rendering — headless Chromium is slow (~5–7s) and slower under host
+# load, so allow generous headroom before giving up.
+RENDER_TIMEOUT_S = int(os.environ.get("RENDER_TIMEOUT_S", "45"))
