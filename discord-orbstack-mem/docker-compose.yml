@@ -1,0 +1,24 @@
+services:
+  discord-orbstack-mem:
+    build: .
+    container_name: discord-orbstack-mem
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    env_file: .env          # INFLUX_READ_TOKEN, DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID, INTERVAL
+    environment:
+      # InfluxDB runs in the OrbStack network; reach it by container name.
+      INFLUX_URL: "http://influxdb:8086"
+      STATE_DIR: "/state"
+    networks:
+      - influxdb_default
+    volumes:
+      # Persist this message's id so a restart re-uses it (its own state dir,
+      # separate from discord-mini-mem's).
+      - ${ORBMEM_STATE_DIR:-~/.local/share/discord-orbstack-mem}:/state
+
+networks:
+  # Shared external network created by influxdb/docker-compose.yml.
+  influxdb_default:
+    external: true

@@ -24,6 +24,7 @@ EXPECTED = {
     "grafana-renderer",
     "realitycapture-viewer",
     "discord-mini-mem",
+    "discord-orbstack-mem",
 }
 
 
