@@ -12,6 +12,11 @@ apiVersion: 1
 # weekly/lib/notify.py), with "didn't run at all" shown as a stale node on the Automations
 # Status canvas. The campsite-collector + collector-freshness rules were deliberately KEPT —
 # they watch the Cloudflare Worker / continuous telemetry, which don't self-report.
+#
+# Retired 2026-06-29 — the iMessage channel integration was disabled (Discord-only). The
+# babysitter (ensure-sessions.sh) now deliberately emits channel=imessage up=0i, so the
+# `iMessage bridge is down` rule would page forever on an intentionally-off bridge. Rule
+# removed from channel-bot-health.yml; this tombstone makes Grafana actually delete it.
 deleteRules:
   - orgId: 1
     uid: daily-note-stale
@@ -19,3 +24,5 @@ deleteRules:
     uid: weekly-note-stale
   - orgId: 1
     uid: asset-graph-stale
+  - orgId: 1
+    uid: channel-imessage-down
