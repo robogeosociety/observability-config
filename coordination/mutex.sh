@@ -16,6 +16,10 @@
 
 coord_now() { /bin/date +%s; }
 
+# Epoch mtime of $1. Portable across GNU stat (Linux — the hermetic CI runner) and
+# BSD stat (macOS — the prod mini): try `-c %Y` first, fall back to `-f %m`.
+coord_mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || print 0; }
+
 # 0 = acquired (caller now owns it), 1 = held by a live owner (try again later).
 coord_acquire_lock() {
   mkdir -p "$COORD_HOME"
@@ -39,7 +43,7 @@ coord_acquire_lock() {
     # missed deploys). Reclaim once the lock DIR's own mtime is past the orphan
     # grace — long enough that any live holder has surely written `owner` by now.
     local mtime
-    mtime=$(/usr/bin/stat -f %m "$COORD_LOCK" 2>/dev/null || print 0)
+    mtime=$(coord_mtime "$COORD_LOCK")
     if [ "$mtime" -gt 0 ] && [ "$(( $(coord_now) - mtime ))" -gt "$COORD_LOCK_ORPHAN_GRACE" ]; then
       reclaim=1
     fi
