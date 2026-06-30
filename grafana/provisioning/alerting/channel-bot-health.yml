@@ -1,9 +1,13 @@
 apiVersion: 1
 
-# Claude Code channel-bot health — alerts when the Discord or iMessage bridge stops
-# actually working. Source metric: channel_health,channel=…  up=0/1, written to the
+# Claude Code channel-bot health — alerts when the Discord bridge stops actually
+# working. Source metric: channel_health,channel=…  up=0/1, written to the
 # `ops` bucket every ~120s by the channels babysitter
 # (~/.local/share/claude-channels/ensure-sessions.sh → emit_health).
+#
+# iMessage was retired 2026-06-29 (integration disabled — Discord-only; the babysitter
+# now deliberately emits channel=imessage up=0i). Its rule (uid channel-imessage-down)
+# was removed here and tombstoned in retired-rules.yml so Grafana actually deletes it.
 #
 # WHY THIS EXISTS: on 2026-06-26 the Discord bot failed to launch SILENTLY for hours —
 # the tmux session showed "live (channels listening)" while the discord server never
@@ -53,68 +57,6 @@ groups:
                 from(bucket: "ops")
                   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
                   |> filter(fn: (r) => r._measurement == "channel_health" and r._field == "up" and r.channel == "discord")
-                  |> last()
-          - refId: B
-            relativeTimeRange:
-              from: 600
-              to: 0
-            datasourceUid: __expr__
-            model:
-              refId: B
-              type: reduce
-              reducer: last
-              expression: A
-              datasource:
-                type: __expr__
-                uid: __expr__
-          - refId: C
-            relativeTimeRange:
-              from: 600
-              to: 0
-            datasourceUid: __expr__
-            model:
-              refId: C
-              type: threshold
-              expression: B
-              datasource:
-                type: __expr__
-                uid: __expr__
-              conditions:
-                - evaluator:
-                    type: lt
-                    params:
-                      - 1
-
-      - uid: channel-imessage-down
-        title: iMessage bridge is down
-        condition: C
-        for: 5m
-        noDataState: Alerting
-        execErrState: OK
-        labels:
-          severity: warning
-          component: channels
-        annotations:
-          summary: >-
-            The Claude Code iMessage bridge (quick session) has had up=0 (or no heartbeat)
-            for 5m — texts to yourself won't reach the assistant. Check the quick tmux
-            session (tmux attach -t quick), Full Disk Access on the bun runtime for
-            chat.db, and the babysitter log (~/Library/Logs/claude-channels.log).
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 600
-              to: 0
-            datasourceUid: ops
-            model:
-              refId: A
-              datasource:
-                type: influxdb
-                uid: ops
-              query: |
-                from(bucket: "ops")
-                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-                  |> filter(fn: (r) => r._measurement == "channel_health" and r._field == "up" and r.channel == "imessage")
                   |> last()
           - refId: B
             relativeTimeRange:
