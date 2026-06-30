@@ -1,0 +1,19 @@
+services:
+  discord-claude-heatmap:
+    build: .
+    container_name: discord-claude-heatmap
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    env_file: .env          # INFLUX_READ_TOKEN, DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID, INTERVAL
+    environment:
+      INFLUX_URL: "http://influxdb:8086"   # reach InfluxDB by container name on the shared net
+      STATE_DIR: "/state"
+    networks:
+      - influxdb_default
+    volumes:
+      - ${CLAUDEHEAT_STATE_DIR:-~/.local/share/discord-claude-heatmap}:/state
+networks:
+  influxdb_default:
+    external: true

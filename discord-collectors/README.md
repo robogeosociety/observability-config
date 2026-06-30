@@ -23,11 +23,13 @@ Convention-aligned with `/Volumes/dev/CLAUDE.md` + this repo's `AGENTS.md`:
 | `transit_discord.py` | OneBusAway per-route situations → Discord |
 | `digest.py` | Weekly InfluxDB + dev-status ops digest → Discord |
 | `watcher.py` | Long-running dev-status UP/DOWN watcher → Discord |
-| `claude_tokens.py` | Claude Code cumulative output-token milestones (every 1M) → Discord |
 | `run-transit.sh` | Wrapper: sources the OBA key, `uv run` transit |
 | `run-digest.sh` | Wrapper: maps ask-dash creds, `uv run` digest |
-| `run-claude-tokens.sh` | Wrapper: maps ask-dash creds, `uv run` claude_tokens |
-| `nomad/*.hcl` | Nomad periodic specs (transit 5m, digest Mon 08:15, claude-tokens 15m) |
+| `nomad/*.hcl` | Nomad periodic specs (transit 5m, digest Mon 08:15) |
+
+> The Claude output-token **milestone notifier** (`claude_tokens.py`, cumulative
+> every-1M posts to #claude-usage) was **retired** and replaced by the live
+> `discord-claude-heatmap` container (a tick-updated per-project token heatmap in #ops).
 | `launchd/com.tommydoerr.discord-watcher.plist` | launchd KeepAlive spec for the watcher |
 | `tests/` | Hermetic pytest for the pure logic |
 
@@ -40,11 +42,8 @@ Convention-aligned with `/Volumes/dev/CLAUDE.md` + this repo's `AGENTS.md`:
   `EnvironmentVariables` instead (placeholder in the committed plist).
 - **`OBA_API_KEY`** (transit) — `run-transit.sh` greps it from
   `/Volumes/dev/transit_tracker/.local/service.yaml` (single source of truth).
-- **InfluxDB read creds** (digest, claude-tokens) — `run-digest.sh` /
-  `run-claude-tokens.sh` source `ask-dash/.env` and map `INFLUX_READ_TOKEN` →
-  `INFLUXDB_TOKEN`.
-- **`DISCORD_WEBHOOK_URL_CLAUDE`** (claude-tokens) — its own #claude-usage channel
-  webhook in `grafana/.env`; falls back to `DISCORD_WEBHOOK_URL` if unset.
+- **InfluxDB read creds** (digest) — `run-digest.sh` sources `ask-dash/.env` and
+  maps `INFLUX_READ_TOKEN` → `INFLUXDB_TOKEN`.
 
 ## Run locally (verification)
 
@@ -59,9 +58,6 @@ source /Volumes/dev/observability/grafana/.env   # DISCORD_WEBHOOK_URL
 # Digest (wrapper maps Influx creds):
 ./run-digest.sh --dry-run
 
-# Claude output-token milestones (wrapper maps Influx creds):
-./run-claude-tokens.sh --dry-run
-
 # Watcher — single poll, no posting:
 uv run --with httpx watcher.py --once
 ```
@@ -74,21 +70,15 @@ uv run --with httpx --with pytest pytest tests/ -q
 
 ## Deploy (maintainer, after merge — NOT the PR agent)
 
-### Nomad jobs (transit / digest / claude-tokens)
+### Nomad jobs (transit / digest)
 
 ```sh
 cd /Volumes/dev/observability/discord-collectors
 nomad job run nomad/discord-transit.hcl
 nomad job run nomad/discord-digest.hcl
-nomad job run nomad/discord-claude-tokens.hcl
 # run one now to verify:
 nomad job periodic force discord-transit
 ```
-
-> **claude-tokens seeding:** the first run records the *current* milestone and
-> posts nothing (the all-time total is already tens of millions), then alerts on
-> each new 1M crossing. To reset the baseline manually:
-> `./run-claude-tokens.sh --reseed`.
 
 These reference `/Volumes/dev/observability/discord-collectors/...` directly; the
 Nomad agent's Full Disk Access lets `raw_exec` reach them and read `grafana/.env`.
