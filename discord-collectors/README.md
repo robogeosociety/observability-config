@@ -23,9 +23,16 @@ Convention-aligned with `/Volumes/dev/CLAUDE.md` + this repo's `AGENTS.md`:
 | `transit_discord.py` | OneBusAway per-route situations → Discord |
 | `digest.py` | Weekly InfluxDB + dev-status ops digest → Discord |
 | `watcher.py` | Long-running dev-status UP/DOWN watcher → Discord |
+| `thread_keepalive.py` | Daily heartbeat so the #ops "Live Dashboards" thread doesn't auto-archive |
 | `run-transit.sh` | Wrapper: sources the OBA key, `uv run` transit |
 | `run-digest.sh` | Wrapper: maps ask-dash creds, `uv run` digest |
-| `nomad/*.hcl` | Nomad periodic specs (transit 5m, digest Mon 08:15) |
+| `run-thread-keepalive.sh` | Wrapper: sources the bot token, runs the keepalive |
+| `nomad/*.hcl` | Nomad periodic specs (transit 5m, digest Mon 08:15, thread-keepalive daily 06:23) |
+
+> **Thread keepalive:** the dashboard containers only *edit* their messages, which does
+> NOT reset a thread's auto-archive timer. `thread_keepalive.py` posts one tiny heartbeat
+> per day in the thread (resetting the timer) and deletes the previous one, so exactly one
+> keepalive line ever lingers. Bot token from `~/.claude/channels/discord-ops/.env`.
 
 > The Claude output-token **milestone notifier** (`claude_tokens.py`, cumulative
 > every-1M posts to #claude-usage) was **retired** and replaced by the live
