@@ -1,0 +1,18 @@
+services:
+  discord-mini-mem:
+    build: .
+    container_name: discord-mini-mem
+    restart: unless-stopped
+    # Tiny: an idle sleep loop + two small HTTP calls per minute.
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    env_file: .env          # DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID, INTERVAL
+    environment:
+      # dev-status runs on the HOST; reach it over the OrbStack host bridge.
+      PROCESSES_URL: "http://host.docker.internal:8077/processes.json"
+      STATE_DIR: "/state"
+    volumes:
+      # Persist the live message id so a restart re-uses the same message instead
+      # of posting a new one. Seed it from the launchd daemon's state.json at cutover.
+      - ${MINIMEM_STATE_DIR:-~/.local/share/discord-mini-mem}:/state
