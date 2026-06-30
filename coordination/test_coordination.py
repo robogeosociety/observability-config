@@ -98,3 +98,29 @@ def test_fresh_lock_not_reclaimed_even_if_pid_dead(tmp_path):
     res = _run("worker.sh", coord_home=tmp_path, extra_env={"COORD_LOCK_TTL": "900"})
     assert "lock held" in res.stdout
     assert len(list((tmp_path / "queue").glob("*.job"))) == 1
+
+
+def test_mutex_reclaims_orphaned_lock_with_no_owner(tmp_path):
+    # LOCK dir with NO owner file — a run died between `mkdir LOCK` and writing
+    # `owner`. Once the dir is older than the orphan grace it MUST be reclaimable;
+    # otherwise an owner-less lock wedges deploys forever (2026-06-29 incident:
+    # ~12h of missed deploys, including a retired-alert PR that kept paging).
+    lock = tmp_path / "LOCK"
+    lock.mkdir(parents=True)                       # no owner file written
+    old = time.time() - 100000
+    os.utime(lock, (old, old))                     # age the dir past the grace
+    _run("enqueue.sh", "deploy", "orphan", coord_home=tmp_path)
+    res = _run("worker.sh", coord_home=tmp_path, extra_env={"COORD_LOCK_ORPHAN_GRACE": "30"})
+    assert "draining 1 job(s)" in res.stdout
+    assert len(list((tmp_path / "done").glob("*.job"))) == 1
+
+
+def test_fresh_orphaned_lock_not_reclaimed(tmp_path):
+    # Owner-less but freshly created → a live run may be mid-acquire (sub-second
+    # window before it writes owner). Must NOT yank it until past the grace.
+    lock = tmp_path / "LOCK"
+    lock.mkdir(parents=True)                       # no owner file, mtime = now
+    _run("enqueue.sh", "deploy", "fresh-orphan", coord_home=tmp_path)
+    res = _run("worker.sh", coord_home=tmp_path, extra_env={"COORD_LOCK_ORPHAN_GRACE": "3600"})
+    assert "lock held" in res.stdout
+    assert len(list((tmp_path / "queue").glob("*.job"))) == 1
