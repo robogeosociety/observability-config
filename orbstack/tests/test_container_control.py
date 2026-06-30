@@ -23,6 +23,7 @@ EXPECTED = {
     "transit-tracker",
     "grafana-renderer",
     "realitycapture-viewer",
+    "discord-mini-mem",
 }
 
 
