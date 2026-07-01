@@ -63,3 +63,9 @@ walksheds-uptime:
 # (healthy). The alertlist panel has no datasource query (skipped anyway).
 alerts-anomalies:
   allow_empty_panels: ["*"]
+
+# No historical data yet: TOMMYBOT_INFLUX_TOKEN isn't configured on the mini until the
+# tommybot-side metrics emission (tommybot/vecserve.py) ships and the mini is wired with a
+# write token for the `tommybot` bucket. Every panel is legitimately empty until then.
+tommybot-vecserve:
+  allow_empty_panels: ["*"]

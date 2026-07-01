@@ -1,0 +1,33 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+tommybot-vecserve:
+  title: "tommybot — vecserve"
+  file: dev/tommybot-vecserve.json
+  purpose: Up/down, throughput, latency, connections, and per-vault vector-index freshness for
+    the tommybot tailnet vector-retrieval server (vecserve) running on the mini, from the
+    `tommybot` bucket's `vecserve` measurement.
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/tommybot
+    ref: main
+    paths:
+    - tommybot/vecserve.py
+    produces:
+      bucket: tommybot
+      via: vecserve-heartbeat
+    cadence: 30s
+    status: active
+  intent: Answer "is vecserve up, is it fast, and is the index it's serving fresh?" at a glance —
+    the up/down stat backs the vecserve-down Discord alert; throughput/latency/connections show
+    load; vector age surfaces a stalled reindexer before a consumer notices stale answers.
+  todos:
+  - No historical data yet — TOMMYBOT_INFLUX_TOKEN isn't configured on the mini until this PR's
+    tommybot counterpart (vecserve metrics emission) ships and the mini is wired with a write
+    token for the `tommybot` bucket. See dashboard_coverage.yaml (allow_empty) and the PR body.
+  - Consider a per-vault breakdown of throughput/latency (currently aggregate across vaults) if
+    one vault dominates request volume.
+  - Tune the "oldest vector age" thresholds (currently 1h/6h) once real trickle-reindex cadence
+    data exists.

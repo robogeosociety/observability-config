@@ -1,0 +1,240 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Status",
+      "description": "Up/down heartbeat (measurement vecserve, field alive). See the vecserve-down alert for the Discord page.",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "tommybot"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tommybot"},
+        "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"vecserve\" and r._field == \"alive\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [{"type": "value", "options": {"1": {"text": "UP", "color": "green"}}}],
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null}, {"color": "green", "value": 1}
+          ]},
+          "noValue": "DOWN"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Connections (current)",
+      "description": "In-flight /search and /geo requests at the last heartbeat.",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "tommybot"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tommybot"},
+        "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"vecserve\" and r._field == \"connections\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {"unit": "short", "color": {"mode": "fixed", "fixedColor": "blue"}, "noValue": "0"},
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Oldest vector age",
+      "description": "Worst-case seconds since ANY vault's embeddings were last reindexed (max across vaults). The trickle reindexer runs ~every 15m, so a healthy system stays low.",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "tommybot"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tommybot"},
+        "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"vecserve\" and r._field == \"vector_age_s\")\n  |> last()\n  |> group()\n  |> max()\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "decimals": 0,
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 3600},
+            {"color": "red", "value": 21600}
+          ]},
+          "noValue": "NEVER"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Errors (last interval)",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 6},
+      "datasource": {"type": "influxdb", "uid": "tommybot"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tommybot"},
+        "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"vecserve\" and r._field == \"errors\")\n  |> last()\n  |> keep(columns: [\"_value\"])"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null}, {"color": "red", "value": 1}
+          ]},
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background", "graphMode": "none", "justifyMode": "center",
+        "orientation": "horizontal", "textMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Throughput (requests / interval)",
+      "description": "Search + geo requests handled per heartbeat tick (~30s).",
+      "gridPos": {"x": 0, "y": 6, "w": 12, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "tommybot"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tommybot"},
+        "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"vecserve\" and r._field == \"requests\")\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {"drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1, "showPoints": "never"},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "none"},
+        "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["sum"]}
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Latency (mean, ms)",
+      "gridPos": {"x": 12, "y": 6, "w": 12, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "tommybot"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tommybot"},
+        "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"vecserve\" and r._field == \"avg_duration_ms\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "pointSize": 5, "showPoints": "auto", "spanNulls": true},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "none"},
+        "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"]}
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Connections over time",
+      "gridPos": {"x": 0, "y": 14, "w": 12, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "tommybot"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tommybot"},
+        "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"vecserve\" and r._field == \"connections\")"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "min": 0,
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 15, "pointSize": 5, "showPoints": "auto", "spanNulls": true},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "none"},
+        "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["last", "max"]}
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Vector age per vault",
+      "description": "Seconds since each vault's embeddings were last reindexed. One series per vault (tagged in the tommybot bucket).",
+      "gridPos": {"x": 12, "y": 14, "w": 12, "h": 8},
+      "datasource": {"type": "influxdb", "uid": "tommybot"},
+      "targets": [{
+        "refId": "A",
+        "datasource": {"type": "influxdb", "uid": "tommybot"},
+        "query": "from(bucket: \"tommybot\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"vecserve\" and r._field == \"vector_age_s\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 5, "pointSize": 5, "showPoints": "auto", "spanNulls": true},
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "desc"},
+        "legend": {"showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"]}
+      }
+    },
+    {
+      "id": 9,
+      "type": "text",
+      "title": "About this dashboard",
+      "gridPos": {"x": 0, "y": 22, "w": 24, "h": 8},
+      "options": {
+        "mode": "markdown",
+        "content": "**vecserve** (`tommybot vecserve`) is the tailnet vector-retrieval server on the mini: it holds the embeddings DB + embedder so the Air's tommybot (and other tailnet consumers) can query search/geo over HTTP instead of syncing a DB copy. See `tommybot/vecserve.py` and the tommybot repo's `docs/embeddings.md` (\"Serving retrieval over the tailnet\").\n\n- **Status** reflects the `alive=1` heartbeat vecserve writes every ~30s (`TOMMYBOT_METRICS_INTERVAL`) to this bucket. The **vecserve-down** alert (`grafana/provisioning/alerting/vecserve-down.yml`) pages Discord if no heartbeat lands for 5 minutes.\n- **Throughput / Latency / Connections** are drained from the same heartbeat: request + error counts and mean latency since the previous tick, and the in-flight request count at tick time.\n- **Vector age** is `now - last_reindex.ts` per vault, computed from the embeddings DB's own bookkeeping (`tommybot.embeddings.db_stats`) — no separate freshness check needed.\n- Metrics are opt-in on the tommybot side (`TOMMYBOT_INFLUX_TOKEN` unset → silent no-op); until the mini is configured with a write token for this bucket, every panel here reads empty."
+      }
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["tommybot", "vecserve", "dev"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "tommybot — vecserve",
+  "uid": "tommybot-vecserve",
+  "version": 1,
+  "weekStart": ""
+}
