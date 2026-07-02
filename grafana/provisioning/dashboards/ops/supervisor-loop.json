@@ -1,0 +1,408 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Heartbeat age",
+      "description": "Seconds since the last supervisor_alive tick (live series, shadow=0i). ~60s is healthy; a climbing value means the status_heartbeat loop is wedged or the process is dead. The supervisor_alive staleness alert is the hard backstop.",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 300 }, { "color": "red", "value": 900 } ] },
+          "noValue": "NO DATA",
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"supervisor_alive\" and r._field == \"alive\" and r.shadow == \"0i\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Loop lag (now)",
+      "description": "Latest supervisor_tick lag_s — cycle overrun vs the intended cadence. Near 0 is healthy; a sustained rise means the event loop is starved (blocking IO on the loop thread).",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 30 }, { "color": "red", "value": 60 } ] },
+          "noValue": "NO DATA",
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"supervisor_tick\" and r._field == \"lag_s\" and r.shadow == \"0i\")\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Memory budget free",
+      "description": "Latest supervisor_tick budget_free_pct — MemoryBudget headroom the admission-concurrency model protects. Low free % (red) means jobs are queueing against the OOM ceiling.",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 15 }, { "color": "green", "value": 30 } ] },
+          "noValue": "NO DATA",
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"supervisor_tick\" and r._field == \"budget_free_pct\" and r.shadow == \"0i\")\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Fires (24h)",
+      "description": "Total job dispatches in the last 24h (sum of supervisor_tick fired, live series). Zero over a full day means the loop is up but nothing is being triggered — worth a look.",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "yellow", "value": null }, { "color": "green", "value": 1 } ] },
+          "noValue": "NO DATA",
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"supervisor_tick\" and r._field == \"fired\" and r.shadow == \"0i\")\n  |> sum()"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Loop lag (history)",
+      "description": "supervisor_tick lag_s over time — the wedged-loop signal. Spikes correlate with blocking work on the event loop.",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "gradientMode": "none"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "calcs": [ "lastNotNull", "max" ], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"supervisor_tick\" and r._field == \"lag_s\" and r.shadow == \"0i\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Memory budget (used vs total)",
+      "description": "supervisor_tick budget_used_mb against budget_total_mb — the MemoryBudget occupancy the concurrency admission control exists to protect.",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "gradientMode": "none"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "decmbytes"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "budget_total_mb" }, "properties": [ { "id": "custom.lineStyle", "value": { "dash": [ 8, 6 ], "fill": "dash" } }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "calcs": [ "lastNotNull", "max" ], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"supervisor_tick\" and (r._field == \"budget_used_mb\" or r._field == \"budget_total_mb\") and r.shadow == \"0i\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Dispatch by trigger source",
+      "description": "supervisor_tick by_cron / by_event / by_backstop — the fire-on-clock vs fire-on-content split. A healthy event-gated loop leans on by_event; by_backstop rising means the event edge is being missed.",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineInterpolation": "linear",
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "normal", "group": "A" },
+            "axisCenteredZero": false,
+            "gradientMode": "none"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "calcs": [ "sum" ], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"supervisor_tick\" and (r._field == \"by_cron\" or r._field == \"by_event\" or r._field == \"by_backstop\") and r.shadow == \"0i\")\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "doit — executed vs up-to-date",
+      "description": "supervisor_tick doit_executed vs doit_uptodate — the 'skipped because fresh' ratio. High up-to-date means content-hash gating is paying off (work skipped as already-current).",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineInterpolation": "linear",
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "normal", "group": "A" },
+            "axisCenteredZero": false,
+            "gradientMode": "none"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "calcs": [ "sum" ], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"supervisor_tick\" and (r._field == \"doit_executed\" or r._field == \"doit_uptodate\") and r.shadow == \"0i\")\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Skips & crashes",
+      "description": "supervisor_tick skipped_overlap / skipped_circuit / crashes. Overlap = a prior run still going; circuit = a cooled-down job held off; crashes = runner exceptions (should stay flat at 0).",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineInterpolation": "linear",
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "normal", "group": "A" },
+            "axisCenteredZero": false,
+            "gradientMode": "none"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "none"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "crashes" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "calcs": [ "sum" ], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"supervisor_tick\" and (r._field == \"skipped_overlap\" or r._field == \"skipped_circuit\" or r._field == \"crashes\") and r.shadow == \"0i\")\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Fan-out edges (mirror / repo)",
+      "description": "supervisor_mirror.moved (vault git-mirror SHA advances → content jobs) and supervisor_repo.moved (owner push advances → dev-wiki jobs). These are the event edges that trigger work between cron ticks.",
+      "datasource": { "type": "influxdb", "uid": "ops" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineInterpolation": "linear",
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "gradientMode": "none"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "calcs": [ "sum" ], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"supervisor_mirror\" and r._field == \"moved\")\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"_measurement\"])"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "influxdb", "uid": "ops" },
+          "query": "from(bucket: \"ops\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"supervisor_repo\" and r._field == \"moved\")\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"_measurement\"])"
+        }
+      ]
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [ "ops", "supervisor", "obsidian", "automations" ],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Obsidian Supervisor — Loop",
+  "uid": "supervisor-loop",
+  "version": 1,
+  "weekStart": ""
+}

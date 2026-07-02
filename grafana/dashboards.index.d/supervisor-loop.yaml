@@ -1,0 +1,42 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+supervisor-loop:
+  title: "Obsidian Supervisor — Loop"
+  file: ops/supervisor-loop.json
+  purpose: 'Health of the obsidian-supervisor asyncio loop that replaced the Nomad `pydoit` namespace at the
+    2026-07-01 full --live cutover. Reads the supervisor''s own telemetry from the `ops` bucket: supervisor_alive
+    (liveness — heartbeat age), supervisor_tick (loop lag, MemoryBudget occupancy, the dispatch census +
+    trigger-source split, and the doit executed-vs-up-to-date ratio), and supervisor_mirror / supervisor_repo
+    (the vault-mirror and owner-push fan-out edges). Filtered to the live series (shadow=0i); the retired
+    shadow=1i shadow-instance series is excluded.'
+  datasources:
+  - influxdb
+  source:
+    repo: tommyroar/obsidian-automations
+    ref: main
+    paths:
+    - supervisor/telemetry.py
+    - supervisor/heartbeat.py
+    - supervisor/supervisord.py
+    produces:
+      bucket: ops
+      via: obsidian-supervisor
+    cadence: 60s
+    status: active
+    note: 'Written by the obsidian-supervisor (launchd com.tommyroar.obsidian-supervisor on tommys-mac-mini):
+      the status_heartbeat cycle calls influx_emit → ops bucket every ~60s (supervisor_alive, supervisor_tick),
+      mirror_pump every tick_s=300s (supervisor_mirror), repo_pump every repo_tick_s=90s (supervisor_repo).
+      supervisor_tick/supervisor_alive carry a `shadow` tag (0i live / 1i shadow); mirror/repo are untagged.
+      The producing code lives in the obsidian-automations repo, not here — these files are the consuming
+      dashboard. The /ticks tailnet endpoint serves the same frame in-memory as the immediate live view.'
+  intent: 'The full --live cutover retired the Nomad pydoit loop and made the supervisor the sole driver of the
+    vault-automation jobs, but its rich per-tick frame only landed in Influx with no Grafana view — observable
+    solely via the /ticks endpoint. This board surfaces that frame beside the rest of the ops stack so loop
+    liveness, lag, memory headroom, and the fire-on-content-vs-clock split are visible at a glance.'
+  todos:
+  - Pair this with a Grafana staleness alert on supervisor_alive (shadow=0i) as the hard backstop for total
+    loop death — coordinate with the control-loop-stale alert work in flight.
+  - Add a per-job panel from supervisor_step once heavy jobs emit StepReporter detail worth charting.
+  - Drop the shadow=0i filter (or template it) once the retired shadow=1i points age out of ops retention.
