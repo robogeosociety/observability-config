@@ -22,7 +22,7 @@ contactPoints:
       - uid: discord-ops
         type: discord
         settings:
-          url: $__env{DISCORD_WEBHOOK_URL}
+          url: $__env{DISCORD_WEBHOOK_ALERTS}
           use_discord_username: false
           # Clean embed instead of Grafana's default label/annotation/silence dump.
           # Firing/resolved is conveyed by the embed colour (red/green); avoid emoji
