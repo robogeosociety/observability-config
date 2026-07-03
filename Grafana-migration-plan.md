@@ -1,3 +1,8 @@
+---
+type: proposal
+implemented_by: []
+---
+
 # Grafana → Asyncio-Loop Migration Plan — Dashboards & Alerting
 
 Replace Grafana's role as the ops-dashboard and alerting layer with the
