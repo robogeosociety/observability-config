@@ -8,20 +8,26 @@ supervised by [`orbstack/nomad/ctl-github-runner.hcl`](../orbstack/nomad/ctl-git
 repos **self-hosted** — no GitHub-Actions minutes, on the tailnet, fast — instead of on
 GitHub's cloud runners.
 
-## The two decisions this PR surfaces (draft — review before merge)
+## Scope — decided: a GitHub org (`GH_SCOPE=org`)
 
-1. **Scope: repo-level, because `tommyroar` is a GitHub *user*, not an org.** User accounts
-   can't have org-wide runners, so a runner registers to *one repo*. This container is
-   "reusable" in that you point `GH_REPO` at any repo and re-launch; a single runner can't
-   fan out across repos the way an org runner would. If `tommyroar` becomes an org, flip
-   `GH_SCOPE=org` (one line) for a genuinely shared runner. **→ Is repo-scoped (starting with
-   `tommybot`) acceptable, or do we want an org first?**
+The direction is an **org**: one org-level runner serves **every** repo with a single
+registration and `runs-on: [self-hosted, …]` — the genuine "reuse one container across all
+repos" this container was built for. `entrypoint.sh` already does it (`GH_SCOPE=org`); it's a
+one-line `.env` flip.
 
-2. **Memory: it competes with the model.** The mini's OrbStack VM is capped at **2 GB** to
-   protect the bare-metal qwen model (see the repo README + mini-cleanup notes). A build/test
-   job wants ~1–2 GB, making this the biggest OrbStack tenant. Options: raise
-   `orb config set memory_mib` while the runner runs, keep jobs light, or gate the runner off
-   during model-heavy windows. **→ Which? This is the main thing to settle.**
+**Blocked on the org existing.** `tommyroar` is still a GitHub *user*, and user accounts can't
+have org-wide runners — so **until the org is created + repos moved in, this stays repo-scoped**
+(`GH_REPO=tommybot`, the repo with real CI needs). Draft until then; on org day, set `GH_SCOPE=org`
++ the org `GH_OWNER`, re-launch, done.
+
+## One open decision — memory
+
+It competes with the model. The mini's OrbStack VM is capped at **2 GB** to protect the
+bare-metal qwen model (see the repo README + mini-cleanup notes). A build/test job wants ~1–2 GB,
+making this the biggest OrbStack tenant. Org-scope *helps* here — it's **one** runner, not one
+per repo, so idle footprint stays flat as repos are added. Still to settle: raise
+`orb config set memory_mib` while the runner runs, keep jobs light, or gate the runner off during
+model-heavy windows.
 
 ## Scope boundary — this is the *Linux* runner only
 

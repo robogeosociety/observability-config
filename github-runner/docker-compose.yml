@@ -7,13 +7,13 @@ services:
     # ⚠ MEMORY TENSION: the mini's OrbStack VM is capped at 2 GB to protect the bare-metal
     # qwen model (see the repo README + mini-cleanup notes). A build/test job needs headroom,
     # so this is the single biggest OrbStack tenant and it competes with the model for RAM.
-    # Either raise `orb config set memory_mib` while the runner is active, keep jobs light, or
-    # gate the runner off during model-heavy windows. Flagged for review — this is the main
-    # thing to decide before merging.
+    # Org-scope keeps this ONE runner regardless of repo count, so the idle footprint stays
+    # flat. Still: raise `orb config set memory_mib` while active, keep jobs light, or gate the
+    # runner off during model-heavy windows. The remaining open decision (see README).
     mem_limit: 1g
     cpus: 2
     pids_limit: 512
-    env_file: .env # GH_OWNER, GH_REPO, RUNNER_PAT, RUNNER_LABELS — secret, gitignored
+    env_file: .env # GH_OWNER, GH_SCOPE/GH_REPO, RUNNER_PAT, RUNNER_LABELS — secret, gitignored
     volumes:
       # Persist the runner work dir on the internal disk (avoid the external-disk TCC
       # fragility the tig stack hit — see the repo README).
