@@ -28,9 +28,15 @@ so it reuses the same model cache + `.venv` the serve uses (no re-download).
 
 Manage it: `~/actions-runner-mini/svc.sh {status,stop,start}`.
 
+## Scope: org vs repo
+`setup.sh` registers at whichever scope `.env` selects:
+- **Org-level** (`GH_ORG`) — **one** runner serves **every** repo in the org. This is the target
+  once `tommyroar` becomes an org: any repo's MLX/Metal job can `runs-on: [self-hosted, …, metal]`
+  with a single registration.
+- **Repo-level** (`GH_OWNER` + `GH_REPO`) — serves one repo (`tommybot`). The only option on a
+  user account; leave it here until the org exists, then flip to `GH_ORG` and re-run `setup.sh`.
+
 ## Notes
-- **Repo-level** — tommyroar is a GitHub user, not an org, so this registers to one repo
-  (`tommybot`, which owns the MLX jobs). Same constraint as the container runner.
 - **Persistent** (not ephemeral): a dedicated host runner that waits for jobs; launchd keeps it up.
 - **Resource note:** an `eval` run loads the model (~3 GB) transiently. It shares the 8 GB box with
   the always-on serve — the workflow should run gates when the serve can spare it (or accept the
