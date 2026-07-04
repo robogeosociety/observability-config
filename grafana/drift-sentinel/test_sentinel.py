@@ -58,11 +58,11 @@ def test_build_embed_includes_commits_and_repo():
     commits = [{"sha": "abcdef1234", "msg": "break ingest", "author": "Tommy"}]
     payload = sentinel.build_embed(
         "mac-system", "Mac System", "system", "stale", {"recent": 0},
-        "tommyroar/observability-config", commits)
+        "robogeosociety/observability-config", commits)
     embed = payload["embeds"][0]
     assert "stale" in embed["title"]
     text = str(embed)
-    assert "abcdef1" in text and "tommyroar/observability-config" in text
+    assert "abcdef1" in text and "robogeosociety/observability-config" in text
 
 
 def test_build_embed_degraded_shows_ratio():

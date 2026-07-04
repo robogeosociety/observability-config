@@ -14,7 +14,7 @@ HERE="${0:A:h}"
 REPO_ROOT="${HERE:h}"
 COORD_HOME="$HOME/.observability/coordinator"
 REPO="$COORD_HOME/repo"
-REMOTE_URL="${1:-git@github.com:tommyroar/observability-config.git}"
+REMOTE_URL="${1:-git@github.com:robogeosociety/observability-config.git}"
 PLIST_DEST="$HOME/Library/LaunchAgents/com.tommy.observability-coordinator.plist"
 
 mkdir -p "$COORD_HOME"/queue "$COORD_HOME"/processing "$COORD_HOME"/done "$COORD_HOME"/failed

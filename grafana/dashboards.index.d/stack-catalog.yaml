@@ -12,7 +12,7 @@ stack-catalog:
   datasources:
   - influxdb
   source:
-    repo: tommyroar/observability-config
+    repo: robogeosociety/observability-config
     ref: main
     paths:
     - grafana/dashboards.index.d/

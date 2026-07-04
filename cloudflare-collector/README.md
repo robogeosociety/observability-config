@@ -48,7 +48,7 @@ Per-run rollups ("sites OK of 61", per-agency, per-`target_date`) come from SQL
 failures surface via the native Workflow *errored* status (complementary).
 
 The worker change (binding + `writeDataPoint`) is proposed on
-[robot-geographical-society PR #42](https://github.com/tommyroar/robot-geographical-society/pull/42)
+[robot-geographical-society PR #42](https://github.com/robogeosociety/robot-geographical-society/pull/42)
 for the agent finishing that PR; the Grafana half (this repo) is in scope here.
 
 ## Grafana wiring (this repo)

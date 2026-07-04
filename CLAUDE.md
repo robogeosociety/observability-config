@@ -5,7 +5,7 @@ Infrastructure-as-code for the home observability stack on `tommys-mac-mini`:
 file-provisioned. This file holds context that isn't derivable from the code.
 
 Repo lives at `/Volumes/dev/observability/`; the live config **is** the working
-tree. GitHub: private `tommyroar/observability-config`.
+tree. GitHub: private `robogeosociety/observability-config`.
 
 > **Making a change?** Read `AGENTS.md` first — the conventions for editing this
 > repo and opening PRs (store-as-code, the deploy coordinator, the `/Volumes`+TCC

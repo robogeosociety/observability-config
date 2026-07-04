@@ -140,7 +140,7 @@ the single source of truth.
 
 ```
 ~/.observability/coordinator/           # internal disk (launchd-safe)
-  repo/                                  # git clone of tommyroar/observability-config
+  repo/                                  # git clone of robogeosociety/observability-config
   queue/        processing/  done/  failed/
   LOCK/                                  # mkdir-based mutex (present = held)
   buckets.yaml                           # declarative bucket→token state (§5.5)

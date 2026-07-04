@@ -46,7 +46,7 @@ the hermetic test suite, not a running deploy.**
    verification → risk) that reads top-to-bottom on an iPad-mini portrait display
    (1–2 pages; up to 4 for very complex *code* changes). Rebuild it from the **full**
    diff, never append. Skeleton: `.github/pull_request_template.md`; full rules:
-   <https://github.com/tommyroar/.github/blob/main/PR_FRAMEWORK.md>. The
+   <https://github.com/robogeosociety/.github/blob/main/PR_FRAMEWORK.md>. The
    `pr-newspaper` workflow validates the body in CI (readability + page budget).
 
 ## Conventions your change must follow

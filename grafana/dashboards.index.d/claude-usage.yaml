@@ -11,7 +11,7 @@ claude-usage:
   datasources:
   - influxdb
   source:
-    repo: tommyroar/observability-config
+    repo: robogeosociety/observability-config
     ref: main
     paths:
     - grafana/claude-usage-collector/collector.py

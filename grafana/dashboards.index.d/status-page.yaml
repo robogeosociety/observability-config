@@ -11,7 +11,7 @@ status-page:
   - influxdb
   - infinity
   source:
-    repo: tommyroar/observability-config
+    repo: robogeosociety/observability-config
     ref: main
     paths:
     - grafana/dev-status/server.py
