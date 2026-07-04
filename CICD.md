@@ -4,6 +4,10 @@ This repo is the **pilot** for CI-gated continuous deployment across the fleet: 
 always-on ignition that proves the pattern, then templates to any repo with a pull-deployer.
 Two halves, built to be adopted independently.
 
+> This file is the **operator runbook** (how to activate + operate). The **proposal** —
+> rationale, phased rollout, and the open decisions up for review — is
+> [`CICD-PLAN.md`](CICD-PLAN.md).
+
 ```
 ┌ CI (what's tested) ─────────────────────────────────────────────────────────┐
 │  Tier 1  hermetic        GitHub-hosted (test.yml)          every push / PR    │
