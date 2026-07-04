@@ -12,7 +12,7 @@ channel-bot:
   datasources:
   - influxdb
   source:
-    repo: tommyroar/observability-config
+    repo: robogeosociety/observability-config
     ref: main
     paths:
     - grafana/provisioning/alerting/channel-bot-health.yml

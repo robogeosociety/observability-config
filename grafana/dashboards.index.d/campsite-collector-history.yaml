@@ -15,7 +15,7 @@ campsite-collector-history:
       dataset: analytics-engine
       via: cf-analytics-engine
     status: external
-    note: produced by the deadline-driven CollectorLoop in tommyroar/robot-geographical-society (Worker
+    note: produced by the deadline-driven CollectorLoop in robogeosociety/robot-geographical-society (Worker
       -> AE); R2 storage via the Cloudflare GraphQL API
   intent: Ops/reliability view of the collector pipeline — is it running, how fully is it covering the
     tracked sites, and what's breaking.

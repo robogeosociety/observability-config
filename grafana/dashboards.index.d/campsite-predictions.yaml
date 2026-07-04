@@ -11,7 +11,7 @@ campsite-predictions:
   datasources:
   - analytics-engine
   source:
-    repo: tommyroar/robot-geographical-society
+    repo: robogeosociety/robot-geographical-society
     ref: main
     paths:
     - backend/src/readiness-workflow.ts

@@ -11,7 +11,7 @@ influxdb-buckets:
   datasources:
   - influxdb
   source:
-    repo: tommyroar/observability-config
+    repo: robogeosociety/observability-config
     ref: main
     paths:
     - influxdb/bucket-stats/collect.py

@@ -107,8 +107,8 @@ the Mac's wrangler-OAuth read path for R2.
 
 ## Migration steps
 
-> Two repos are in play: **`tommyroar/robot-geographical-society`** (the Worker + AE writes +
-> webapp) and **`tommyroar/observability-config`** (Grafana dashboards/alerts/datasources, this
+> Two repos are in play: **`robogeosociety/robot-geographical-society`** (the Worker + AE writes +
+> webapp) and **`robogeosociety/observability-config`** (Grafana dashboards/alerts/datasources, this
 > repo). Land the Worker AE-write change *first* so the new datasets have data before any
 > dashboard repoints to them.
 
@@ -248,7 +248,7 @@ Only after Phases 1–5 are deployed and the AE-backed dashboards are confirmed 
 ### Phase 7 — Update the obsidian project tracker
 
 The dev-vault project hub **`~/obsidian/dev/Dev Projects/observability-config.md`** (type
-`dev-project`, repo `tommyroar/observability-config`) is **auto-generated** by the
+`dev-project`, repo `robogeosociety/observability-config`) is **auto-generated** by the
 `obsidian-sessions` Nomad job (every 30 min) — it crosslinks sessions, PRs, deployments,
 dashboards, automations. **Do not hand-edit it**; the PR for this work will be picked up and
 crosslinked automatically on the next run.

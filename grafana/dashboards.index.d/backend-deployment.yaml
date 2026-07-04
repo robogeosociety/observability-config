@@ -14,7 +14,7 @@ backend-deployment:
   - analytics-engine
   - infinity
   source:
-    repo: tommyroar/robot-geographical-society
+    repo: robogeosociety/robot-geographical-society
     ref: main
     paths:
     - backend/

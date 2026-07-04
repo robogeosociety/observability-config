@@ -14,7 +14,7 @@ supervisor-loop:
   datasources:
   - influxdb
   source:
-    repo: tommyroar/obsidian-automations
+    repo: robogeosociety/obsidian-automations
     ref: main
     paths:
     - supervisor/telemetry.py

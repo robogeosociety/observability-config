@@ -13,7 +13,7 @@ campsite-availability:
   datasources:
   - analytics-engine
   source:
-    repo: tommyroar/robot-geographical-society
+    repo: robogeosociety/robot-geographical-society
     ref: main
     paths:
     - src/

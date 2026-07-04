@@ -13,7 +13,7 @@ tommybot-rag:
   datasources:
   - influxdb
   source:
-    repo: tommyroar/tommybot
+    repo: robogeosociety/tommybot
     ref: main
     paths:
     - tommybot/metrics.py

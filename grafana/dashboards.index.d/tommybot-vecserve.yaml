@@ -11,7 +11,7 @@ tommybot-vecserve:
   datasources:
   - influxdb
   source:
-    repo: tommyroar/tommybot
+    repo: robogeosociety/tommybot
     ref: main
     paths:
     - tommybot/vecserve.py
