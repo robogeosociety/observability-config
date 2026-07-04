@@ -180,8 +180,12 @@ in `grafana/TESTING.md`):
   datasource/Influx health, buckets exist, renderer returns PNG, collector contract.
 - **e2e** — Playwright browser render + visual-regression baselines.
 
-CI (`.github/workflows/test.yml`) runs only the hermetic tier on push/PR;
-integration + e2e are local-only (need the running stack on this Mac).
+CI runs the **hermetic** tier on GitHub-hosted (`.github/workflows/test.yml`, push/PR).
+The **integration** tier runs on a self-hosted mini runner
+(`.github/workflows/integration.yml` — dormant until the repo variable
+`SELF_HOSTED_RUNNER=ready`); **e2e** stays local (Playwright is the heavy RAM tenant).
+Deploys are **CI-gated** — the coordinator withholds a SHA whose `tests` run isn't green.
+Full pipeline + activation runbook: [`CICD.md`](CICD.md).
 
 ## Troubleshooting tools
 

@@ -1,0 +1,49 @@
+name: integration
+
+# Tier-2 (live-stack) CI on the self-hosted mini runner — the integration tests that
+# GitHub-hosted runners CAN'T run: they contact the live Grafana/InfluxDB on the box
+# (localhost:3001 / :8086). The hermetic Tier-1 stays on GitHub-hosted (test.yml); this
+# adds the tier that previously only ran locally via grafana/run-tests.sh.
+#
+# Runner: a bare-metal macOS runner — reuses PR #144's installer (macos-runner/setup.sh); see
+# CICD.md for the registration profile. observability-config now lives in the `robogeosociety`
+# ORG (transferred 2026-07-04), so the clean fit is ONE org-level runner (setup.sh GH_ORG mode)
+# serving every org repo — these labels match it. That resolves #143's "stand up an org first?".
+#
+# DORMANT until activated. Every job is gated on the repo variable
+# `SELF_HOSTED_RUNNER == 'ready'`, so this file is safe to merge BEFORE a runner exists —
+# no job ever queues "waiting for a runner". Activate (after registering the runner):
+#   gh variable set SELF_HOSTED_RUNNER --repo robogeosociety/observability-config --body ready
+# Park it again during model-heavy windows (protects the 8 GB box):
+#   gh variable delete SELF_HOSTED_RUNNER --repo robogeosociety/observability-config
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]          # post-merge live-stack smoke — pairs with the coordinator deploy
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  integration:
+    # Gate 1 — dormant unless a runner is registered AND declared ready.
+    # Gate 2 — on PRs, opt-in via the `ci-integration` label so not every PR spends the
+    #          mini's RAM; push-to-main and manual dispatch always run when ready.
+    if: >-
+      vars.SELF_HOSTED_RUNNER == 'ready' &&
+      (github.event_name != 'pull_request' ||
+       contains(github.event.pull_request.labels.*.name, 'ci-integration'))
+    runs-on: [self-hosted, macos, arm64, mini]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tier 2 — integration (self-skips per service if down)
+        # The runner is a launchd service with a minimal PATH (the same gotcha as Nomad
+        # raw_exec — see the workspace CLAUDE.md) — put uv + Homebrew on PATH explicitly,
+        # or `uv`/`zsh`-invoked tooling won't resolve.
+        #
+        # Runs ONLY the integration tier — NOT e2e. The Playwright/Chromium e2e tier is
+        # kept maintainer-local on purpose: it's the heavy RAM tenant on the 8 GB box.
+        run: |
+          export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
+          grafana/run-tests.sh integration

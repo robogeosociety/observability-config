@@ -22,11 +22,14 @@ merges; the repo's automation applies the change. Specifically, you do **NOT**:
   `~/.local/share/...`.
 
 **The repo applies changes itself.** Once a human merges to `main`, the launchd
-**coordinator** (`com.tommy.observability-coordinator`, every ~120s) deploys it:
-`git reset --hard origin/main` → rsync provisioning to the internal disk →
+**coordinator** (`com.tommy.observability-coordinator`, every ~120s) deploys it —
+but **only if CI is green**: a **CI gate** (`coordination/ci_gate.sh` — the `tests`
+workflow must be `success` on that SHA, else the deploy is *withheld*, not shipped)
+→ `git reset --hard origin/main` → rsync provisioning to the internal disk →
 restart Grafana → health-check with automatic rollback. You don't deploy; you
 don't restart; you don't preview against the live stack. **Your verification is
-the hermetic test suite, not a running deploy.**
+the hermetic test suite, not a running deploy** (a self-hosted mini runner also
+runs the live-stack integration tier — see [`CICD.md`](CICD.md)).
 
 ## How to make a change
 

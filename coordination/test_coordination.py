@@ -124,3 +124,45 @@ def test_fresh_orphaned_lock_not_reclaimed(tmp_path):
     res = _run("worker.sh", coord_home=tmp_path, extra_env={"COORD_LOCK_ORPHAN_GRACE": "3600"})
     assert "lock held" in res.stdout
     assert len(list((tmp_path / "queue").glob("*.job"))) == 1
+
+
+# ── CI gate (ci_gate.sh) ────────────────────────────────────────────────────────
+# Hermetic: the CI status source is stubbed via COORD_CI_CHECK_CMD (a command taking
+# <sha> and echoing a raw "<status>:<conclusion>"), so no gh / network is touched. The
+# trailing `#` comments out the <sha> ci_gate.sh appends, letting the stub emit a fixed
+# status. Verifies the map: only an affirmative green deploys; a broken source degrades
+# OPEN (deploy) so the gate can never freeze the coordinator.
+
+def _gate(sha, *, check_cmd, require_ci="1"):
+    env = {"COORD_CI_CHECK_CMD": check_cmd, "COORD_REQUIRE_CI": require_ci}
+    return subprocess.run(
+        [ZSH, str(HERE / "ci_gate.sh"), sha],
+        capture_output=True, text=True, env=dict(os.environ, **env), check=True,
+    ).stdout.strip()
+
+
+def test_gate_deploys_on_green():
+    assert _gate("abc123", check_cmd="print -- completed:success #") == "deploy"
+
+
+def test_gate_withholds_on_ci_failure():
+    assert _gate("abc123", check_cmd="print -- completed:failure #") == "skip:ci-failed"
+    # any non-success completed conclusion is a hold
+    assert _gate("abc123", check_cmd="print -- completed:cancelled #") == "skip:ci-failed"
+
+
+def test_gate_defers_while_pending():
+    assert _gate("abc123", check_cmd="print -- in_progress:null #") == "skip:ci-pending"
+    assert _gate("abc123", check_cmd="print -- queued:null #") == "skip:ci-pending"
+    # no run reported yet for this SHA → defer, don't deploy blind
+    assert _gate("abc123", check_cmd="print -- none #") == "skip:ci-pending"
+
+
+def test_gate_degrades_open_when_source_errors():
+    # A failing status source (gh error / auth) must NOT freeze deploys — degrade open.
+    assert _gate("abc123", check_cmd="false #") == "deploy"
+
+
+def test_gate_bypass_when_disabled():
+    # Break-glass: COORD_REQUIRE_CI=0 green-lights regardless of CI (manual deploy).
+    assert _gate("abc123", check_cmd="print -- completed:failure #", require_ci="0") == "deploy"

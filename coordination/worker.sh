@@ -29,7 +29,7 @@ source "$HERE/mutex.sh"
 
 log() { print -r -- "$(/bin/date +%FT%T%z) $*"; }
 
-mkdir -p "$COORD_HOME"/queue "$COORD_HOME"/processing "$COORD_HOME"/done "$COORD_HOME"/failed
+mkdir -p "$COORD_HOME"/queue "$COORD_HOME"/processing "$COORD_HOME"/done "$COORD_HOME"/failed "$COORD_HOME"/skipped
 
 coord_acquire_lock || { log "lock held by another run — exiting"; exit 0; }
 trap 'coord_release_lock' EXIT
@@ -58,14 +58,30 @@ for j in "${jobs[@]}"; do mv "$j" "$COORD_HOME/processing/"; done
 if (( njobs > 0 )); then log "draining $njobs job(s)"; else log "main advanced to ${remote_sha[1,7]} — deploying"; fi
 
 ok=1
+gated=0                 # set to 1 when the CI gate withholds this SHA (defined here so
+#                         the filing + heartbeat below stay -eu-safe when COORD_DEPLOY=0)
 sha="(skipped)"
 if [ "$COORD_DEPLOY" = "1" ]; then
   # Refresh the internal clone to main (clone is never hand-edited → hard reset is safe).
   git -C "$COORD_REPO" fetch -q "$COORD_GIT_REMOTE" || ok=0
   git -C "$COORD_REPO" reset --hard -q "$COORD_GIT_REMOTE/main" || ok=0
   sha="$(git -C "$COORD_REPO" rev-parse --short HEAD 2>/dev/null || print unknown)"
+  head_sha="$(git -C "$COORD_REPO" rev-parse HEAD 2>/dev/null || print '')"
 
-  if [ "$ok" = "1" ]; then
+  # CI gate — only auto-deploy a SHA whose `tests` workflow is green (ci_gate.sh). A
+  # not-green verdict WITHHOLDS the deploy and leaves last-deployed-sha untouched, so the
+  # next tick re-evaluates: ci-pending deploys once it goes green; ci-failed holds until a
+  # newer green SHA supersedes it. A broken gate degrades OPEN (ci_gate.sh echoes deploy).
+  # Break-glass: COORD_REQUIRE_CI=0 skips the gate for a manual deploy.
+  if [ "$ok" = "1" ] && [ -n "$head_sha" ]; then
+    gate="$("$HERE/ci_gate.sh" "$head_sha" 2>/dev/null || print deploy)"
+    if [ "$gate" != "deploy" ]; then
+      gated=1
+      log "CI gate withheld main@$sha (${gate#skip:}) — not deploying; last-deployed-sha unchanged, re-checks next tick"
+    fi
+  fi
+
+  if [ "$ok" = "1" ] && [ "$gated" = "0" ]; then
     # Snapshot current prod provisioning for rollback.
     if [ -d "$COORD_PROVISION_DEST" ]; then
       rm -rf "$COORD_PROVISION_DEST.prev"
@@ -90,20 +106,26 @@ if [ "$COORD_DEPLOY" = "1" ]; then
       fi
     fi
   fi
-  # Record the deployed SHA so the next tick only redeploys when main advances.
-  [ "$ok" = "1" ] && git -C "$COORD_REPO" rev-parse HEAD > "$COORD_HOME/last-deployed-sha" 2>/dev/null || true
-  log "deploy main@$sha ok=$ok"
+  # Record the deployed SHA only on an un-gated success, so the next tick redeploys when
+  # main advances — a withheld SHA is intentionally NOT recorded, so it's re-evaluated.
+  [ "$ok" = "1" ] && [ "$gated" = "0" ] && git -C "$COORD_REPO" rev-parse HEAD > "$COORD_HOME/last-deployed-sha" 2>/dev/null || true
+  if [ "$gated" = "1" ]; then log "deploy main@$sha withheld=ci-gate"; else log "deploy main@$sha ok=$ok"; fi
 fi
 
-# File processed jobs by outcome (queue head never blocks: failures are recorded, not retried hot).
-dest=$([ "$ok" = "1" ] && print done || print failed)
+# File processed jobs by outcome (queue head never blocks: failures are recorded, not retried
+# hot). A CI-gated deploy is a DEFERRAL, not a failure — filed under skipped/ so a red main
+# never piles into failed/ (which drives the deploy-failed signal).
+if [ "$gated" = "1" ]; then dest=skipped
+elif [ "$ok" = "1" ]; then dest=done
+else dest=failed
+fi
 for j in "$COORD_HOME"/processing/*.job; do mv "$j" "$COORD_HOME/$dest/"; done
 
 # Best-effort heartbeat to the ops bucket (no token → skip).
 if [ -n "${INFLUX_OPS_TOKEN:-}" ]; then
   dur=$(( $(/bin/date +%s) - start_ts ))
   host="$(hostname -s 2>/dev/null || print mac)"
-  line="coordinator,host=${host} success=${ok}i,jobs=${njobs}i,duration_s=${dur}i $(/bin/date +%s)"
+  line="coordinator,host=${host} success=${ok}i,gated=${gated}i,jobs=${njobs}i,duration_s=${dur}i $(/bin/date +%s)"
   curl -s -XPOST "${INFLUX_URL:-http://localhost:8086}/api/v2/write?org=home&bucket=ops&precision=s" \
     -H "Authorization: Token ${INFLUX_OPS_TOKEN}" --data-binary "$line" >/dev/null 2>&1 || true
 fi
