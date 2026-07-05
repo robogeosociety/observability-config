@@ -7,7 +7,9 @@ tommybot-vecserve:
   file: dev/tommybot-vecserve.json
   purpose: Up/down, throughput, latency, connections, and per-vault vector-index freshness for
     the tommybot tailnet vector-retrieval server (vecserve) running on the mini, from the
-    `tommybot` bucket's `vecserve` measurement.
+    `tommybot` bucket's `vecserve` measurement — plus the GitHub task-mirror row (`ops` bucket,
+    `github_tasks_mirror` measurement from obsidian-automations) covering the issues→mirror
+    leg of the task-RAG pipeline.
   datasources:
   - influxdb
   source:
@@ -22,7 +24,10 @@ tommybot-vecserve:
     status: active
   intent: Answer "is vecserve up, is it fast, and is the index it's serving fresh?" at a glance —
     the up/down stat backs the vecserve-down Discord alert; throughput/latency/connections show
-    load; vector age surfaces a stalled reindexer before a consumer notices stale answers.
+    load; vector age surfaces a stalled reindexer before a consumer notices stale answers. The
+    task-mirror row extends the same question upstream — is the GitHub-issues task corpus still
+    flowing into the vault (and thus the index)? Panels only, no alert — the asset-graph
+    heartbeat already pages when the enclosing job stops.
   todos:
   - No historical data yet — TOMMYBOT_INFLUX_TOKEN isn't configured on the mini until this PR's
     tommybot counterpart (vecserve metrics emission) ships and the mini is wired with a write
