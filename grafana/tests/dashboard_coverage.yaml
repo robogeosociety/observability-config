@@ -64,6 +64,12 @@ walksheds-uptime:
 alerts-anomalies:
   allow_empty_panels: ["*"]
 
+# No historical data yet: the `cicd` bucket + grafana/cicd-collector deploy happen on
+# merge (see the sidecar's todos). Runs are also push-driven, so quiet stretches are
+# legitimate. Tighten to per-panel allow-empties once the bucket has history.
+cicd-pipelines:
+  allow_empty_panels: ["*"]
+
 # No historical data yet: TOMMYBOT_INFLUX_TOKEN isn't configured on the mini until the
 # tommybot-side metrics emission (tommybot/vecserve.py) ships and the mini is wired with a
 # write token for the `tommybot` bucket. Every panel is legitimately empty until then.

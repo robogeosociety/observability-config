@@ -1,0 +1,1130 @@
+{
+ "annotations": {
+  "list": []
+ },
+ "editable": true,
+ "fiscalYearStartMonth": 0,
+ "graphTooltip": 0,
+ "links": [],
+ "liveNow": false,
+ "refresh": "5m",
+ "schemaVersion": 39,
+ "tags": [
+  "cicd",
+  "github",
+  "dev"
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "repo",
+    "label": "Repo",
+    "type": "query",
+    "datasource": {
+     "type": "influxdb",
+     "uid": "cicd"
+    },
+    "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"cicd\", tag: \"repo\")",
+    "refresh": 1,
+    "sort": 1,
+    "multi": true,
+    "includeAll": true,
+    "allValue": ".*",
+    "current": {
+     "selected": true,
+     "text": [
+      "All"
+     ],
+     "value": [
+      "$__all"
+     ]
+    }
+   },
+   {
+    "name": "workflow",
+    "label": "Workflow",
+    "type": "query",
+    "datasource": {
+     "type": "influxdb",
+     "uid": "cicd"
+    },
+    "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"cicd\", tag: \"workflow\", predicate: (r) => r.repo =~ /^(${repo:regex})$/)",
+    "refresh": 1,
+    "sort": 1,
+    "multi": true,
+    "includeAll": true,
+    "allValue": ".*",
+    "current": {
+     "selected": true,
+     "text": [
+      "All"
+     ],
+     "value": [
+      "$__all"
+     ]
+    }
+   }
+  ]
+ },
+ "time": {
+  "from": "now-7d",
+  "to": "now"
+ },
+ "timepicker": {},
+ "timezone": "browser",
+ "title": "CI/CD Pipelines",
+ "uid": "cicd-pipelines",
+ "version": 1,
+ "weekStart": "",
+ "panels": [
+  {
+   "id": 1,
+   "type": "stat",
+   "title": "Runs in window",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 5,
+    "h": 4
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_run\" and r._field == \"ok\")\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> group()\n  |> count()"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "textMode": "value",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   }
+  },
+  {
+   "id": 2,
+   "type": "stat",
+   "title": "Success rate",
+   "gridPos": {
+    "x": 5,
+    "y": 0,
+    "w": 5,
+    "h": 4
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_run\" and r._field == \"ok\")\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> group()\n  |> mean()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 80
+       },
+       {
+        "color": "green",
+        "value": 95
+       }
+      ]
+     },
+     "noValue": "no runs",
+     "unit": "percent",
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "textMode": "value",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   }
+  },
+  {
+   "id": 3,
+   "type": "stat",
+   "title": "Failed runs",
+   "gridPos": {
+    "x": 10,
+    "y": 0,
+    "w": 5,
+    "h": 4
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_run\" and r._field == \"ok\" and r.conclusion == \"failure\")\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> group()\n  |> count()"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "textMode": "value",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   }
+  },
+  {
+   "id": 4,
+   "type": "stat",
+   "title": "Avg run duration",
+   "gridPos": {
+    "x": 15,
+    "y": 0,
+    "w": 5,
+    "h": 4
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_run\" and r._field == \"duration_s\")\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> group()\n  |> mean()"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "noValue": "\u2014",
+     "unit": "s",
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "textMode": "value",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   }
+  },
+  {
+   "id": 5,
+   "type": "stat",
+   "title": "Pipelines discovered",
+   "gridPos": {
+    "x": 20,
+    "y": 0,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_inventory\" and r._field == \"present\")\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> group(columns: [\"repo\", \"workflow\"])\n  |> last()\n  |> group()\n  |> count()"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "textMode": "value",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   }
+  },
+  {
+   "id": 6,
+   "type": "timeseries",
+   "title": "Runs over time by conclusion",
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_run\" and r._field == \"ok\")\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> group(columns: [\"conclusion\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: count, createEmpty: false)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "displayName": "${__field.labels.conclusion}",
+     "unit": "none",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 80,
+      "lineWidth": 1,
+      "barAlignment": 0,
+      "showPoints": "never",
+      "pointSize": 5,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      },
+      "axisLabel": "runs",
+      "spanNulls": false
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "success"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "failure"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "cancelled"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8e8e8e"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "skipped"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "blue"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "timed_out"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "orange"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   }
+  },
+  {
+   "id": 7,
+   "type": "timeseries",
+   "title": "Run duration by pipeline",
+   "gridPos": {
+    "x": 12,
+    "y": 4,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_run\" and r._field == \"duration_s\")\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> map(fn: (r) => ({ r with pipeline: r.repo + \" / \" + r.workflow }))\n  |> group(columns: [\"pipeline\"])"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "displayName": "${__field.labels.pipeline}",
+     "unit": "s",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "always",
+      "pointSize": 6,
+      "spanNulls": true,
+      "axisLabel": "duration"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   }
+  },
+  {
+   "id": 8,
+   "type": "state-timeline",
+   "title": "Run outcomes by pipeline",
+   "description": "One lane per repo/workflow discovered by the collector; each state is a completed run's conclusion, held until the next run.",
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 24,
+    "h": 9
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_run\" and r._field == \"ok\")\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> map(fn: (r) => ({ _time: r._time, _value: r.conclusion, pipeline: r.repo + \" / \" + r.workflow }))\n  |> group(columns: [\"pipeline\"])"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "displayName": "${__field.labels.pipeline}",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "success": {
+         "color": "green",
+         "index": 0
+        },
+        "failure": {
+         "color": "red",
+         "index": 1
+        },
+        "cancelled": {
+         "color": "#8e8e8e",
+         "index": 2
+        },
+        "skipped": {
+         "color": "blue",
+         "index": 3
+        },
+        "timed_out": {
+         "color": "orange",
+         "index": 4
+        },
+        "action_required": {
+         "color": "yellow",
+         "index": 5
+        },
+        "startup_failure": {
+         "color": "dark-red",
+         "index": 6
+        },
+        "neutral": {
+         "color": "text",
+         "index": 7
+        },
+        "stale": {
+         "color": "#8e8e8e",
+         "index": 8
+        }
+       }
+      }
+     ],
+     "custom": {
+      "lineWidth": 0,
+      "fillOpacity": 70,
+      "spanNulls": false
+     },
+     "noValue": "no runs"
+    },
+    "overrides": []
+   },
+   "options": {
+    "mergeValues": true,
+    "showValue": "auto",
+    "alignValue": "center",
+    "rowHeight": 0.85,
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   }
+  },
+  {
+   "id": 9,
+   "type": "table",
+   "title": "Latest run per pipeline",
+   "gridPos": {
+    "x": 0,
+    "y": 21,
+    "w": 14,
+    "h": 9
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_run\" and (r._field == \"duration_s\" or r._field == \"run_id\"))\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group(columns: [\"repo\", \"workflow\"])\n  |> sort(columns: [\"_time\"])\n  |> tail(n: 1)\n  |> map(fn: (r) => ({ r with url: \"https://github.com/\" + r.org + \"/\" + r.repo + \"/actions/runs/\" + string(v: int(v: r.run_id)) }))\n  |> group()\n  |> keep(columns: [\"_time\", \"repo\", \"workflow\", \"branch\", \"event\", \"conclusion\", \"duration_s\", \"url\"])\n  |> sort(columns: [\"_time\"], desc: true)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "filterable": true
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "conclusion"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "success": {
+            "color": "green",
+            "index": 0
+           },
+           "failure": {
+            "color": "red",
+            "index": 1
+           },
+           "cancelled": {
+            "color": "#8e8e8e",
+            "index": 2
+           },
+           "skipped": {
+            "color": "blue",
+            "index": 3
+           },
+           "timed_out": {
+            "color": "orange",
+            "index": 4
+           },
+           "action_required": {
+            "color": "yellow",
+            "index": 5
+           },
+           "startup_failure": {
+            "color": "dark-red",
+            "index": 6
+           },
+           "neutral": {
+            "color": "text",
+            "index": 7
+           },
+           "stale": {
+            "color": "#8e8e8e",
+            "index": 8
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "custom.width",
+        "value": 110
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "duration_s"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "s"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "displayName",
+        "value": "duration"
+       },
+       {
+        "id": "custom.width",
+        "value": 90
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "url"
+      },
+      "properties": [
+       {
+        "id": "custom.hidden",
+        "value": true
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "_time"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "finished"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "workflow"
+      },
+      "properties": [
+       {
+        "id": "links",
+        "value": [
+         {
+          "title": "Open run in GitHub",
+          "url": "${__data.fields.url}",
+          "targetBlank": true
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "footer": {
+     "show": false,
+     "reducer": [
+      "sum"
+     ],
+     "fields": ""
+    }
+   }
+  },
+  {
+   "id": 10,
+   "type": "table",
+   "title": "Pipeline catalog (discovered)",
+   "description": "Every workflow file the collector found in the org \u2014 including pipelines that have never run in the window.",
+   "gridPos": {
+    "x": 14,
+    "y": 21,
+    "w": 10,
+    "h": 9
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_inventory\" and r._field == \"present\")\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> group(columns: [\"repo\", \"workflow\"])\n  |> sort(columns: [\"_time\"])\n  |> tail(n: 1)\n  |> group()\n  |> keep(columns: [\"repo\", \"workflow\", \"state\", \"path\"])\n  |> sort(columns: [\"repo\", \"workflow\"])"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "filterable": true
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "state"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "active": {
+            "color": "green",
+            "index": 0
+           }
+          }
+         },
+         {
+          "type": "special",
+          "options": {
+           "match": "null",
+           "result": {
+            "index": 1
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "footer": {
+     "show": false,
+     "reducer": [
+      "sum"
+     ],
+     "fields": ""
+    }
+   }
+  },
+  {
+   "id": 11,
+   "type": "table",
+   "title": "Recent unsuccessful runs",
+   "gridPos": {
+    "x": 0,
+    "y": 30,
+    "w": 24,
+    "h": 8
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "cicd"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "cicd"
+     },
+     "query": "from(bucket: \"cicd\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workflow_run\" and (r._field == \"duration_s\" or r._field == \"run_id\"))\n  |> filter(fn: (r) => r.repo =~ /^(${repo:regex})$/ and r.workflow =~ /^(${workflow:regex})$/)\n  |> filter(fn: (r) => r.conclusion != \"success\" and r.conclusion != \"skipped\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with url: \"https://github.com/\" + r.org + \"/\" + r.repo + \"/actions/runs/\" + string(v: int(v: r.run_id)) }))\n  |> group()\n  |> keep(columns: [\"_time\", \"repo\", \"workflow\", \"branch\", \"event\", \"conclusion\", \"duration_s\", \"url\"])\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 25)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "filterable": true
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "conclusion"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "success": {
+            "color": "green",
+            "index": 0
+           },
+           "failure": {
+            "color": "red",
+            "index": 1
+           },
+           "cancelled": {
+            "color": "#8e8e8e",
+            "index": 2
+           },
+           "skipped": {
+            "color": "blue",
+            "index": 3
+           },
+           "timed_out": {
+            "color": "orange",
+            "index": 4
+           },
+           "action_required": {
+            "color": "yellow",
+            "index": 5
+           },
+           "startup_failure": {
+            "color": "dark-red",
+            "index": 6
+           },
+           "neutral": {
+            "color": "text",
+            "index": 7
+           },
+           "stale": {
+            "color": "#8e8e8e",
+            "index": 8
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "custom.width",
+        "value": 110
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "duration_s"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "s"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "displayName",
+        "value": "duration"
+       },
+       {
+        "id": "custom.width",
+        "value": 90
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "url"
+      },
+      "properties": [
+       {
+        "id": "custom.hidden",
+        "value": true
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "_time"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "finished"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "workflow"
+      },
+      "properties": [
+       {
+        "id": "links",
+        "value": [
+         {
+          "title": "Open run in GitHub",
+          "url": "${__data.fields.url}",
+          "targetBlank": true
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "footer": {
+     "show": false,
+     "reducer": [
+      "sum"
+     ],
+     "fields": ""
+    }
+   }
+  },
+  {
+   "id": 12,
+   "type": "text",
+   "title": "About this dashboard",
+   "gridPos": {
+    "x": 0,
+    "y": 38,
+    "w": 24,
+    "h": 6
+   },
+   "options": {
+    "mode": "markdown",
+    "content": "### CI/CD Pipelines \u2014 how this works\n\n**Every GitHub Actions pipeline in the org, discovered dynamically.** The host collector\n(`grafana/cicd-collector/`, launchd `com.tommy.cicd-collector`, 5 min) lists every non-archived repo in\n**robogeosociety**, then writes to the `cicd` InfluxDB bucket:\n\n- `workflow_run` \u2014 one point per completed run (conclusion, duration, queue delay, attempt), timestamped at completion;\n- `workflow_inventory` \u2014 one point per workflow file per poll (the catalog panel, run-or-not);\n- `collector_poll` \u2014 a heartbeat with API-call and rate-limit accounting.\n\nA new repo or workflow file appears here within one poll \u2014 the **Repo/Workflow variables and every panel are\ndata-driven**, nothing on this dashboard names a pipeline. The workflow column in the tables links to the run in\nGitHub. Runs are sparse events: pick a range that covers pushes (default 7d), and expect gaps \u2014 the state timeline\nholds each pipeline's last conclusion until the next run.\n"
+   }
+  }
+ ]
+}

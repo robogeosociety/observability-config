@@ -10,7 +10,7 @@ set -uo pipefail
 
 ROOT="${0:A:h:h}"            # repo root (/Volumes/dev/observability)
 GRAFANA="$ROOT/grafana"
-PY_DIRS=("$GRAFANA/tests" "$GRAFANA/dev-status" "$GRAFANA/claude-usage-collector" "$ROOT/discord-mini-mem" "$ROOT/discord-orbstack-mem" "$ROOT/discord-claude-heatmap" "$GRAFANA/anomaly-detector" "$ROOT/coordination" "$ROOT/influxdb/tests" "$ROOT/orbstack/tests")
+PY_DIRS=("$GRAFANA/tests" "$GRAFANA/dev-status" "$GRAFANA/claude-usage-collector" "$GRAFANA/cicd-collector" "$ROOT/discord-mini-mem" "$ROOT/discord-orbstack-mem" "$ROOT/discord-claude-heatmap" "$GRAFANA/anomaly-detector" "$ROOT/coordination" "$ROOT/influxdb/tests" "$ROOT/orbstack/tests")
 PYTEST=(uv run --no-project --with pytest --with pyyaml python -m pytest --import-mode=importlib)
 
 run_unit() {

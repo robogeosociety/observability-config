@@ -1,0 +1,19 @@
+# InfluxDB datasource (conf.d — one file per datasource so concurrent PRs adding a
+# bucket never collide on a shared file; Grafana merges every *.yml in this dir).
+# GitHub Actions pipeline runs/inventory written by grafana/cicd-collector/.
+
+apiVersion: 1
+datasources:
+- name: InfluxDB - cicd
+  uid: cicd
+  type: influxdb
+  access: proxy
+  url: http://influxdb:8086
+  jsonData:
+    version: Flux
+    organization: home
+    defaultBucket: cicd
+    tlsSkipVerify: true
+  secureJsonData:
+    token: ${INFLUX_GRAFANA_TOKEN}
+  editable: true

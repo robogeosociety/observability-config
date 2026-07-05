@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd job for the GitHub Actions CI/CD collector. deploy.sh copies this
+  verbatim to ~/Library/LaunchAgents/. No secrets here — deploy.sh writes the
+  repo's .env (GH_TOKEN, INFLUX_TOKEN, ...) to
+  ~/.local/share/cicd-collector/.env (chmod 600) and the collector reads that
+  itself, so nothing sensitive lands in `launchctl print` env dumps or plist
+  backups.
+
+  collector.py is pure stdlib, so /usr/bin/python3 needs no venv/uv.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tommy.cicd-collector</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/tommydoerr/.local/share/cicd-collector/collector.py</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/tommydoerr/Library/Logs/cicd-collector.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tommydoerr/Library/Logs/cicd-collector.log</string>
+</dict>
+</plist>

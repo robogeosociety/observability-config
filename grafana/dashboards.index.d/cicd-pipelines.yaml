@@ -1,0 +1,41 @@
+# Dashboard intent (conf.d — one file per dashboard uid so concurrent PRs never
+# collide on a shared index. Tests + drift-sentinel glob this dir and merge;
+# duplicate uid across files is a hermetic CI failure.)
+
+cicd-pipelines:
+  title: CI/CD Pipelines
+  file: dev/cicd-pipelines.json
+  purpose: Every GitHub Actions pipeline in the robogeosociety org — success rate, run counts by conclusion,
+    duration/queue trends, a per-pipeline outcome timeline, latest-run + failure tables, and a discovered-pipeline
+    catalog — from the `cicd` bucket fed by grafana/cicd-collector/ polling the GitHub API every 5 min.
+  datasources:
+  - influxdb
+  source:
+    repo: robogeosociety/observability-config
+    ref: main
+    paths:
+    - grafana/cicd-collector/collector.py
+    produces:
+      bucket: cicd
+      via: launchd-collector
+    cadence: 5m
+    status: active
+    monitor: skip   # runs are push-driven events — idle ≠ broken
+  intent: The whole point is *dynamic mapping* — no panel, variable, or config names a pipeline. The collector
+    re-discovers the org's repos and workflow files every poll (workflow_inventory), so a brand-new repo or
+    workflow shows up on the dashboard within one cycle with zero edits here. Runs land as completion-time events
+    (workflow_run), so the dashboard is honest about sparseness — the state timeline holds each pipeline's last
+    conclusion between runs rather than pretending continuity. Run-level only by design for v1 — job/step
+    granularity multiplies API calls ~10x and answers a different question (why is it slow) than this dashboard
+    (what do I have, and is it green).
+  todos:
+  - Maintainer on merge — create the `cicd` bucket + scoped write token, fill grafana/cicd-collector/.env,
+    run its deploy.sh, and recreate grafana (new datasource file needs a container recreate, not just a
+    provisioning reload)
+  - Queue-delay panel off the already-written queue_s field once real data shows whether queueing is ever
+    non-trivial on the self-hosted runners
+  - Collector-freshness alert off collector_poll (the heartbeat is continuous even when runs are not) +
+    a rate_remaining low-headroom warning
+  - Job/step-level drill-down (actions jobs API) if "which step is slow" becomes a real question
+  - Playwright visual baselines + tighten dashboard_coverage.yaml from allow-empty ["*"] to per-panel once
+    the bucket has a few weeks of history
