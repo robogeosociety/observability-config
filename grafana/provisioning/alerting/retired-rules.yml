@@ -17,6 +17,12 @@ apiVersion: 1
 # babysitter (ensure-sessions.sh) now deliberately emits channel=imessage up=0i, so the
 # `iMessage bridge is down` rule would page forever on an intentionally-off bridge. Rule
 # removed from channel-bot-health.yml; this tombstone makes Grafana actually delete it.
+#
+# Retired 2026-07-07 — the `Lightning detected nearby (Tempest)` weather rule is redundant:
+# the WeatherFlow Tempest station/app already pushes lightning alerts natively, so the
+# Grafana copy was a duplicate (and noisy). Rule removed from weather-alerts.yml (the wind /
+# freeze / heat / rain rules stay — Tempest doesn't natively alert on those thresholds); this
+# tombstone makes Grafana delete the provisioned rule on reload.
 deleteRules:
   - orgId: 1
     uid: daily-note-stale
@@ -26,3 +32,5 @@ deleteRules:
     uid: asset-graph-stale
   - orgId: 1
     uid: channel-imessage-down
+  - orgId: 1
+    uid: weather-lightning-nearby
