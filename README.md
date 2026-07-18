@@ -91,6 +91,13 @@ sequenceDiagram
     end
 ```
 
+## Backups
+
+Every backup target heartbeats InfluxDB (`ops` bucket, `backup` measurement) and a
+Grafana rule pages when one goes stale — see **[docs/backups.md](docs/backups.md)**
+for the full contract, the nightly dev-disk **restic → R2** snapshot (replaced the
+rclone design 2026-07-17), the InfluxDB dump, and the operating runbook.
+
 ## Secrets
 
 Secrets live in per-dir `.env` files (gitignored). Templates are committed as

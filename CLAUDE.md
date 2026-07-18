@@ -59,6 +59,11 @@ The token + bucket are defined as code in `terraform/` (Cloudflare provider v5):
 `terraform apply` (with `TF_VAR_cloudflare_api_token`) mints the scoped R2 token and
 outputs the S3 creds for `influxdb/.env` — see `terraform/README.md`.
 
+The **dev-disk off-site backup** (`target=r2-dev`, nightly restic → R2, Nomad
+`dev-backup@backup`) lives *outside* this repo at `/Volumes/dev/backups/` on the mini,
+but its heartbeat contract, staleness alert (`backup-stale.yml`), and runbook are
+documented here — see `docs/backups.md`.
+
 ## Alerting
 
 File-provisioned Grafana alerting lives in `grafana/provisioning/alerting/`
