@@ -67,12 +67,13 @@ still come from Grafana + the watcher, not here.
   internal-disk copy and gets its webhook from the plist `EnvironmentVariables`
   (see README deploy steps).
 
-## 4. Claude token usage → Discord — RETIRED (cumulative) → `discord-claude-heatmap` (live)
+## 4. Claude token usage → Discord — RETIRED here → migrated to `discobots`
 
 - **Was:** `claude_tokens.py` posted a cumulative milestone ping every time output
   tokens crossed another 1M, to #claude-usage. **Retired 2026-06-30** — a cumulative
   counter that only goes up doesn't show *where* tokens go.
-- **Now:** the `discord-claude-heatmap` container (top-level `discord-claude-heatmap/`)
-  renders a live, tick-updated **heatmap** of `output_tokens` from the same
-  `claude_code` `tokens` series — rows = projects, columns = recent hourly buckets,
-  color = intensity — as one self-editing message in **#ops**. See its README.
+- **Then:** a live `discord-claude-heatmap` container rendered a tick-updated heatmap
+  of `output_tokens` (rows = projects, columns = hourly buckets).
+- **Now:** that heatmap — with the mini-mem/orbstack-mem treemaps — **moved to
+  `robogeosociety/discobots`** (`ops/claude_heatmap.py`, the `heatmap` bot) 2026-07,
+  posting to the always-visible **#dashboards** channel. This repo no longer hosts it.

@@ -23,9 +23,6 @@ EXPECTED = {
     "transit-tracker",
     "grafana-renderer",
     "realitycapture-viewer",
-    "discord-mini-mem",
-    "discord-orbstack-mem",
-    "discord-claude-heatmap",
 }
 
 
