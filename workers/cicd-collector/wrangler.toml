@@ -1,0 +1,48 @@
+name = "cicd-collector"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+[triggers]
+# Two beats, one Worker (src/index.js dispatches on the cron expression):
+#   */5 * * * * — the poll: completed workflow runs since the overlap window →
+#                 Analytics Engine; red default-branch runs → a compact #dev
+#                 alert; one collector_poll heartbeat row every tick. This is
+#                 the alerting path that replaces the mini TIG stack's red-CI
+#                 alerting — it is the first-class beat.
+#   7 * * * *   — the inventory: one row per workflow file per repo (the
+#                 pipeline map, run-or-not — #149's workflow_inventory). The
+#                 :7 offset keeps it off the */5 tick (fleet anti-collision
+#                 convention; inventory is stateless but the offset is free).
+crons = ["*/5 * * * *", "7 * * * *"]
+
+# Poll cursor + write-once run gate + alert-once gate (one JSON doc under the
+# "state" key). The namespace id is resolved/created by the CD workflow
+# (.github/workflows/cicd-collector.yml) and substituted at deploy time —
+# never edit the placeholder by hand.
+[[kv_namespaces]]
+binding = "STATE"
+id = "KV_NAMESPACE_ID_PLACEHOLDER"
+
+# One dataset per measurement shape (the #149 InfluxDB measurements, ported).
+# Datasets are created on first write — nothing to provision in CI.
+[[analytics_engine_datasets]]
+binding = "RUNS"
+dataset = "cicd_workflow_runs"
+
+[[analytics_engine_datasets]]
+binding = "INVENTORY"
+dataset = "cicd_workflow_inventory"
+
+[[analytics_engine_datasets]]
+binding = "POLLS"
+dataset = "cicd_collector_polls"
+
+[vars]
+GH_ORG = "robogeosociety"
+GH_APP_ID = "4327530"
+ALERT_CHANNEL = "dev"
+
+# Secrets (pushed by .github/workflows/cicd-collector.yml, never committed):
+#   DISCORD_BOT_TOKEN         — posts the red-CI alerts to #dev
+#   GH_APP_PRIVATE_KEY_PKCS8  — rgs-deploy-gate app key (PKCS#8) for JWT auth

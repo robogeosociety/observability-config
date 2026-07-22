@@ -1,0 +1,54 @@
+# cicd-collector Worker CD — KV namespace resolution + wrangler deploy +
+# secret sync. Cloud-native: GitHub-hosted runner, no mini involvement
+# (robogeosociety/robot-geographical-society#167 WS5, observability-config#156).
+# Shape mirrors discobots' github-heartbeat.yml (the fleet Worker convention).
+name: cicd-collector
+on:
+  push:
+    branches: [main]
+    paths: ["workers/cicd-collector/**", ".github/workflows/cicd-collector.yml"]
+  workflow_dispatch:
+
+concurrency: cicd-collector
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run: { working-directory: workers/cicd-collector }
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      # The Worker's state lives in one KV namespace; wrangler.toml carries a
+      # placeholder id so no account-specific id is committed. Resolve (or
+      # create) the namespace here and substitute the real id before deploy.
+      # (Analytics Engine datasets need no such step — created on first write.)
+      - name: resolve KV namespace
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces"
+          pick() { python3 -c "import json,sys;print(next((n['id'] for n in json.load(sys.stdin)['result'] if n['title']=='cicd-collector-state'),''))"; }
+          ID=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api?per_page=100" | pick)
+          if [ -z "$ID" ]; then
+            ID=$(curl -sf -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" -d '{"title":"cicd-collector-state"}' "$api" \
+              | python3 -c "import json,sys;print(json.load(sys.stdin)['result']['id'])")
+            echo "created KV namespace cicd-collector-state"
+          fi
+          sed -i "s/KV_NAMESPACE_ID_PLACEHOLDER/$ID/" wrangler.toml
+
+      - name: wrangler deploy
+        run: npx wrangler@4 deploy
+
+      - name: sync Worker secrets
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+        run: |
+          printf '%s' "$DISCORD_BOT_TOKEN" | npx wrangler@4 secret put DISCORD_BOT_TOKEN
+          printf '%s' "$APP_PRIVATE_KEY" | openssl pkcs8 -topk8 -nocrypt | npx wrangler@4 secret put GH_APP_PRIVATE_KEY_PKCS8
