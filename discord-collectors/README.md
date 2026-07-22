@@ -23,20 +23,15 @@ Convention-aligned with `/Volumes/dev/CLAUDE.md` + this repo's `AGENTS.md`:
 | `transit_discord.py` | OneBusAway per-route situations → Discord |
 | `digest.py` | Weekly InfluxDB + dev-status ops digest → Discord |
 | `watcher.py` | Long-running dev-status UP/DOWN watcher → Discord |
-| `thread_keepalive.py` | Daily heartbeat so the #ops "Live Dashboards" thread doesn't auto-archive |
 | `run-transit.sh` | Wrapper: sources the OBA key, `uv run` transit |
 | `run-digest.sh` | Wrapper: maps ask-dash creds, `uv run` digest |
-| `run-thread-keepalive.sh` | Wrapper: sources the bot token, runs the keepalive |
-| `nomad/*.hcl` | Nomad periodic specs (transit 5m, digest Mon 08:15, thread-keepalive daily 06:23) |
-
-> **Thread keepalive:** the dashboard containers only *edit* their messages, which does
-> NOT reset a thread's auto-archive timer. `thread_keepalive.py` posts one tiny heartbeat
-> per day in the thread (resetting the timer) and deletes the previous one, so exactly one
-> keepalive line ever lingers. Bot token from `~/.claude/channels/discord-ops/.env`.
+| `nomad/*.hcl` | Nomad periodic specs (transit 5m, digest Mon 08:15) |
 
 > The Claude output-token **milestone notifier** (`claude_tokens.py`, cumulative
-> every-1M posts to #claude-usage) was **retired** and replaced by the live
-> `discord-claude-heatmap` container (a tick-updated per-project token heatmap in #ops).
+> every-1M posts to #claude-usage) was **retired** and replaced by a live
+> tick-updated per-project token heatmap — now the `heatmap` bot in
+> **`robogeosociety/discobots`** (`ops/claude_heatmap.py`, posting to #dashboards),
+> migrated off this repo 2026-07 with the mini-mem/orbstack-mem treemaps.
 | `launchd/com.tommydoerr.discord-watcher.plist` | launchd KeepAlive spec for the watcher |
 | `tests/` | Hermetic pytest for the pure logic |
 
