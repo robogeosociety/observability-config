@@ -1,0 +1,51 @@
+# host-vitals Worker CD — wrangler deploy + secret sync. Fleet Worker
+# convention (mirrors cicd-collector.yml, minus its KV step — this Worker's
+# only state is two Analytics Engine datasets, created on first write).
+# Public repo → environment: production rides the Discord deploy gate.
+name: host-vitals
+on:
+  push:
+    branches: [main]
+    paths: ["workers/host-vitals/**", ".github/workflows/host-vitals.yml"]
+  pull_request:
+    paths: ["workers/host-vitals/**", ".github/workflows/host-vitals.yml"]
+  workflow_dispatch:
+
+concurrency: host-vitals
+
+jobs:
+  # Shape tests run on PRs and pushes — plain `node --test`, no deps. The
+  # sample batch is a captured vector 0.57.0 http-sink payload (see test/).
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: workers/host-vitals }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test test/shape.test.mjs
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run: { working-directory: workers/host-vitals }
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: wrangler deploy
+        run: npx wrangler@4 deploy
+
+      - name: sync Worker secrets
+        env:
+          VITALS_INGEST_KEY: ${{ secrets.VITALS_INGEST_KEY }}
+        run: |
+          printf '%s' "$VITALS_INGEST_KEY" | npx wrangler@4 secret put VITALS_INGEST_KEY

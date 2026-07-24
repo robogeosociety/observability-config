@@ -1,0 +1,24 @@
+# host-vitals — Vector→Analytics Engine ingest Worker (the mini's host
+# telemetry after TIG retirement; observability-config#156 follow-on).
+# Push-only: the mini's Vector agent POSTs batches to /ingest; no crons.
+name = "host-vitals"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+# Datasets are created on first write — nothing to provision in CI.
+# host_vitals — host_metrics gauges/counters (see README for the column map).
+[[analytics_engine_datasets]]
+binding = "VITALS"
+dataset = "host_vitals"
+
+# weather_obs — WeatherFlow Tempest LAN-UDP observations (obs_st, rapid_wind)
+# relayed through the same Vector pipeline (supersedes the HA→InfluxDB path).
+[[analytics_engine_datasets]]
+binding = "WEATHER"
+dataset = "weather_obs"
+
+# Secrets (pushed by .github/workflows/host-vitals.yml, never committed):
+#   VITALS_INGEST_KEY — static bearer token; Vector's http sink sends it as
+#   `authorization: Bearer <key>` (fixed header — the sink can't do per-request
+#   HMAC, so a static bearer is the auth model).
