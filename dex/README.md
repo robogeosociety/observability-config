@@ -56,14 +56,17 @@ Notifications**. Because the result doesn't reach Grafana, the existing Grafana
 `collector-freshness` rules do **not** cover walksheds uptime once this lands — wire a
 DEX/CF notification (Discord/email) instead, mirroring the stack's Discord contact point.
 
-## Deprecation of the old collector
+## Deprecation of the old collector — done, without DEX
 
-Only after the DEX test is live and a CF notification is wired:
+**This plan was not executed.** The old collector is already gone: its InfluxDB sink
+was retired with the TIG stack (rgs#167 WS5), and `walksheds.xyz` uptime now runs as
+`uptime.yml` in `robogeosociety/walksheds` — a hosted-runner curl on a `*/10` cron
+that alerts Discord `#dev`. `grafana/walksheds-uptime/` and the `walksheds-uptime`
+dashboard are deleted.
 
-1. Strip the `uptime` HTTP-probe measurement from `grafana/walksheds-uptime/` (keep the
-   CI-smoke + deploy pollers).
-2. Repoint or retire the Grafana `walksheds-uptime` dashboard's uptime panels (they read
-   the InfluxDB `ops` bucket `uptime` measurement, which stops getting written).
-3. Update `CLAUDE.md` / `AGENTS.md` collector inventory.
+DEX was passed over rather than rejected: the Actions probe already existed, so it
+cost nothing to extend, and DEX cannot poll the GitHub API for the CI-smoke and
+deploy signals. The case for DEX below still stands if hop-by-hop path telemetry is
+ever wanted — it would replace `uptime.yml`, not the collector.
 
 > Recorded in the dev vault: `~/obsidian/dev/observability.md` (decision + tradeoff).

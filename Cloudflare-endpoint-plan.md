@@ -1,9 +1,18 @@
 # Cloudflare-native endpoint / canary monitoring — migration plan
 
-Status: **proposal / research**. Scope: replace the stack's host-based synthetic
-endpoint monitoring with Cloudflare-native primitives **where the edge can actually
-reach the target**. No live changes here — this is a plan to be split into PRs per
-`AGENTS.md` (edit source, open PR, the coordinator deploys).
+Status: **RESOLVED for walksheds — superseded by GitHub Actions.** The
+`walksheds.xyz` probe this document was written to re-home now runs as
+`uptime.yml` in `robogeosociety/walksheds`: a hosted-runner curl on a `*/10`
+cron that alerts Discord `#dev` and keeps no metrics history. Neither
+Cloudflare option here was taken — see
+[robot-geographical-society#175](https://github.com/robogeosociety/robot-geographical-society/issues/175)
+for the reasoning, and `dex/README.md` for the DEX decision that remains on the
+shelf. The host collector, its dashboard and its `ops`-bucket sink are deleted;
+the telegraf loopback-probe analysis in §7 is still accurate and still applies.
+
+Original scope (retained for the analysis): replace the stack's host-based
+synthetic endpoint monitoring with Cloudflare-native primitives **where the edge
+can actually reach the target**.
 
 ## TL;DR — recommendation
 
@@ -35,9 +44,9 @@ Net: one monitor moves to the edge (walksheds uptime), one class stays host-side
 
 | Monitor | Mechanism | Target | Reachable from CF edge? | Writes to |
 |---|---|---|---|---|
-| `walksheds.xyz` uptime | `walksheds-uptime` launchd job (`grafana/walksheds-uptime/collector.py`), every 120 s | **public** `https://walksheds.xyz/` | **Yes** | `ops` bucket — `uptime{service=walksheds}` (`up`, `latency_ms`, `status`) |
-| walksheds CI smoke | same job, GitHub Actions API | `smoke.yml` runs | n/a (API poll, not a probe) | `ops` — `ci_smoke` (`ok`, `duration_s`) |
-| walksheds deploys | same job, GitHub Deployments API | `github-pages` env | n/a (API poll) | `ops` — `deploy` (`ok`, tag `state`) |
+| `walksheds.xyz` uptime | ~~`walksheds-uptime` launchd job, every 120 s~~ → **retired**; now `uptime.yml` in `robogeosociety/walksheds`, `*/10` cron on a hosted runner | **public** `https://walksheds.xyz/` | **Yes** | Discord `#dev` on failure (alerting only, no history) |
+| walksheds CI smoke | ~~same job, GitHub Actions API~~ → **retired**; covered org-wide by the `cicd-collector` Worker | `smoke.yml` runs | n/a (API poll, not a probe) | AE `cicd_workflow_runs` + `#dev` red-CI alerts |
+| walksheds deploys | ~~same job, GitHub Deployments API~~ → **retired**; deploy failures surface as red `deploy.yml` runs | `github-pages` env | n/a (API poll) | AE `cicd_workflow_runs` |
 | Grafana health | telegraf `inputs.http_response` | `http://localhost:3001/api/health` | **No** (loopback) | `system` — `http_response` |
 | InfluxDB health | telegraf `inputs.http_response` | `http://localhost:8086/health` | **No** (loopback) | `system` — `http_response` |
 | dev-status health | telegraf `inputs.http_response` | `http://localhost:8077/` | **No** (loopback) | `system` — `http_response` |
@@ -273,6 +282,10 @@ stack itself; it does **not** watch walksheds (different concern).
 
 ## 6. Dashboards repoint + launchd deprecation path
 
+> **Superseded — do not follow these steps.** The collector, its dashboard and its
+> sidecar are deleted; the only remaining action is removing the launchd plist from
+> the mini, tracked as a human task. Retained below for the reasoning.
+
 1. **Land the Worker** (other repo) — confirm `site_uptime` rows appear via the AE SQL API
    (`curl` the SQL endpoint with `CF_ANALYTICS_TOKEN`), exactly as RGS was verified.
 2. **PR here**: repoint `walksheds-uptime.json` uptime/latency panels to AE; keep CI/deploy
@@ -348,5 +361,5 @@ surface — explicitly rejected.)
   <https://developers.cloudflare.com/load-balancing/monitors/>
 - Workers Observability (logs, metrics, Query Builder) + Origin Error Rate notifications —
   <https://developers.cloudflare.com/workers/observability/>
-- In-repo prior art: `cloudflare-collector/README.md`, `grafana/provisioning/datasources/campsites-ae.yml`,
-  `grafana/walksheds-uptime/` (collector being retired).
+- In-repo prior art: `cloudflare-collector/README.md`, `grafana/provisioning/datasources/campsites-ae.yml`.
+  (`grafana/walksheds-uptime/` is deleted as of this document's RESOLVED status; see git history.)
