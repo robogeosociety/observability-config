@@ -14,7 +14,14 @@ workers_dev = true
 #                 pipeline map, run-or-not — #149's workflow_inventory). The
 #                 :7 offset keeps it off the */5 tick (fleet anti-collision
 #                 convention; inventory is stateless but the offset is free).
-crons = ["*/5 * * * *", "7 * * * *"]
+#   3-58/5      — the vitals beat (#161): reads the mini's host_vitals dataset
+#                 back through the Analytics Engine SQL API and alerts on
+#                 disk>90% per mount, sustained low available memory, and
+#                 vector-silence (the heartbeat that replaces the retired TIG
+#                 stack-watchdog). Offset +3 from the poll tick so the two
+#                 beats never share an isolate's CPU burst; 5-min cadence means
+#                 a vector outage is caught within silent_sec + one tick.
+crons = ["*/5 * * * *", "7 * * * *", "3-58/5 * * * *"]
 
 # Poll cursor + write-once run gate + alert-once gate (one JSON doc under the
 # "state" key). The namespace id is resolved/created by the CD workflow
@@ -43,6 +50,48 @@ GH_ORG = "robogeosociety"
 GH_APP_ID = "4327530"
 ALERT_CHANNEL = "dev"
 
+# ── vitals beat thresholds (#161) ───────────────────────────────────────────
+# EVERY threshold is a var, on purpose: the host_vitals lane went live 2026-07-23
+# and there is well under a day of baseline behind these numbers. They are
+# deliberately conservative (quiet beats noisy while the lane earns trust) and
+# meant to be re-cut after a week of real data — a wrangler.toml edit, no code
+# change, no redeploy of logic. See README "Thresholds" for what each is a guess
+# about.
+#
+# The host string is matched CASE-INSENSITIVELY against blob1: the docs write
+# the mini as `tommys-mac-mini.local` but its gethostname() is
+# `Tommys-Mac-mini.local`, and a liveness alert that silently never fires
+# because of hostname casing would be worse than no alert at all.
+VITALS_HOST = "tommys-mac-mini.local"
+
+# Mounts that matter. vector.toml already restricts the filesystem collector to
+# `/` and `/Volumes/*`; this narrows further to the two that carry real risk.
+# NOTE `/` on macOS is the sealed system volume — its used_ratio reflects the
+# whole APFS container, so treat its baseline as unproven until a week of data.
+VITALS_MOUNTS = "/,/Volumes/dev"
+VITALS_DISK_ALERT_RATIO = "0.90"
+VITALS_DISK_CLEAR_RATIO = "0.87" # hysteresis — recovery needs a real 3-point drop
+VITALS_DISK_WINDOW_MIN = "10"
+
+# 500 MB available on an 8 GB box. The InfluxDB OOM loop (2026-07-19) is the
+# event this is watching for; the number is a guess, not a measured floor.
+VITALS_MEM_ALERT_BYTES = "500000000"
+VITALS_MEM_CLEAR_BYTES = "750000000"
+VITALS_MEM_WINDOW_MIN = "10"
+VITALS_MEM_MIN_SAMPLES = "5" # "sustained" — a thin window must not fire
+
+# 10 min, not the issue's 5: a 60 s scrape + 60 s sink batch + AE ingest lag
+# stacks up, and a false "vector is down" costs more trust than 5 extra minutes
+# of detection latency costs data.
+VITALS_SILENT_SEC = "600"
+VITALS_FRESH_LOOKBACK_MIN = "60" # a host absent from this window is silent, full stop
+
 # Secrets (pushed by .github/workflows/cicd-collector.yml, never committed):
-#   DISCORD_BOT_TOKEN         — posts the red-CI alerts to #dev
+#   DISCORD_BOT_TOKEN         — posts the red-CI + vitals alerts to #dev
 #   GH_APP_PRIVATE_KEY_PKCS8  — rgs-deploy-gate app key (PKCS#8) for JWT auth
+#   CF_AE_READ_TOKEN          — Analytics Engine SQL API reads for the vitals
+#                               beat (cloudflare-tfvend `analytics_read`, an
+#                               Account Analytics Read token). Writing AE needs
+#                               no credential; reading it does.
+#   CF_ACCOUNT_ID             — account in the AE SQL API URL. A secret rather
+#                               than a var only because this repo is public.

@@ -31,6 +31,15 @@
 //     inventory beat only.
 //   • Re-runs land as their own row (attempt bump ⇒ new `run_id:attempt` key),
 //     same as #149 — attempt history is kept; latest attempt is the verdict.
+//
+// A third beat (`vitals`, src/vitals.js — observability-config#161) rides the
+// same lane: it reads the mini's host_vitals dataset back through the Analytics
+// Engine SQL API and alerts on disk / memory / vector-silence. It lives here
+// rather than in the host-vitals ingest Worker because THIS is where the alert
+// plumbing already is — the KV alert-once store, the Discord bot client, the
+// #dev channel resolution. One lane, one dedupe store.
+
+import { runVitals } from "./vitals.js";
 
 const OVERLAP_MIN = 30; // window overlap — #149's reliability margin
 const BACKFILL_DAYS = 7; // first poll (fresh KV) backfills this much
@@ -40,7 +49,12 @@ const SEEN_CAP = 4000; // write-once run keys kept, oldest dropped
 const ALERTED_CAP = 500; // alert-once run keys kept, oldest dropped
 const ALERT_MAX_LINES = 10; // cap per message so an org-wide red day stays readable
 const STATE_KEY = "state";
-const INVENTORY_CRON = "7 * * * *"; // anything else = the 5-min poll beat
+
+// One Worker, three beats — dispatched on the cron expression (they must match
+// wrangler.toml's `crons` verbatim; anything unrecognised falls back to the poll).
+const POLL_CRON = "*/5 * * * *";
+const INVENTORY_CRON = "7 * * * *";
+const VITALS_CRON = "3-58/5 * * * *"; // +3 off the poll tick — see wrangler.toml
 
 const enc = new TextEncoder();
 
@@ -144,6 +158,10 @@ async function alertChannelId(env) {
 }
 
 // ── State (poll cursor + write-once + alert-once gates, one KV doc) ──────────
+//
+// The vitals beat keeps its own gate under `doc.vitals` (see vitals.js); it is
+// carried through untouched here, so the two beats can write the same doc
+// without stepping on each other.
 
 async function loadState(env) {
   let doc = {};
@@ -202,7 +220,10 @@ function writeRunRow(env, repoName, run) {
   });
 }
 
-/** One heartbeat row per beat → cicd_collector_polls. */
+/** One heartbeat row per beat → cicd_collector_polls. The doubles are named for
+ *  the poll beat; the vitals beat reuses the same shape (one heartbeat dataset
+ *  for the Worker) with `repos` = signals evaluated and `runs_seen` = signals
+ *  breaching. The column map is spelled out in the README. */
 function writePollRow(env, beat, outcome, stats, t0) {
   env.POLLS.writeDataPoint({
     indexes: [beat],
@@ -232,15 +253,20 @@ async function listCompletedRuns(stats, token, repoFull, sinceIso) {
   return runs;
 }
 
-async function postAlerts(env, failures) {
+/** Post one message to the alert channel. The single Discord egress for this
+ *  Worker — the red-CI path and the vitals beat share the channel resolution,
+ *  the bot client, and this one place to silence the lane. */
+async function sendAlert(env, content) {
   const channel = await alertChannelId(env);
+  await discord(env, "POST", `/channels/${channel}/messages`, { content });
+}
+
+async function postAlerts(env, failures) {
   const lines = failures.slice(0, ALERT_MAX_LINES).map(({ repoName, branch, run }) =>
     `🔴 **${repoName}** ${branch} — ${run.name || "workflow"} ` +
     `[#${run.run_number}](${run.html_url})${(run.run_attempt || 1) > 1 ? ` (attempt ${run.run_attempt})` : ""}`);
   if (failures.length > ALERT_MAX_LINES) lines.push(`… and ${failures.length - ALERT_MAX_LINES} more`);
-  await discord(env, "POST", `/channels/${channel}/messages`, {
-    content: `**CI red on a default branch**\n${lines.join("\n")}`,
-  });
+  await sendAlert(env, `**CI red on a default branch**\n${lines.join("\n")}`);
 }
 
 async function poll(env) {
@@ -343,16 +369,27 @@ async function inventory(env) {
 
 // ── The beats ────────────────────────────────────────────────────────────────
 
+/** What the vitals beat needs from this module: the shared KV state doc, the
+ *  shared Discord egress, and the shared heartbeat row. Injected rather than
+ *  imported so vitals.js has no dependency on the GitHub plumbing (and so the
+ *  whole beat is drivable from `node --test`). */
+const vitalsDeps = { loadState, sendAlert, heartbeat: writePollRow };
+
 export default {
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(controller.cron === INVENTORY_CRON ? inventory(env) : poll(env));
+    const beat =
+      controller.cron === INVENTORY_CRON ? inventory(env)
+      : controller.cron === VITALS_CRON ? runVitals(env, vitalsDeps)
+      : poll(env); // POLL_CRON, and the safe default for an unrecognised trigger
+    ctx.waitUntil(beat);
   },
 
   // No inbound surface — the Worker is cron-driven. (Local test:
   // `wrangler dev --test-scheduled`, then GET /__scheduled.)
   async fetch() {
     return new Response(
-      "cicd-collector: cron-driven (*/5 poll+alerts, hourly inventory); see workers/cicd-collector/README.md\n",
+      `cicd-collector: cron-driven (${POLL_CRON} poll+alerts, ${VITALS_CRON} host vitals, ` +
+      `${INVENTORY_CRON} inventory); see workers/cicd-collector/README.md\n`,
     );
   },
 };
