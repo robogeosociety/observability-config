@@ -1,5 +1,27 @@
 # drift-sentinel
 
+> [!IMPORTANT]
+> **Retired 2026-07-25 — not running, and `deploy.sh` refuses to reinstall it.**
+>
+> The sentinel reads InfluxDB, and the mini no longer runs InfluxDB or Grafana —
+> both containers are absent from `docker ps -a` and nothing listens on `:8086`
+> or `:3000`. The launchd job is unloaded; its last successful run wrote
+> `state.json` on 2026-07-02 and every invocation since died with `HTTPError: 404`
+> out of `flux_count()`.
+>
+> This is the mini-side decommission #156 calls for, not a port to Actions —
+> a scheduled hosted run would have nothing to query. **The code below stays
+> in-tree deliberately**: the commit-aware freshness check is worth re-emitting
+> against Analytics Engine as part of that migration, the same way the parked
+> collectors (#151/#152/#153) are held for re-emission. Everything below
+> describes the design as built.
+>
+> Verified against `supervisor/.github/workflows/cf-shadow.yml` (a Worker shadow
+> deploy — no drift detection) and `infra/.github/workflows/terraform-plan.yml`
+> (the real Terraform lane). Neither overlaps this; despite the name, the sentinel
+> has never had anything to do with Terraform drift.
+> Refs robogeosociety/robot-geographical-society#175.
+
 Catches **stale or degraded dashboard data** and posts a Discord warning enriched
 with the **recent upstream commits** that likely caused it — the "why did this
 dashboard stop?" investigation, automated.
