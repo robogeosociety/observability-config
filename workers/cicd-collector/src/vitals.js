@@ -63,6 +63,14 @@ export function config(env = {}) {
     memClearBytes: num(env.VITALS_MEM_CLEAR_BYTES, alertBytes * 1.5),
     memWindowMin: num(env.VITALS_MEM_WINDOW_MIN, 10),
     memMinSamples: num(env.VITALS_MEM_MIN_SAMPLES, 5),
+    // 0.92: measured baseline on this box is 0.88 (7.2 of 8 GB), so the alarm
+    // signals deterioration rather than screaming about the steady state; clear
+    // at 0.75 so a brief dip cannot flap it. Bytes are the fallback path when
+    // memory_swap_total_bytes has not landed in the query window.
+    swapAlertRatio: num(env.VITALS_SWAP_ALERT_RATIO, 0.92),
+    swapClearRatio: num(env.VITALS_SWAP_CLEAR_RATIO, 0.75),
+    swapAlertBytes: num(env.VITALS_SWAP_ALERT_BYTES, 7.7e9),
+    swapClearBytes: num(env.VITALS_SWAP_CLEAR_BYTES, 6e9),
     silentSec: num(env.VITALS_SILENT_SEC, 600),
     freshLookbackMin: num(env.VITALS_FRESH_LOOKBACK_MIN, 60),
   };
@@ -106,7 +114,8 @@ export function sqlMemory(windowMin) {
     "       max(double1) AS max_value,",
     "       sum(_sample_interval) AS samples",
     "FROM host_vitals",
-    "WHERE (blob2 = 'memory_available_bytes' OR blob2 = 'memory_swap_used_bytes')",
+    "WHERE (blob2 = 'memory_available_bytes' OR blob2 = 'memory_swap_used_bytes'",
+    "       OR blob2 = 'memory_swap_total_bytes')",
     `  AND timestamp > now() - INTERVAL '${windowMin}' MINUTE`,
     "GROUP BY host, metric",
     "FORMAT JSON",
@@ -230,8 +239,14 @@ export function evaluate({ disk = [], memory = [], freshness = [] }, cfg, nowSec
   const swap = memory.find(
     (r) => sameHost(r.host, cfg.host) && r.metric === "memory_swap_used_bytes",
   );
-  // Swap is context on the alert line, never a trigger on its own: on macOS a
-  // few hundred MB of swap in use is normal and says nothing by itself.
+  const swapTotal = memory.find(
+    (r) => sameHost(r.host, cfg.host) && r.metric === "memory_swap_total_bytes",
+  );
+  // Swap stays context on the memory line AND is its own signal below: a few
+  // hundred MB in use is normal on macOS, but this box lives near the ceiling
+  // (7.2 of 8 GB at the time the alarm was added), and swap saturation is what
+  // preceded the InfluxDB OOM loop, so sustained near-full swap deserves its
+  // own alert rather than a footnote on a memory alert that may never fire.
   const swapNote = swap && Number.isFinite(n(swap.avg_value))
     ? ` — swap in use ${bytes(n(swap.avg_value))}`
     : "";
@@ -263,6 +278,50 @@ export function evaluate({ disk = [], memory = [], freshness = [] }, cfg, nowSec
     } else {
       out.push({ key: "memory", state: "unknown", note: `memory: ${bytes(avg)} in hysteresis band` });
     }
+  }
+
+  // ── swap ──
+  // Ratio when the total is known, absolute bytes when it is not: swap_total
+  // rows are sparser than swap_used, and a signal that silently degrades to
+  // "unknown" is the failure mode this whole lane exists to avoid.
+  const swapUsed = swap && Number.isFinite(n(swap.avg_value)) ? n(swap.avg_value) : null;
+  const swapCap = swapTotal && Number.isFinite(n(swapTotal.avg_value))
+    ? n(swapTotal.avg_value)
+    : null;
+  if (swapUsed === null || n(swap.samples) < cfg.memMinSamples) {
+    out.push({
+      key: "swap",
+      state: "unknown",
+      note: `swap: ${swap ? n(swap.samples) : 0} samples < ${cfg.memMinSamples}`,
+    });
+  } else if (swapCap && swapCap > 0) {
+    const ratio = swapUsed / swapCap;
+    const of = ` (${bytes(swapUsed)} of ${bytes(swapCap)})`;
+    if (ratio > cfg.swapAlertRatio) {
+      out.push({
+        key: "swap",
+        state: "breach",
+        text:
+          `🟠 **swap** **${pct(ratio)}** in use${of} ` +
+          `(${cfg.memWindowMin}-min avg, threshold ${pct(cfg.swapAlertRatio)})`,
+      });
+    } else if (ratio < cfg.swapClearRatio) {
+      out.push({ key: "swap", state: "clear", clearText: `✅ **swap** back to ${pct(ratio)} in use${of}` });
+    } else {
+      out.push({ key: "swap", state: "unknown", note: `swap: ${pct(ratio)} in hysteresis band` });
+    }
+  } else if (swapUsed > cfg.swapAlertBytes) {
+    out.push({
+      key: "swap",
+      state: "breach",
+      text:
+        `🟠 **swap** **${bytes(swapUsed)}** in use ` +
+        `(${cfg.memWindowMin}-min avg, threshold ${bytes(cfg.swapAlertBytes)}; total unknown)`,
+    });
+  } else if (swapUsed < cfg.swapClearBytes) {
+    out.push({ key: "swap", state: "clear", clearText: `✅ **swap** back to ${bytes(swapUsed)} in use` });
+  } else {
+    out.push({ key: "swap", state: "unknown", note: `swap: ${bytes(swapUsed)} in hysteresis band` });
   }
 
   // ── vector-silent ──

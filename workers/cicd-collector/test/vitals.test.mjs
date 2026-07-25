@@ -55,7 +55,11 @@ const freshRow = (ageSec) => ({
 /** Everything healthy — the baseline every test perturbs one signal from. */
 const healthy = () => ({
   disk: [diskRow("/", 0.5), diskRow("/Volumes/dev", 0.5)],
-  memory: [memRow(4e9)],
+  memory: [
+    memRow(4e9),
+    memRow(2e9, { metric: "memory_swap_used_bytes" }),
+    memRow(8e9, { metric: "memory_swap_total_bytes" }),
+  ],
   freshness: [freshRow(60)],
 });
 
@@ -460,7 +464,7 @@ test("runVitals: healthy box → no post, one ok heartbeat", async (t) => {
   assert.equal(rig.beats[0].outcome, "ok");
   assert.equal(rig.beats[0].stats.api_calls, 3);
   assert.equal(rig.beats[0].stats.runs_seen, 0); // signals breaching
-  assert.equal(rig.beats[0].stats.repos, 4); // signals evaluated: 2 mounts + mem + silence
+  assert.equal(rig.beats[0].stats.repos, 5); // signals: 2 mounts + mem + swap + silence
 });
 
 test("runVitals: a breach posts once and records the day in the shared KV doc", async (t) => {
@@ -494,4 +498,52 @@ test("runVitals: an AE failure is an error heartbeat, not a silent all-clear", a
   assert.deepEqual(rig.posted, []);
   assert.equal(rig.beats.at(-1).outcome, "error");
   assert.equal(rig.beats.at(-1).stats.errors, 1);
+});
+
+// ── swap (its own trigger since 2026-07-25; baseline on the box was 88%) ──────
+
+test("swap: ratio over the threshold breaches, with used-of-total in the text", () => {
+  const v = evaluate(
+    {
+      ...healthy(),
+      memory: [
+        memRow(4e9),
+        memRow(7.6e9, { metric: "memory_swap_used_bytes" }),
+        memRow(8e9, { metric: "memory_swap_total_bytes" }),
+      ],
+    },
+    CFG,
+    NOW_MS / 1000,
+  );
+  const swap = v.find((x) => x.key === "swap");
+  assert.equal(swap.state, "breach");
+  assert.match(swap.text, /95\.0%/);
+  assert.match(swap.text, /of 8\.0 GB/);
+});
+
+test("swap: the measured 88% baseline does NOT fire", () => {
+  const v = evaluate(
+    {
+      ...healthy(),
+      memory: [
+        memRow(4e9),
+        memRow(7.05e9, { metric: "memory_swap_used_bytes" }),
+        memRow(8e9, { metric: "memory_swap_total_bytes" }),
+      ],
+    },
+    CFG,
+    NOW_MS / 1000,
+  );
+  assert.equal(v.find((x) => x.key === "swap").state, "unknown"); // hysteresis band
+});
+
+test("swap: falls back to absolute bytes when swap_total is absent", () => {
+  const v = evaluate(
+    { ...healthy(), memory: [memRow(4e9), memRow(7.9e9, { metric: "memory_swap_used_bytes" })] },
+    CFG,
+    NOW_MS / 1000,
+  );
+  const swap = v.find((x) => x.key === "swap");
+  assert.equal(swap.state, "breach");
+  assert.match(swap.text, /total unknown/);
 });
