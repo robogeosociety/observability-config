@@ -33,6 +33,13 @@
 
 const WEATHER_TYPES = new Set(["obs_st", "rapid_wind"]);
 const MAX_DOUBLES = 20; // Analytics Engine limit per data point
+// Analytics Engine allows 25 writeDataPoint() calls per Worker invocation, and one
+// POST is one invocation. Exceeding it THROWS, which surfaced as a 500 that vector's
+// http sink retried forever — the same batch resent indefinitely while nothing landed
+// (2026-07-25). Senders should batch <= 25; if one arrives oversized we write what we
+// can and report the rest as dropped, because a partial write plus an honest count
+// beats a wedged pipeline.
+const MAX_WRITES = 25;
 
 const enc = new TextEncoder();
 
@@ -152,12 +159,26 @@ export default {
       return json({ error: "malformed batch" }, 400);
     }
 
-    for (const p of batch.vitals) env.VITALS.writeDataPoint(p);
-    for (const p of batch.weather) env.WEATHER.writeDataPoint(p);
+    // Vitals first: the freshness heartbeat matters more than a weather sample.
+    let budget = MAX_WRITES;
+    const vitals = batch.vitals.slice(0, budget);
+    for (const p of vitals) env.VITALS.writeDataPoint(p);
+    budget -= vitals.length;
+    const weather = batch.weather.slice(0, Math.max(0, budget));
+    for (const p of weather) env.WEATHER.writeDataPoint(p);
+
+    const dropped =
+      batch.vitals.length - vitals.length + (batch.weather.length - weather.length);
+    if (dropped > 0) {
+      console.warn(
+        `batch exceeded ${MAX_WRITES}-write cap: wrote ${vitals.length}+${weather.length}, dropped ${dropped} — reduce the sender's batch.max_events`,
+      );
+    }
 
     return json({
       ok: true,
-      written: { host_vitals: batch.vitals.length, weather_obs: batch.weather.length },
+      written: { host_vitals: vitals.length, weather_obs: weather.length },
+      dropped,
       skipped: batch.skipped,
     });
   },

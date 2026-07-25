@@ -122,3 +122,41 @@ test("unit: tag collapse + null gauge rejection", () => {
   const { skipped } = parseBatch('{"neither":1}\n');
   assert.equal(skipped, 1);
 });
+
+// Regression: Analytics Engine allows 25 writeDataPoint() calls per invocation.
+// An oversized batch used to throw ("write limit exceeded") → 500 → vector retried
+// the same batch forever and nothing reached AE (2026-07-25).
+test("caps writes at 25 per invocation and reports the remainder as dropped", async () => {
+  const writes = { vitals: 0, weather: 0 };
+  const env = {
+    VITALS_INGEST_KEY: "k",
+    VITALS: { writeDataPoint: () => writes.vitals++ },
+    WEATHER: { writeDataPoint: () => writes.weather++ },
+  };
+  const lines = Array.from({ length: 40 }, (_, i) =>
+    JSON.stringify({
+      metric: {
+        name: "memory_available_bytes",
+        namespace: "host",
+        tags: { host: "mini" },
+        timestamp: new Date(1785000000000 + i * 1000).toISOString(),
+        kind: "absolute",
+        gauge: { value: i },
+      },
+    }),
+  ).join("\n");
+
+  const res = await worker.fetch(
+    new Request("https://x/ingest", {
+      method: "POST",
+      headers: { authorization: "Bearer k" },
+      body: lines,
+    }),
+    env,
+  );
+
+  assert.equal(res.status, 200, "an oversized batch must not 500");
+  const body = await res.json();
+  assert.equal(writes.vitals + writes.weather, 25, "at most 25 points written");
+  assert.equal(body.dropped, 15, "the remainder is reported, not silently lost");
+});
