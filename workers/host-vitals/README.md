@@ -102,6 +102,17 @@ WHERE blob1 = 'obs_st' AND timestamp > NOW() - INTERVAL '1' DAY
 GROUP BY t ORDER BY t;
 ```
 
+## Alerting lives next door
+
+Thresholds on this data (`disk > 90%` per mount, sustained low available memory,
+and vector-silence) are the `vitals` cron beat in **`workers/cicd-collector`**
+(#161), not here. This Worker stays push-only — no crons, no KV, no outbound
+tokens — and the alert lane keeps its single Discord client, single alert-once KV
+store, and single place to silence a signal. Reading these datasets back needs an
+**Account Analytics Read** token (cloudflare-tfvend `analytics_read`); writing
+them needs none, which is why nothing vended a reader until there was something
+to read.
+
 ## Tests
 
 `node --test test/shape.test.mjs` (no deps; Node ≥ 18). Runs in CI on PRs

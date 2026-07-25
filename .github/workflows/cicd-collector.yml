@@ -7,12 +7,31 @@ on:
   push:
     branches: [main]
     paths: ["workers/cicd-collector/**", ".github/workflows/cicd-collector.yml"]
+  pull_request:
+    paths: ["workers/cicd-collector/**", ".github/workflows/cicd-collector.yml"]
   workflow_dispatch:
 
 concurrency: cicd-collector
 
 jobs:
+  # Unit tests for the vitals beat's pure core (thresholds, hysteresis, the
+  # alert-once gate, the SQL text) — plain `node --test`, no deps, same shape as
+  # host-vitals.yml. This is the only pre-merge check the alert logic gets: the
+  # queries themselves need an Analytics Engine read token to run for real
+  # (test/dryrun.mjs).
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: workers/cicd-collector }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test test/vitals.test.mjs
+
   deploy:
+    if: github.event_name != 'pull_request'
+    needs: test
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -45,10 +64,24 @@ jobs:
       - name: wrangler deploy
         run: npx wrangler@4 deploy
 
+      # CF_AE_READ_TOKEN is the Analytics Engine SQL *read* credential
+      # (cloudflare-tfvend `analytics_read`) the vitals beat needs — writing AE
+      # needs nothing, reading it needs an Account Analytics Read token.
+      # CF_ACCOUNT_ID rides as a secret, not a wrangler var, only because this
+      # repo is public. If CF_AE_READ_TOKEN is unset the vitals beat throws once
+      # per tick and writes an error heartbeat; the poll and inventory beats are
+      # unaffected.
       - name: sync Worker secrets
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          CF_AE_READ_TOKEN: ${{ secrets.CF_AE_READ_TOKEN }}
         run: |
           printf '%s' "$DISCORD_BOT_TOKEN" | npx wrangler@4 secret put DISCORD_BOT_TOKEN
           printf '%s' "$APP_PRIVATE_KEY" | openssl pkcs8 -topk8 -nocrypt | npx wrangler@4 secret put GH_APP_PRIVATE_KEY_PKCS8
+          printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | npx wrangler@4 secret put CF_ACCOUNT_ID
+          if [ -n "$CF_AE_READ_TOKEN" ]; then
+            printf '%s' "$CF_AE_READ_TOKEN" | npx wrangler@4 secret put CF_AE_READ_TOKEN
+          else
+            echo "::warning::CF_AE_READ_TOKEN is not set — the vitals beat will error every tick until cloudflare-tfvend's analytics_read token is vended and set as a repo/org secret."
+          fi
