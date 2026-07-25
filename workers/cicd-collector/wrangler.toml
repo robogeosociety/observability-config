@@ -80,6 +80,15 @@ VITALS_MEM_CLEAR_BYTES = "750000000"
 VITALS_MEM_WINDOW_MIN = "10"
 VITALS_MEM_MIN_SAMPLES = "5" # "sustained" — a thin window must not fire
 
+# Swap — its own alarm, not just a note on the memory line. Measured baseline
+# 2026-07-25: 7.2 GB of 8.0 GB (88%) at rest, so 92% means "getting worse", and
+# the 75% clear needs a real recovery. Bytes are the fallback when
+# memory_swap_total_bytes is absent from the window.
+VITALS_SWAP_ALERT_RATIO = "0.92"
+VITALS_SWAP_CLEAR_RATIO = "0.75"
+VITALS_SWAP_ALERT_BYTES = "7700000000"
+VITALS_SWAP_CLEAR_BYTES = "6000000000"
+
 # 10 min, not the issue's 5: a 60 s scrape + 60 s sink batch + AE ingest lag
 # stacks up, and a false "vector is down" costs more trust than 5 extra minutes
 # of detection latency costs data.
