@@ -79,7 +79,7 @@ the index changes.
 ## Extending
 
 - Fill `source.repo` for the `status: external` dashboards (transit, campsites-AE,
-  tempest, HA-Pi, walksheds, obsidian) to bring them under watch.
+  tempest, HA-Pi, obsidian) to bring them under watch.
 - A future **source-drift** mode (compare each pipeline's upstream HEAD SHA to a
   committed lock) would catch a schema-changing deploy *before* the data breaks —
   the leading-indicator half.

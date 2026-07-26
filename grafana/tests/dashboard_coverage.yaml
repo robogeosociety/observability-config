@@ -16,7 +16,7 @@
 #
 # Tuned against the live stack on tommys-mac-mini. Dashboards not listed are
 # strict and pass today (campsites, mac-system, orbstack-containers, status-page,
-# walksheds-uptime, backups, obsidian-backups, claude-usage, ...).
+# backups, obsidian-backups, claude-usage, ...).
 
 campsite-availability:
   allow_empty_panels: [failing]              # "failing sites" empty == good news
@@ -54,10 +54,6 @@ ha-pi-system:
 # so the R2 panels have no heartbeat yet. Local-target panels stay strict.
 backups:
   allow_empty_panels: ["r2"]
-
-# Deploy events — empty when nothing deployed in the window.
-walksheds-uptime:
-  allow_empty_panels: ["deploys"]
 
 # Anomaly events are sparse/event-driven — empty panels mean "no anomalies"
 # (healthy). The alertlist panel has no datasource query (skipped anyway).
