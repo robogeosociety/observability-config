@@ -16,15 +16,33 @@ job "ctl-transit-tracker" {
   group "supervise" {
     count = 1
 
-    # Reflect the container's real state; don't auto-restart/reschedule and fight
-    # a compose redeploy. Re-launch by hand (UI "Start" or deploy-jobs.sh up).
+    # UNLIKE the other ctl-* jobs, this one KEEPS THE CONTAINER ALIVE rather than
+    # merely mirroring its state. The shared "attempts = 0, re-launch by hand"
+    # stance exists so a supervisor can't fight a compose redeploy — but the
+    # compose stack that rationale referred to was InfluxDB's, retired
+    # 2026-07-22 (rgs#167). transit-tracker is now a standalone container with
+    # no redeploy to fight, and it drives a physical ESP32 display: silence is a
+    # dead sign on the wall, not a stale UI row.
+    #
+    # What went wrong without this: the mini rebooted 2026-07-25 12:33 PT, the
+    # alloc failed, `attempts = 0` meant nothing rescheduled it, and the job sat
+    # dead until a human noticed. See discobots#74 for the sibling case.
+    #
+    # restart  — bounded, so a container that CANNOT start (e.g. supervise.sh
+    #            exit 3, no such container) fails loudly instead of hot-looping.
+    # reschedule — unlimited with exponential backoff, so a reboot or a lost
+    #            alloc always comes back on its own.
     restart {
-      attempts = 0
+      attempts = 3
+      interval = "10m"
+      delay    = "30s"
       mode     = "fail"
     }
     reschedule {
-      attempts  = 0
-      unlimited = false
+      delay          = "30s"
+      delay_function = "exponential"
+      max_delay      = "10m"
+      unlimited      = true
     }
 
     task "track" {
