@@ -152,7 +152,13 @@ to a defined contact point).
   claim the same uid. (The index lives in `grafana/`, not `provisioning/dashboards/`,
   because Grafana's provider would try to parse a stray YAML there as a provider
   config. One-file-per-uid means concurrent PRs never collide on a shared index —
-  the drift-sentinel reads the same dir; the human view is rendered on demand.)
+  the human view is rendered on demand.)
+- **`grafana/drift-sentinel/` — retired 2026-07-25** (code kept in-tree, unlike
+  `campsites/`). It read the index's `source:` blocks and checked InfluxDB for
+  stale/degraded pipelines; InfluxDB and Grafana are gone from the mini, so the
+  launchd job is unloaded and `deploy.sh` now refuses to reinstall it. Re-emit the
+  commit-aware freshness check against Analytics Engine per #156. The `source:`
+  blocks stay — `tests/test_dashboard_index.py` still enforces them.
 - **Secrets** live in per-dir `.env` (gitignored, chmod 600); `.env.example`
   templates are committed. Never commit a real `.env`.
 
