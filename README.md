@@ -1,5 +1,14 @@
 # observability-config
 
+> [!IMPORTANT]
+> **GRAFANA AND INFLUXDB ARE RETIRED.** Verified 2026-07-26: both OrbStack containers are
+> removed, no volumes remain, and the launchd coordinator and stack-watchdog are gone
+> (rgs#167 WS5). Host metrics now go via Vector → the `host-vitals` Worker → Analytics
+> Engine, with alerting in the `cicd-collector` Worker. **There is no local dashboard.**
+> Whether a LAN stack returns is open — see the posture doc. The layout below describes
+> a stack that is not running.
+> Posture of record: [cloudflare-posture.md](https://github.com/robogeosociety/robot-geographical-society/blob/main/docs/proposals/cloudflare-posture.md) (2026-07-26).
+
 Infrastructure-as-code for the home observability stack running on
 `tommys-mac-mini` (Tommy's Mac mini). Two OrbStack containers, file-provisioned:
 

@@ -1,5 +1,11 @@
 # dex/ — Cloudflare DEX synthetic endpoint monitoring
 
+> [!IMPORTANT]
+> **STAYS SHELVED.** DEX synthetic tests would be *new* Cloudflare surface, which the
+> 2026-07-26 posture rules out absent an explicit ruling. The walksheds probe this
+> replaced already went to GitHub Actions (`uptime.yml`). Kept for the analysis.
+> Posture of record: [cloudflare-posture.md](https://github.com/robogeosociety/robot-geographical-society/blob/main/docs/proposals/cloudflare-posture.md) (2026-07-26).
+
 Public-endpoint uptime monitoring via **Cloudflare Digital Experience Monitoring
 (DEX) synthetic tests** (part of Cloudflare One / Zero Trust). This replaces the
 **uptime-probe** half of the host `grafana/walksheds-uptime/` collector.
