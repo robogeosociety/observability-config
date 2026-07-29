@@ -1,5 +1,11 @@
 # cicd-collector — org CI/CD telemetry + red-CI alerting on Workers
 
+> **Alerts moved `#dev` → `#ops` on 2026-07-27.** Everything this Worker posts is an
+> alarm, and #dev had drifted into being the alarm channel by accident — 35 of its last
+> 100 messages were failure cards against 13 about development. Alarms now land where
+> the @ops investigator lives. The destination is `ALERT_CHANNEL` in `wrangler.toml`,
+> resolved by channel name at run time.
+
 WS5 of CICD-everything (robogeosociety/robot-geographical-society#167; task
 #156). The Workers port of the parked #149 launchd collector
 (`grafana/cicd-collector/collector.py`, branch head `f9ab362`) — off the
@@ -12,8 +18,8 @@ build on next.
 
 | cron            | beat      | what happens                                                        |
 | --------------- | --------- | ------------------------------------------------------------------- |
-| `*/5 * * * *`   | poll      | completed runs since the overlap window → `cicd_workflow_runs`; red default-branch runs → one compact `#dev` message (alert-once per `run_id:attempt`); one `cicd_collector_polls` heartbeat row |
-| `3-58/5 * * * *`| vitals    | reads the mini's `host_vitals` dataset back through the AE SQL API; disk / memory / vector-silence breaches → one compact `#dev` message (alert-once per signal per day) + a heartbeat row |
+| `*/5 * * * *`   | poll      | completed runs since the overlap window → `cicd_workflow_runs`; red default-branch runs → one compact `#ops` message (alert-once per `run_id:attempt`); one `cicd_collector_polls` heartbeat row |
+| `3-58/5 * * * *`| vitals    | reads the mini's `host_vitals` dataset back through the AE SQL API; disk / memory / vector-silence breaches → one compact `#ops` message (alert-once per signal per day) + a heartbeat row |
 | `7 * * * *`     | inventory | one `cicd_workflow_inventory` row per workflow file per repo (the pipeline map, run-or-not) + a heartbeat row |
 
 Discovery is dynamic (`GET /installation/repositories`, non-archived): a new
@@ -67,7 +73,7 @@ signals breaching, `api_calls` = 3 (its AE queries), and `rate_remaining` = -1.
 ## Alerting
 
 A completed run with `conclusion=failure` on its repo's default branch posts
-one compact line to `#dev` (bot-token REST, channel resolved by name — the
+one compact line to `#ops` (bot-token REST, channel resolved by name — the
 deploy-gate pattern). Dedupe: KV alert-once gate keyed `run_id:attempt`,
 independent of the write gate, so a failed Discord post retries for the whole
 overlap window. Note: `github-heartbeat` (discobots) also announces red CI on
@@ -80,7 +86,7 @@ The mini's Vector agent pushes `host_metrics` into the **`host_vitals`**
 Analytics Engine dataset via the `host-vitals` Worker. That Worker is
 deliberately push-only — no crons, no KV, no outbound tokens — so the alerting
 half lives **here**, where the alert plumbing already is: the KV alert-once
-store, the Discord bot client, the `#dev` resolution, the heartbeat dataset. One
+store, the Discord bot client, the `#ops` resolution, the heartbeat dataset. One
 lane means one dedupe store and one place to silence a signal. (A cron in
 `host-vitals` would hand the ingest endpoint a Discord bot token and a KV
 binding it has no other use for, and split alert state across two Workers.)
@@ -138,7 +144,7 @@ a week of real data is a config edit, not a code change. Specifically unproven:
 
 `test/dryrun.mjs` prints the exact SQL without any credentials, and with
 `CF_ACCOUNT_ID` + `CF_AE_READ_TOKEN` set it runs the queries read-only and shows
-the verdict and the message that *would* go to `#dev` — no post, no KV write, no
+the verdict and the message that *would* go to `#ops` — no post, no KV write, no
 data point. Any `VITALS_*` var is honoured, so a candidate threshold can be
 trialled against live data before it is committed:
 
