@@ -48,7 +48,13 @@ dataset = "cicd_collector_polls"
 [vars]
 GH_ORG = "robogeosociety"
 GH_APP_ID = "4327530"
-ALERT_CHANNEL = "dev"
+# Alarms live with the investigator. Moved dev -> ops on 2026-07-27: #dev had drifted
+# into being the alarm channel by accident (of its last 100 messages, 35 were failure
+# cards and 13 were about development), while #ops took twenty days to fill 100 messages
+# with green backups. Everything this Worker posts -- red default-branch CI and the host
+# vitals beat -- is an alarm, so the whole Worker moves rather than splitting its feeds.
+# Resolved by channel NAME at run time, so this line is the entire re-homing.
+ALERT_CHANNEL = "ops"
 
 # ── vitals beat thresholds (#161) ───────────────────────────────────────────
 # EVERY threshold is a var, on purpose: the host_vitals lane went live 2026-07-23
