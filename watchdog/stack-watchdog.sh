@@ -121,9 +121,21 @@ if [ -n "$reason" ]; then
     case "$reason" in
       readdir*)
         if [ -x "$RT/capture-wedge.sh" ]; then
-          ( setsid "$RT/capture-wedge.sh" "$reason" >/dev/null 2>&1 & ) 2>/dev/null \
-            || ( "$RT/capture-wedge.sh" "$reason" >/dev/null 2>&1 & )
-          print -r -- "$(date '+%F %T') capture-wedge.sh started (detached)"
+          # nohup, NOT setsid — setsid is Linux-only and absent on macOS. The
+          # first version of this used it behind a `||` fallback that could never
+          # fire (backgrounding returns 0 immediately), so it logged "started"
+          # and ran nothing. An evidence collector that reports success while
+          # collecting nothing is worse than one that is obviously missing, so
+          # the claim below is now checked rather than assumed.
+          nohup "$RT/capture-wedge.sh" "$reason" >>"$RT/capture.log" 2>&1 &
+          cap_pid=$!
+          disown 2>/dev/null
+          sleep 1
+          if kill -0 "$cap_pid" 2>/dev/null; then
+            print -r -- "$(date '+%F %T') capture-wedge.sh running (pid $cap_pid)"
+          else
+            print -r -- "$(date '+%F %T') WARNING: capture-wedge.sh exited immediately — see $RT/capture.log"
+          fi
         else
           print -r -- "$(date '+%F %T') WARNING: $RT/capture-wedge.sh missing — wedge going unrecorded"
         fi
