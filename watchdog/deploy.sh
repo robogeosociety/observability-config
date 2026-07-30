@@ -12,6 +12,7 @@ GRAFANA_ENV="/Volumes/dev/observability/grafana/.env"
 
 mkdir -p "$RT"
 install -m 0755 "$REPO/stack-watchdog.sh" "$RT/stack-watchdog.sh"
+install -m 0755 "$REPO/capture-wedge.sh" "$RT/capture-wedge.sh"
 
 # Stage the webhook (the ops channel) into an internal .env so the launchd runtime never
 # reads /Volumes. chmod 600 — it's the secret.

@@ -110,6 +110,27 @@ post() {  # $1=color(int)  $2=title  $3=description   (reason strings carry no d
 }
 
 if [ -n "$reason" ]; then
+  # Capture evidence on the healthy->wedged edge only, and only for a disk wedge.
+  # Detached, because the collector deliberately waits on calls that block —
+  # letting it run inline would stall the 120 s cycle it is reporting from.
+  #
+  # The edge is the only moment worth capturing: `orb stop && orb start` is the
+  # documented fix AND it rotates away OrbStack's log, so once a human responds
+  # the evidence is gone. Every prior incident was diagnosed without it.
+  if [ "$prev_status" != "down" ]; then
+    case "$reason" in
+      readdir*)
+        if [ -x "$RT/capture-wedge.sh" ]; then
+          ( setsid "$RT/capture-wedge.sh" "$reason" >/dev/null 2>&1 & ) 2>/dev/null \
+            || ( "$RT/capture-wedge.sh" "$reason" >/dev/null 2>&1 & )
+          print -r -- "$(date '+%F %T') capture-wedge.sh started (detached)"
+        else
+          print -r -- "$(date '+%F %T') WARNING: $RT/capture-wedge.sh missing — wedge going unrecorded"
+        fi
+        ;;
+    esac
+  fi
+
   if [ "$prev_status" = "down" ] && [ $((now - last_alert)) -lt "$REALERT_SECS" ]; then
     print -r -- "$(date '+%F %T') still down ($reason) — already paged, quiet"
   else
