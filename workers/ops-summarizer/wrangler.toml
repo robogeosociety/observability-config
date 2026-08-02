@@ -28,6 +28,11 @@ index_name = "dev-vault"
 # that burns the quota the queue then has to park around.
 MAX_TURNS = "3"
 
+# Origins permitted to reach /mcp, comma-separated. MCP clients are not browsers
+# and send no Origin, which is allowed; this only constrains callers that DO send
+# one. Required by the transport spec as DNS-rebinding protection.
+MCP_ALLOWED_ORIGINS = ""
+
 # Secrets (wrangler secret put):
 #   ANTHROPIC_API_KEY — Claude Haiku. Mirrors the org secret of the same name.
 #   HANDLER_TOKEN     — bearer fleet-bus presents; must match its HANDLER_TOKEN

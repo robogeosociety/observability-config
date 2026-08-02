@@ -14,6 +14,7 @@
 // limits live in llm.js so both lanes share one ceiling.
 import { complete, QuotaError, DEFAULT_MAX_TURNS } from "./llm.js";
 import { retrieve, asContext, ingest } from "./rag.js";
+import { handleMcp } from "./mcp.js";
 
 const json = (b, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { "content-type": "application/json" } });
@@ -159,6 +160,13 @@ export default {
     }
 
     if (!authorized(req, env)) return json({ error: "unauthorized" }, 401);
+
+    // The dev vault as an MCP tool. Same bearer as everything else here, so a
+    // client is configured with one credential rather than a second scheme.
+    // Reached by every Claude surface that speaks MCP — headless `claude -p`
+    // jobs, the channel bots, interactive sessions — because MCP config is
+    // per project/user, not per session.
+    if (url.pathname === "/mcp") return handleMcp(req, env, { retrieve });
 
     if (req.method === "POST" && url.pathname === "/summarize") return handleSummarize(req, env);
 
