@@ -1,0 +1,57 @@
+# fleet-bus Worker CD — wrangler deploy + secret sync. Fleet Worker convention
+# (mirrors host-vitals.yml). This Worker's state is two SQLite-backed Durable
+# Object classes plus a KV namespace for the digest's message id; the DO
+# migration is declared in wrangler.toml and applied by deploy.
+# Public repo → environment: production rides the Discord deploy gate.
+name: fleet-bus
+on:
+  push:
+    branches: [main]
+    paths: ["workers/fleet-bus/**", ".github/workflows/fleet-bus.yml"]
+  pull_request:
+    paths: ["workers/fleet-bus/**", ".github/workflows/fleet-bus.yml"]
+  workflow_dispatch:
+
+concurrency: fleet-bus
+
+jobs:
+  # Pure-core tests: catalogue consistency, envelope validation, both renderers.
+  # Plain `node --test`, no deps. Durable Object behaviour needs the workerd
+  # runtime and is verified against the deployment, not here.
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: workers/fleet-bus }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test "test/*.test.mjs"
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run: { working-directory: workers/fleet-bus }
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: wrangler deploy
+        run: npx wrangler@4 deploy
+
+      # HANDLER_SUMMARY is deliberately absent until the summariser exists —
+      # without it the work topic dead-letters rather than pretending to succeed.
+      - name: sync Worker secrets
+        env:
+          BUS_TOKEN: ${{ secrets.BUS_TOKEN }}
+          WEBHOOK_OPS: ${{ secrets.WEBHOOK_OPS }}
+        run: |
+          printf '%s' "$BUS_TOKEN"   | npx wrangler@4 secret put BUS_TOKEN
+          printf '%s' "$WEBHOOK_OPS" | npx wrangler@4 secret put WEBHOOK_OPS
