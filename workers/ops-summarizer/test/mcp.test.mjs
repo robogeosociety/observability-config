@@ -11,15 +11,19 @@ import { handleMcp, __test } from "../src/mcp.js";
 
 const { PROTOCOL_VERSION } = __test;
 
-const fakeRetrieve = async (_env, query, k) =>
-  query === "nothing"
+let lastVault;
+const fakeRetrieve = async (_env, query, k, vault) => {
+  lastVault = vault;
+  return query === "nothing"
     ? []
     : Array.from({ length: k }, (_, i) => ({
         score: 0.9 - i * 0.1,
+        vault: vault || "dev",
         path: `Wiki/note-${i}.md`,
         title: `note ${i}`,
         text: `body ${i}`,
       }));
+};
 
 const deps = { retrieve: fakeRetrieve };
 const env = {};
@@ -62,7 +66,11 @@ test("tools/list advertises search_vault with a required query", async () => {
   assert.deepEqual(tool.inputSchema.required, ["query"]);
   // The description is what makes a model reach for this instead of guessing, so
   // it must actually say the vault outranks general knowledge.
-  assert.match(tool.description, /outranks general knowledge/i);
+  assert.match(tool.description, /outrank\w* general knowledge/i);
+  // The vault filter must be optional — the answer is often not in the vault the
+  // caller would have guessed, so all-vaults has to stay the default.
+  assert.ok(tool.inputSchema.properties.vault);
+  assert.ok(!tool.inputSchema.required.includes("vault"));
 });
 
 test("tools/call returns passages as text content", async () => {
@@ -196,4 +204,24 @@ test("malformed JSON is a parse error", async () => {
   );
   assert.equal(res.status, 400);
   assert.equal((await res.json()).error.code, -32700);
+});
+
+test("a named vault is passed through to retrieval as a filter", async () => {
+  await call({
+    jsonrpc: "2.0",
+    id: 20,
+    method: "tools/call",
+    params: { name: "search_vault", arguments: { query: "tent", vault: "camping" } },
+  });
+  assert.equal(lastVault, "camping");
+});
+
+test("omitting the vault searches all of them", async () => {
+  await call({
+    jsonrpc: "2.0",
+    id: 21,
+    method: "tools/call",
+    params: { name: "search_vault", arguments: { query: "tent" } },
+  });
+  assert.equal(lastVault, null, "no filter means every vault");
 });

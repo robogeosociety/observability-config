@@ -29,12 +29,13 @@ const TOOLS = [
   {
     name: "search_vault",
     description:
-      "Semantic search over Tommy's dev Obsidian vault — infrastructure runbooks, " +
-      "incident write-ups, architecture notes and changelogs for the robogeosociety " +
-      "fleet (the Mac mini, Cloudflare Workers, the discobots, the message bus). " +
-      "Use this before answering questions about how this fleet is built or why a " +
-      "past decision was made: the vault is the operator's own record and outranks " +
-      "general knowledge. Returns excerpts, not whole notes.",
+      "Semantic search over Tommy's Obsidian vaults. `dev` holds infrastructure " +
+      "runbooks, incident write-ups and fleet architecture (the Mac mini, Cloudflare " +
+      "Workers, the discobots, the message bus); `camping` holds trip and campsite " +
+      "notes; `gear` equipment; `home` household; `travel` trip planning. Use this " +
+      "before answering questions about any of them: the vaults are the operator's " +
+      "own record and outrank general knowledge. Searches all vaults unless one is " +
+      "named. Returns excerpts, not whole notes.",
     inputSchema: {
       type: "object",
       properties: {
@@ -47,6 +48,13 @@ const TOOLS = [
           description: "How many passages to return (1-20, default 5).",
           minimum: 1,
           maximum: 20,
+        },
+        vault: {
+          type: "string",
+          description:
+            "Restrict to one vault. Omit to search all — usually right, since the " +
+            "answer may not be in the vault you expect.",
+          enum: ["dev", "camping", "gear", "home", "travel"],
         },
       },
       required: ["query"],
@@ -121,8 +129,9 @@ async function dispatch(msg, env, deps) {
       return rpcError(id, -32602, "query is required");
     }
     const k = Math.min(Math.max(1, Number(params?.arguments?.k) || 5), 20);
+    const vault = params?.arguments?.vault || null;
 
-    const matches = await deps.retrieve(env, query, k);
+    const matches = await deps.retrieve(env, query, k, vault);
 
     if (!matches.length) {
       // A tool result, not an error: "nothing matched" is a legitimate answer and
@@ -133,7 +142,10 @@ async function dispatch(msg, env, deps) {
     }
 
     const text = matches
-      .map((m) => `## ${m.title || m.path}\n_score ${m.score.toFixed(3)} · ${m.path}_\n\n${m.text}`)
+      .map(
+        (m) =>
+          `## ${m.title || m.path}\n_score ${m.score.toFixed(3)} · ${m.vault ? m.vault + " · " : ""}${m.path}_\n\n${m.text}`,
+      )
       .join("\n\n---\n\n");
 
     return rpcResult(id, { content: [{ type: "text", text }] });

@@ -20,7 +20,7 @@ binding = "AI"
 # the tunnel would put this lane back on the host whose disk wedges.
 [[vectorize]]
 binding = "VECTORIZE"
-index_name = "dev-vault"
+index_name = "obsidian-vaults"
 
 [vars]
 # Hard ceiling on model turns, shared by both lanes. Single-turn by construction

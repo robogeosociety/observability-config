@@ -190,7 +190,8 @@ export default {
     if (req.method === "GET" && url.pathname === "/search") {
       const q = url.searchParams.get("q") || "";
       if (!q) return json({ error: "q required" }, 400);
-      return json({ matches: await retrieve(env, q, Number(url.searchParams.get("k") || 5)) });
+      const vault = url.searchParams.get("vault") || null;
+      return json({ matches: await retrieve(env, q, Number(url.searchParams.get("k") || 5), vault) });
     }
 
     return json({ error: "not found" }, 404);

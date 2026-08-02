@@ -30,13 +30,19 @@ export async function embed(env, texts) {
  * context is degraded but useful; failing the whole job because the index was
  * unreachable would turn a retrieval blip into dead-lettered work.
  */
-export async function retrieve(env, query, topK = 5) {
+export async function retrieve(env, query, topK = 5, vault = null) {
   if (!env.VECTORIZE || !env.AI) return [];
   try {
     const [vector] = await embed(env, [query]);
-    const res = await env.VECTORIZE.query(vector, { topK, returnMetadata: "all" });
+    // Server-side metadata filter, which is why `vault` carries a metadata index.
+    // Filtering after the fact would silently return fewer than topK results, and
+    // a narrow vault would come back nearly empty for no visible reason.
+    const opts = { topK, returnMetadata: "all" };
+    if (vault) opts.filter = { vault };
+    const res = await env.VECTORIZE.query(vector, opts);
     return (res.matches || []).map((m) => ({
       score: m.score,
+      vault: m.metadata?.vault || "",
       path: m.metadata?.path || "",
       title: m.metadata?.title || "",
       text: m.metadata?.text || "",
@@ -57,7 +63,7 @@ export function asContext(matches) {
   const parts = [];
   let used = 0;
   for (const m of matches) {
-    const block = `### ${m.title || m.path}\n${m.text}`.trim();
+    const block = `### ${m.vault ? m.vault + "/" : ""}${m.title || m.path}\n${m.text}`.trim();
     if (used + block.length > MAX_CONTEXT_CHARS) break;
     parts.push(block);
     used += block.length;
@@ -87,7 +93,7 @@ export async function ingest(env, chunks, batchSize = 50) {
       batch.map((c, j) => ({
         id: c.id,
         values: vectors[j],
-        metadata: { path: c.path, title: c.title, text: c.text.slice(0, 2000) },
+        metadata: { vault: c.vault, path: c.path, title: c.title, text: c.text.slice(0, 2000) },
       })),
     );
     upserted += batch.length;
