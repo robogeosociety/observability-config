@@ -36,7 +36,10 @@ jobs:
     steps:
       - env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: echo "without environment: production, resolved length = ${#ANTHROPIC_API_KEY}"
+        # Block scalar, not a plain one: the message contains ": " and YAML would
+        # read that as a mapping separator and reject the whole file.
+        run: |
+          echo "no environment gate — resolved length = ${#ANTHROPIC_API_KEY}"
 
   # Answers one question: is ANTHROPIC_API_KEY usable from CI, or does it need
   # setting? Reports length and HTTP status only — never the value.
