@@ -26,10 +26,22 @@ jobs:
         with: { node-version: 22 }
       - run: node --test "test/*.test.mjs"
 
+  # Control: the SAME org secret read WITHOUT environment: production. Exists to
+  # prove the rule rather than cite it — org secrets resolve to length 0 without
+  # an environment, and six CD lanes were debugged before that was understood.
+  # A length of 0 here alongside a non-zero length below is the rule in action;
+  # 0 in BOTH means the secret genuinely has no value.
+  verify-secret-noenv:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: echo "without environment: production, resolved length = ${#ANTHROPIC_API_KEY}"
+
   # Answers one question: is ANTHROPIC_API_KEY usable from CI, or does it need
   # setting? Reports length and HTTP status only — never the value.
+  # Runs on PRs too, because the answer is wanted before merge, not after.
   verify-secret:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: production
     outputs:
