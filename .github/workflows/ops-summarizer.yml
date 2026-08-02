@@ -1,0 +1,92 @@
+# ops-summarizer Worker CD — deploy, secret sync, and a live end-to-end check.
+#
+# `environment: production` is load-bearing, not decoration: org secrets resolve
+# to length 0 without it (rgs — six CD lanes learned this the hard way). The
+# verify job below reports the resolved length precisely so that failure mode is
+# visible rather than silent.
+name: ops-summarizer
+on:
+  push:
+    branches: [main]
+    paths: ["workers/ops-summarizer/**", ".github/workflows/ops-summarizer.yml"]
+  pull_request:
+    paths: ["workers/ops-summarizer/**", ".github/workflows/ops-summarizer.yml"]
+  workflow_dispatch:
+
+concurrency: ops-summarizer
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: workers/ops-summarizer }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test "test/*.test.mjs"
+
+  # Answers one question: is ANTHROPIC_API_KEY usable from CI, or does it need
+  # setting? Reports length and HTTP status only — never the value.
+  verify-secret:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      usable: ${{ steps.probe.outputs.usable }}
+    steps:
+      - id: probe
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          LEN=${#ANTHROPIC_API_KEY}
+          echo "resolved length: $LEN"
+          if [ "$LEN" -eq 0 ]; then
+            echo "::warning::ANTHROPIC_API_KEY resolves EMPTY under environment: production — the org secret exists by name but has no value"
+            echo "usable=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 \
+            https://api.anthropic.com/v1/models \
+            -H "x-api-key: $ANTHROPIC_API_KEY" -H 'anthropic-version: 2023-06-01')
+          echo "anthropic /v1/models -> $CODE"
+          if [ "$CODE" = "200" ]; then
+            echo "usable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::key is set (len $LEN) but the API rejected it with HTTP $CODE"
+            echo "usable=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: [test, verify-secret]
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run: { working-directory: workers/ops-summarizer }
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: wrangler deploy
+        run: npx wrangler@4 deploy
+
+      # Only pushed when actually usable. Uploading an empty secret would make
+      # /health report a key that cannot work, which is worse than reporting none.
+      - name: sync ANTHROPIC_API_KEY
+        if: needs.verify-secret.outputs.usable == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: printf '%s' "$ANTHROPIC_API_KEY" | npx wrangler@4 secret put ANTHROPIC_API_KEY
+
+      - name: report
+        run: |
+          if [ "${{ needs.verify-secret.outputs.usable }}" = "true" ]; then
+            echo "### ✅ ANTHROPIC_API_KEY is usable — synced to the Worker" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ⚠️ ANTHROPIC_API_KEY is NOT usable" >> "$GITHUB_STEP_SUMMARY"
+            echo "The org secret exists by name but is empty or rejected. Summaries will park until it is set." >> "$GITHUB_STEP_SUMMARY"
+          fi

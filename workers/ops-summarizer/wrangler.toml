@@ -1,0 +1,34 @@
+# ops-summarizer — the handler behind fleet-bus's `work` topics.
+#
+# Two lanes: GitHub notifications, and repeated #ops alarms explained against the
+# dev vault. Turn-limited (see src/llm.js) and quota-aware — it answers 429 or
+# 200 {parked:true} so fleet-bus parks the queue instead of dead-lettering a
+# backlog when the token quota is gone.
+name = "ops-summarizer"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+# Workers AI: embeddings for retrieval (@cf/baai/bge-base-en-v1.5, 768 dims).
+# The summary itself is Claude Haiku over the Anthropic API — Workers AI does not
+# host Claude, which is why this Worker needs ANTHROPIC_API_KEY at all.
+[ai]
+binding = "AI"
+
+# The dev vault, mirrored from the mini's vecserve index. Deliberately a second
+# embedding of the same corpus with a different model: reaching vecserve through
+# the tunnel would put this lane back on the host whose disk wedges.
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "dev-vault"
+
+[vars]
+# Hard ceiling on model turns, shared by both lanes. Single-turn by construction
+# today; the bound exists so adding a tool later cannot produce a runaway loop
+# that burns the quota the queue then has to park around.
+MAX_TURNS = "3"
+
+# Secrets (wrangler secret put):
+#   ANTHROPIC_API_KEY — Claude Haiku. Mirrors the org secret of the same name.
+#   HANDLER_TOKEN     — bearer fleet-bus presents; must match its HANDLER_TOKEN
+#   WEBHOOK_OPS       — #ops webhook the finished summary is posted to
