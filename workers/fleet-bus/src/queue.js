@@ -76,6 +76,21 @@ export class QueueDO extends DurableObject {
           parked_reason TEXT
         );
       `);
+
+      // CREATE TABLE IF NOT EXISTS does NOT add columns to a table that already
+      // exists, so a DO created before `leased_until` was introduced keeps the old
+      // schema and every query naming that column throws — which is exactly how
+      // /stat started returning 500 for one queue while a freshly created one was
+      // fine. SQLite has no ADD COLUMN IF NOT EXISTS, so check the table info.
+      const cols = this.ctx.storage.sql
+        .exec("PRAGMA table_info(jobs)")
+        .toArray()
+        .map((c) => c.name);
+      if (!cols.includes("leased_until")) {
+        this.ctx.storage.sql.exec(
+          "ALTER TABLE jobs ADD COLUMN leased_until INTEGER NOT NULL DEFAULT 0",
+        );
+      }
     });
   }
 

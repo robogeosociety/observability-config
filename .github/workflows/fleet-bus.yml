@@ -43,6 +43,24 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
 
+      # Refuse to write an empty secret over a live credential. BUS_TOKEN and
+      # WEBHOOK_OPS did not exist as org secrets when this lane was written, so CD
+      # wrote empty strings over working values on every deploy — the same failure
+      # that took deploy-gate dark (discobots#112), which is why the shared action
+      # exists. Preflight, not post-mortem.
+      - name: preflight — required secrets must be non-empty
+        env:
+          BUS_TOKEN: ${{ secrets.BUS_TOKEN }}
+          WEBHOOK_OPS: ${{ secrets.WEBHOOK_OPS }}
+        run: |
+          missing=""
+          [ -n "$BUS_TOKEN" ]   || missing="$missing BUS_TOKEN"
+          [ -n "$WEBHOOK_OPS" ] || missing="$missing WEBHOOK_OPS"
+          if [ -n "$missing" ]; then
+            echo "::error::empty or unset secrets:$missing — refusing to overwrite live values"
+            exit 1
+          fi
+
       - name: wrangler deploy
         run: npx wrangler@4 deploy
 
