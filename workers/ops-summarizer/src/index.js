@@ -5,15 +5,17 @@
 //   fleet.ops.alarm.repeated     an alarm that keeps firing → what is actually
 //                                going on, grounded in the dev vault
 //
-// It is a fleet-bus HANDLER, which fixes its contract: answer 2xx to ack, and
-// answer 429 (or 200 {parked:true}) when the token quota is gone. That second
-// case is the whole reason the queue has a park state — an out-of-credit account
-// must stop the queue, not dead-letter a backlog of healthy work.
+// It is a fleet-bus HANDLER, but it does NOT run the model. Claude work in this
+// fleet runs in GitHub Actions under subscription auth — the CLI holds that auth
+// and a Worker cannot run the CLI. So /summarize fires a repository_dispatch and
+// reports the job as LEASED; the workflow acks fleet-bus when it is done. See
+// dispatch.js for why this is not an implementation detail.
 //
-// Retrieval is Vectorize (see rag.js for why not the mini's vecserve). Turn
-// limits live in llm.js so both lanes share one ceiling.
-import { complete, QuotaError, DEFAULT_MAX_TURNS, HAIKU } from "./llm.js";
-import { retrieve, asContext, ingest } from "./rag.js";
+// This Worker keeps the two things it is genuinely good at: Vectorize retrieval
+// (also exposed over MCP, so `claude -p` in Actions can ground itself) and the
+// #ops telemetry rendering.
+import { retrieve, ingest } from "./rag.js";
+import { dispatchSummary, LEASE_MS } from "./dispatch.js";
 import { handleMcp } from "./mcp.js";
 import { render as renderTelemetry } from "./telemetry.js";
 
@@ -31,22 +33,6 @@ const authorized = (req, env) =>
   Boolean(env.HANDLER_TOKEN) &&
   timingSafeEqual(req.headers.get("authorization") || "", `Bearer ${env.HANDLER_TOKEN}`);
 
-// Prompts are terse on purpose. #ops is read while something is broken; a summary
-// that buries the finding under preamble costs more than it saves.
-const SYSTEM = {
-  "fleet.github.notification":
-    "You summarise GitHub notifications for an operator who is scanning, not reading. " +
-    "Two or three sentences. Lead with what changed and whether it needs them. " +
-    "No preamble, no restating the question.",
-  "fleet.ops.alarm.repeated":
-    "You explain repeated operational alarms to the engineer who owns the host. " +
-    "You are given an alarm that has fired several times and notes from their own " +
-    "dev vault. Say what is most likely happening, cite the note that supports it " +
-    "by title, and give the single next check worth running. Be concrete and brief. " +
-    "If the vault notes do not actually explain the alarm, say so plainly rather " +
-    "than forcing a connection.",
-};
-
 /** The retrieval query for a job — what we search the vault for. */
 function ragQuery(topic, data) {
   if (topic === "fleet.ops.alarm.repeated") {
@@ -55,58 +41,16 @@ function ragQuery(topic, data) {
   return `${data.repo || ""} ${data.title || ""}`.trim();
 }
 
-function renderUser(topic, data, context) {
-  if (topic === "fleet.ops.alarm.repeated") {
-    const body =
-      `Alarm: ${data.title || data.topic || "unknown"}\n` +
-      `Fired ${data.count ?? "several"} times` +
-      (data.windowMin ? ` in ${data.windowMin} minutes` : "") +
-      ".\n" +
-      (data.reason ? `Reported reason: ${data.reason}\n` : "") +
-      (data.samples?.length ? `Recent occurrences:\n${data.samples.slice(0, 5).join("\n")}\n` : "");
-    return context ? `${body}\n${context}` : body;
-  }
-  const body =
-    `Repository: ${data.repo || "unknown"}\n` +
-    (data.title ? `Title: ${data.title}\n` : "") +
-    (data.n ? `Number: #${data.n}\n` : "") +
-    (data.body ? `Body:\n${String(data.body).slice(0, 4000)}\n` : "");
-  return context ? `${body}\n${context}` : body;
-}
+const LANES = new Set(["fleet.github.notification", "fleet.ops.alarm.repeated"]);
 
 /**
- * Post the finished summary to #ops, with its telemetry.
+ * Hand one job to Actions.
  *
- * Plain content, not an embed: the telemetry lines use `-#` subtext and `||…||`
- * spoilers, and neither renders in an embed footer — a footer is plain text and
- * would show literal pipes. This also matches the @obsidian bot's existing shape,
- * which is a message with a subtext cost line rather than an embed.
- *
- * Best-effort — a Discord outage must not fail the job.
+ * Retrieval still happens HERE, not in the workflow. Two reasons: the vault
+ * grounding is the part most likely to be wrong, and doing it here means it is
+ * visible in this Worker's own logs and telemetry rather than buried in a run
+ * log. The workflow also has the MCP server if it wants to search further.
  */
-async function postSummary(env, topic, data, text, telemetry) {
-  if (!env.WEBHOOK_OPS) return { posted: false };
-  const heading =
-    topic === "fleet.ops.alarm.repeated"
-      ? `🔁 **${data.title || data.topic || "repeated alarm"}**`
-      : `📋 **${data.repo || "github"}${data.n ? ` #${data.n}` : ""}**`;
-
-  // 2000 is Discord's content limit; leave room for the telemetry lines.
-  const tel = renderTelemetry(telemetry);
-  const body = text.slice(0, 1900 - tel.length);
-
-  try {
-    const res = await fetch(env.WEBHOOK_OPS, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ content: `${heading}\n${body}\n${tel}` }),
-    });
-    return { posted: res.ok };
-  } catch {
-    return { posted: false };
-  }
-}
-
 async function handleSummarize(req, env) {
   let envelope;
   try {
@@ -117,50 +61,115 @@ async function handleSummarize(req, env) {
 
   const topic = envelope?.topic;
   const data = envelope?.data || {};
-  if (!SYSTEM[topic]) return json({ error: `no lane for topic ${topic}` }, 400);
+  if (!LANES.has(topic)) return json({ error: `no lane for topic ${topic}` }, 400);
 
-  const maxTurns = Number(env.MAX_TURNS || DEFAULT_MAX_TURNS);
+  // fleet-bus stamps the queue id so the workflow can ack the exact row.
+  const jobId = envelope?.jobId ?? data.jobId;
 
-  const startedAt = Date.now();
   const ragStart = Date.now();
   const matches = await retrieve(env, ragQuery(topic, data));
   const ragMs = Date.now() - ragStart;
-  const context = asContext(matches);
 
-  let result;
-  try {
-    result = await complete(env, {
-      system: SYSTEM[topic],
-      user: renderUser(topic, data, context),
-      maxTurns,
-    });
-  } catch (e) {
-    if (e instanceof QuotaError) {
-      // THE contract with fleet-bus: park the queue, do not charge the item.
-      return json({ parked: true, reason: e.message, retryAfterMs: e.retryAfterMs });
-    }
-    // 4xx from Anthropic is our bug (bad request, bad key) and will not fix
-    // itself — let the queue dead-letter it. 5xx gets the queue's backoff.
-    return json({ error: String(e) }, e.status && e.status < 500 ? 400 : 502);
+  const result = await dispatchSummary(env, {
+    topic,
+    jobId,
+    data: {
+      ...data,
+      // Pre-fetched grounding travels with the job so the workflow does not have
+      // to repeat the search to produce a comparable answer.
+      vaultContext: matches.map((m) => ({
+        vault: m.vault,
+        title: m.title,
+        score: m.score,
+        text: m.text,
+      })),
+    },
+  });
+
+  if (!result.ok) {
+    // 4xx from GitHub is our misconfiguration and will not fix itself; 5xx might.
+    return json({ error: result.error }, result.status >= 400 && result.status < 500 ? 400 : 502);
   }
 
-  const telemetry = {
-    model: HAIKU.replace(/^claude-/, "").replace(/-\d{8}$/, ""),
-    inputTokens: result.usage?.input_tokens,
-    outputTokens: result.usage?.output_tokens,
-    turns: result.turns,
-    maxTurns,
-    toolCalls: result.toolCalls,
-    truncated: result.truncated,
-    ragHits: matches.length,
-    hits: matches,
-    ragMs,
-    llmMs: result.llmMs,
-    totalMs: Date.now() - startedAt,
-  };
-  const posted = await postSummary(env, topic, data, result.text, telemetry);
+  return json({ ok: true, leased: true, leaseMs: LEASE_MS, ragHits: matches.length, ragMs, jobId });
+}
 
-  return json({ ok: true, ...telemetry, hits: undefined, ...posted });
+/**
+ * Callback from the Actions run: render, post to #ops, and ack the queue.
+ *
+ * The workflow does not post to Discord itself. "Actions owns the model and the
+ * words, the Worker owns the Discord identity" is the settled split in this
+ * fleet, and it is worth keeping — the webhook lives in exactly one place, the
+ * telemetry renderer is not duplicated into bash, and a workflow that dies after
+ * posting cannot leave a message with no ack behind it.
+ *
+ * Ack forwarding is here for the same reason: one call from the workflow instead
+ * of two, so a summary cannot be posted and then left un-acked because the second
+ * request failed.
+ */
+async function handlePost(req, env) {
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "body is not JSON" }, 400);
+  }
+
+  const { topic, jobId, data = {}, text, telemetry = {} } = body || {};
+  if (!LANES.has(topic)) return json({ error: `no lane for topic ${topic}` }, 400);
+  if (typeof text !== "string" || !text.trim()) return json({ error: "text is required" }, 400);
+
+  const heading =
+    topic === "fleet.ops.alarm.repeated"
+      ? `🔁 **${data.title || data.topic || "repeated alarm"}**`
+      : `📋 **${data.repo || "github"}${data.n ? ` #${data.n}` : ""}**`;
+
+  const tel = renderTelemetry({
+    model: telemetry.model || "claude -p",
+    inputTokens: telemetry.inputTokens,
+    outputTokens: telemetry.outputTokens,
+    turns: telemetry.turns ?? 1,
+    maxTurns: telemetry.maxTurns ?? Number(env.MAX_TURNS || 3),
+    toolCalls: telemetry.toolCalls ?? 0,
+    truncated: Boolean(telemetry.truncated),
+    ragHits: telemetry.ragHits ?? (telemetry.hits || []).length,
+    hits: telemetry.hits || [],
+    ragMs: telemetry.ragMs,
+    llmMs: telemetry.llmMs,
+    totalMs: telemetry.totalMs,
+  });
+
+  let posted = false;
+  if (env.WEBHOOK_OPS) {
+    try {
+      const res = await fetch(env.WEBHOOK_OPS, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: `${heading}\n${text.slice(0, 1900 - tel.length)}\n${tel}` }),
+      });
+      posted = res.ok;
+    } catch {
+      posted = false;
+    }
+  }
+
+  // Ack the queue even if Discord was down: the summary was produced, and making
+  // the workflow re-run a model because a webhook blipped is the wrong trade.
+  let acked = null;
+  if (env.BUS_URL && env.BUS_TOKEN && Number.isInteger(jobId)) {
+    try {
+      const res = await fetch(`${env.BUS_URL.replace(/\/+$/, "")}/ack`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${env.BUS_TOKEN}` },
+        body: JSON.stringify({ topic, id: jobId }),
+      });
+      acked = res.ok;
+    } catch {
+      acked = false;
+    }
+  }
+
+  return json({ ok: true, posted, acked });
 }
 
 export default {
@@ -173,10 +182,12 @@ export default {
       return json({
         ok: true,
         service: "ops-summarizer",
-        anthropicKey: Boolean(env.ANTHROPIC_API_KEY),
         vectorize: Boolean(env.VECTORIZE),
         ai: Boolean(env.AI),
-        maxTurns: Number(env.MAX_TURNS || DEFAULT_MAX_TURNS),
+        // The model runs in Actions, so readiness here is "can we dispatch",
+        // not "do we hold a model credential".
+        dispatch: Boolean(env.DISPATCH_REPO && env.APP_ID && env.APP_PRIVATE_KEY),
+        dispatchRepo: env.DISPATCH_REPO || null,
       });
     }
 
@@ -190,6 +201,32 @@ export default {
     if (url.pathname === "/mcp") return handleMcp(req, env, { retrieve });
 
     if (req.method === "POST" && url.pathname === "/summarize") return handleSummarize(req, env);
+    if (req.method === "POST" && url.pathname === "/post") return handlePost(req, env);
+
+    // Explicit failure from a run that died. Forwarded to the queue so backoff
+    // applies now rather than after a 20-minute lease expiry.
+    if (req.method === "POST" && url.pathname === "/fail") {
+      let b;
+      try {
+        b = await req.json();
+      } catch {
+        return json({ error: "body is not JSON" }, 400);
+      }
+      if (!LANES.has(b?.topic)) return json({ error: `no lane for topic ${b?.topic}` }, 400);
+      if (!env.BUS_URL || !env.BUS_TOKEN || !Number.isInteger(b?.jobId)) {
+        return json({ ok: true, forwarded: false });
+      }
+      try {
+        const res = await fetch(`${env.BUS_URL.replace(/\/+$/, "")}/ack`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${env.BUS_TOKEN}` },
+          body: JSON.stringify({ topic: b.topic, id: b.jobId, failed: true, reason: b.reason }),
+        });
+        return json({ ok: true, forwarded: res.ok });
+      } catch {
+        return json({ ok: true, forwarded: false });
+      }
+    }
 
     // Admin: push dev-vault chunks in. Kept here rather than in a script with an
     // API token so every Cloudflare credential stays a binding.

@@ -1,0 +1,89 @@
+# summarize — runs the model for fleet-bus's `work` topics.
+#
+# WHY ACTIONS AND NOT THE WORKER: Claude work in this fleet runs under
+# subscription auth, which lives in the Claude CLI. A Worker cannot run the CLI,
+# so a Worker that wants a summary has to reach the metered Anthropic API — a
+# second, billed path to answers the subscription already covers. An earlier
+# version of ops-summarizer did exactly that and died on an empty credit balance:
+# the key authenticated fine, because the subscription is not the API.
+#
+# The split is therefore: Actions owns the model and the words, the Worker owns
+# the Discord identity and the queue. This job produces text and hands it back;
+# it does not post to Discord and does not talk to the bus directly.
+name: summarize
+
+on:
+  repository_dispatch:
+    types: [summarize]
+
+# One at a time per job id. Two runs summarising the same queue row would both
+# post and both ack, and the second ack would be a no-op on an already-deleted
+# row — harmless, but the duplicate message is not.
+concurrency:
+  group: summarize-${{ github.event.client_payload.jobId }}
+  cancel-in-progress: false
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    # The lease in fleet-bus is 20 minutes. Finish inside it, or the queue will
+    # correctly decide the run was lost and hand the job to someone else.
+    timeout-minutes: 12
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Claude CLI
+        run: curl -fsSL https://claude.ai/install.sh | bash
+
+      - name: Build the prompt
+        id: prompt
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        run: |
+          python3 .github/scripts/summarize_prompt.py > /tmp/prompt.txt
+          echo "chars=$(wc -c < /tmp/prompt.txt)" >> "$GITHUB_OUTPUT"
+
+      # Subscription auth — no ANTHROPIC_API_KEY anywhere in this lane.
+      #
+      # --max-turns bounds the run for the same reason the Worker used to: a lane
+      # that can loop is a lane that can burn the plan's limits. Haiku because
+      # these are short summaries and the model choice is the cost lever here,
+      # rather than tokens.
+      - name: Summarise
+        id: run
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set +e
+          start=$(date +%s%3N)
+          "$HOME/.local/bin/claude" -p "$(cat /tmp/prompt.txt)" \
+            --model haiku \
+            --max-turns 3 \
+            --output-format json > /tmp/out.json 2>/tmp/err.txt
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          echo "ms=$(( $(date +%s%3N) - start ))" >> "$GITHUB_OUTPUT"
+          head -c 400 /tmp/err.txt || true
+
+      # Posting and acking are one call to the Worker, so a summary cannot be
+      # posted and then left un-acked because a second request failed.
+      - name: Post and ack
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          LLM_MS: ${{ steps.run.outputs.ms }}
+          RUN_EXIT: ${{ steps.run.outputs.exit }}
+          SUMMARIZER_URL: ${{ vars.SUMMARIZER_URL }}
+          HANDLER_TOKEN: ${{ secrets.OPS_SUMMARIZER_TOKEN }}
+        run: python3 .github/scripts/summarize_post.py
+
+      # An explicit failure ack beats a silent lease expiry: it tells the queue now
+      # rather than in 20 minutes, and lets backoff apply. `failure() ||
+      # cancelled()` because a GHA timeout concludes as `cancelled`, a mode this
+      # fleet has already been bitten by going unnoticed.
+      - name: Report failure to the queue
+        if: failure() || cancelled()
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          SUMMARIZER_URL: ${{ vars.SUMMARIZER_URL }}
+          HANDLER_TOKEN: ${{ secrets.OPS_SUMMARIZER_TOKEN }}
+        run: python3 .github/scripts/summarize_post.py --failed

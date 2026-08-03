@@ -23,10 +23,15 @@ binding = "VECTORIZE"
 index_name = "obsidian-vaults"
 
 [vars]
-# Hard ceiling on model turns, shared by both lanes. Single-turn by construction
-# today; the bound exists so adding a tool later cannot produce a runaway loop
-# that burns the quota the queue then has to park around.
+# Turn ceiling passed through to the Actions run and shown in the #ops footer.
 MAX_TURNS = "3"
+
+# Where repository_dispatch lands. The model runs there, not here — subscription
+# auth lives in the Claude CLI and a Worker cannot run the CLI.
+DISPATCH_REPO = "robogeosociety/observability-config"
+
+# fleet-bus, for forwarding acks once a run finishes.
+BUS_URL = "https://fleet-bus.tommy-b-doerr.workers.dev"
 
 # Origins permitted to reach /mcp, comma-separated. MCP clients are not browsers
 # and send no Origin, which is allowed; this only constrains callers that DO send
@@ -34,6 +39,12 @@ MAX_TURNS = "3"
 MCP_ALLOWED_ORIGINS = ""
 
 # Secrets (wrangler secret put):
-#   ANTHROPIC_API_KEY — Claude Haiku. Mirrors the org secret of the same name.
-#   HANDLER_TOKEN     — bearer fleet-bus presents; must match its HANDLER_TOKEN
-#   WEBHOOK_OPS       — #ops webhook the finished summary is posted to
+#   HANDLER_TOKEN         — bearer fleet-bus and the workflow present
+#   WEBHOOK_OPS           — #ops webhook the finished summary is posted to
+#   BUS_TOKEN             — bearer for fleet-bus /ack
+#   APP_ID / APP_PRIVATE_KEY — the rgs-deploy-gate GitHub App, reused rather than
+#                              minting a second long-lived GitHub credential
+#
+# Deliberately NOT here: ANTHROPIC_API_KEY. This lane runs on the subscription
+# via `claude -p` in Actions; a key here would be a second, metered path to the
+# same answers.

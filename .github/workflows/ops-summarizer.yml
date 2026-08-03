@@ -26,54 +26,9 @@ jobs:
         with: { node-version: 22 }
       - run: node --test "test/*.test.mjs"
 
-  # Control: the SAME org secret read WITHOUT environment: production. Exists to
-  # prove the rule rather than cite it — org secrets resolve to length 0 without
-  # an environment, and six CD lanes were debugged before that was understood.
-  # A length of 0 here alongside a non-zero length below is the rule in action;
-  # 0 in BOTH means the secret genuinely has no value.
-  verify-secret-noenv:
-    runs-on: ubuntu-latest
-    steps:
-      - env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        # Block scalar, not a plain one: the message contains ": " and YAML would
-        # read that as a mapping separator and reject the whole file.
-        run: |
-          echo "no environment gate — resolved length = ${#ANTHROPIC_API_KEY}"
-
-  # Answers one question: is ANTHROPIC_API_KEY usable from CI, or does it need
-  # setting? Reports length and HTTP status only — never the value.
-  # Runs on PRs too, because the answer is wanted before merge, not after.
-  verify-secret:
-    runs-on: ubuntu-latest
-    environment: production
-    outputs:
-      usable: ${{ steps.probe.outputs.usable }}
-    steps:
-      - id: probe
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          LEN=${#ANTHROPIC_API_KEY}
-          echo "resolved length: $LEN"
-          if [ "$LEN" -eq 0 ]; then
-            echo "::warning::ANTHROPIC_API_KEY resolves EMPTY under environment: production — the org secret exists by name but has no value"
-            echo "usable=false" >> "$GITHUB_OUTPUT"; exit 0
-          fi
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 \
-            https://api.anthropic.com/v1/models \
-            -H "x-api-key: $ANTHROPIC_API_KEY" -H 'anthropic-version: 2023-06-01')
-          echo "anthropic /v1/models -> $CODE"
-          if [ "$CODE" = "200" ]; then
-            echo "usable=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::key is set (len $LEN) but the API rejected it with HTTP $CODE"
-            echo "usable=false" >> "$GITHUB_OUTPUT"
-          fi
-
   deploy:
     if: github.event_name != 'pull_request'
-    needs: [test, verify-secret]
+    needs: [test]
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -89,19 +44,18 @@ jobs:
       - name: wrangler deploy
         run: npx wrangler@4 deploy
 
-      # Only pushed when actually usable. Uploading an empty secret would make
-      # /health report a key that cannot work, which is worse than reporting none.
-      - name: sync ANTHROPIC_API_KEY
-        if: needs.verify-secret.outputs.usable == 'true'
+      # The GitHub App this Worker uses to fire repository_dispatch. Reused from
+      # deploy-gate rather than minting a second long-lived GitHub credential.
+      #
+      # No ANTHROPIC_API_KEY: this lane runs the model in Actions on the
+      # subscription (`claude -p`), so a key here would be a second, metered path
+      # to the same answers.
+      - name: sync Worker secrets
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: printf '%s' "$ANTHROPIC_API_KEY" | npx wrangler@4 secret put ANTHROPIC_API_KEY
-
-      - name: report
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          HANDLER_TOKEN: ${{ secrets.OPS_SUMMARIZER_TOKEN }}
         run: |
-          if [ "${{ needs.verify-secret.outputs.usable }}" = "true" ]; then
-            echo "### ✅ ANTHROPIC_API_KEY is usable — synced to the Worker" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "### ⚠️ ANTHROPIC_API_KEY is NOT usable" >> "$GITHUB_STEP_SUMMARY"
-            echo "The org secret exists by name but is empty or rejected. Summaries will park until it is set." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          printf '%s' "$APP_ID"          | npx wrangler@4 secret put APP_ID
+          printf '%s' "$APP_PRIVATE_KEY" | npx wrangler@4 secret put APP_PRIVATE_KEY
+          printf '%s' "$HANDLER_TOKEN"   | npx wrangler@4 secret put HANDLER_TOKEN
