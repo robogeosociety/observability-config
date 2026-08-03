@@ -31,7 +31,8 @@ export class QuotaError extends Error {
 /**
  * One bounded exchange with the Anthropic Messages API.
  *
- * @returns {Promise<{text: string, turns: number, truncated: boolean, usage: object}>}
+ * @returns {Promise<{text: string, turns: number, toolCalls: number, truncated: boolean,
+ *                     usage: object, llmMs: number}>}
  * @throws {QuotaError} on 429 or a quota-shaped 400, so the caller can surface a
  *         park rather than burning the item's retry budget.
  */
@@ -41,7 +42,9 @@ export async function complete(env, { system, user, maxTurns = DEFAULT_MAX_TURNS
   }
 
   const messages = [{ role: "user", content: user }];
+  const startedAt = Date.now();
   let turns = 0;
+  let toolCalls = 0;
   let text = "";
   let usage = {};
 
@@ -76,7 +79,14 @@ export async function complete(env, { system, user, maxTurns = DEFAULT_MAX_TURNS
     }
 
     const data = await res.json();
-    usage = data.usage || {};
+    // Usage is per-response, so accumulate across turns rather than overwriting —
+    // otherwise a multi-turn call reports only its last leg and understates cost.
+    const u = data.usage || {};
+    usage = {
+      input_tokens: (usage.input_tokens || 0) + (u.input_tokens || 0),
+      output_tokens: (usage.output_tokens || 0) + (u.output_tokens || 0),
+    };
+    toolCalls += (data.content || []).filter((b) => b.type === "tool_use").length;
     text += (data.content || [])
       .filter((b) => b.type === "text")
       .map((b) => b.text)
@@ -85,11 +95,11 @@ export async function complete(env, { system, user, maxTurns = DEFAULT_MAX_TURNS
     // Single-turn today: nothing asks for another round. When tools land, the
     // continuation goes here and the loop bound above starts earning its keep.
     if (data.stop_reason !== "tool_use") {
-      return { text, turns, truncated: false, usage };
+      return { text, turns, toolCalls, truncated: false, usage, llmMs: Date.now() - startedAt };
     }
     messages.push({ role: "assistant", content: data.content });
   }
 
   // Ceiling hit. Partial, flagged, not thrown — see the header.
-  return { text, turns, truncated: true, usage };
+  return { text, turns, toolCalls, truncated: true, usage, llmMs: Date.now() - startedAt };
 }

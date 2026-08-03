@@ -12,9 +12,10 @@
 //
 // Retrieval is Vectorize (see rag.js for why not the mini's vecserve). Turn
 // limits live in llm.js so both lanes share one ceiling.
-import { complete, QuotaError, DEFAULT_MAX_TURNS } from "./llm.js";
+import { complete, QuotaError, DEFAULT_MAX_TURNS, HAIKU } from "./llm.js";
 import { retrieve, asContext, ingest } from "./rag.js";
 import { handleMcp } from "./mcp.js";
+import { render as renderTelemetry } from "./telemetry.js";
 
 const json = (b, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { "content-type": "application/json" } });
@@ -73,28 +74,32 @@ function renderUser(topic, data, context) {
   return context ? `${body}\n${context}` : body;
 }
 
-/** Post the finished summary to #ops. Best-effort — see below. */
-async function postSummary(env, topic, data, text, meta) {
+/**
+ * Post the finished summary to #ops, with its telemetry.
+ *
+ * Plain content, not an embed: the telemetry lines use `-#` subtext and `||…||`
+ * spoilers, and neither renders in an embed footer — a footer is plain text and
+ * would show literal pipes. This also matches the @obsidian bot's existing shape,
+ * which is a message with a subtext cost line rather than an embed.
+ *
+ * Best-effort — a Discord outage must not fail the job.
+ */
+async function postSummary(env, topic, data, text, telemetry) {
   if (!env.WEBHOOK_OPS) return { posted: false };
-  const title =
+  const heading =
     topic === "fleet.ops.alarm.repeated"
-      ? `🔁 ${data.title || data.topic || "repeated alarm"}`
-      : `📋 ${data.repo || "github"}${data.n ? ` #${data.n}` : ""}`;
-  const footer = [
-    "ops-summarizer",
-    `${meta.turns}/${meta.maxTurns} turns`,
-    meta.grounded ? `${meta.grounded} vault notes` : "no vault context",
-    meta.truncated ? "TRUNCATED at turn ceiling" : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+      ? `🔁 **${data.title || data.topic || "repeated alarm"}**`
+      : `📋 **${data.repo || "github"}${data.n ? ` #${data.n}` : ""}**`;
+
+  // 2000 is Discord's content limit; leave room for the telemetry lines.
+  const tel = renderTelemetry(telemetry);
+  const body = text.slice(0, 1900 - tel.length);
+
   try {
     const res = await fetch(env.WEBHOOK_OPS, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        embeds: [{ title, description: text.slice(0, 3800), color: 0x9b59b6, footer: { text: footer } }],
-      }),
+      body: JSON.stringify({ content: `${heading}\n${body}\n${tel}` }),
     });
     return { posted: res.ok };
   } catch {
@@ -116,7 +121,10 @@ async function handleSummarize(req, env) {
 
   const maxTurns = Number(env.MAX_TURNS || DEFAULT_MAX_TURNS);
 
+  const startedAt = Date.now();
+  const ragStart = Date.now();
   const matches = await retrieve(env, ragQuery(topic, data));
+  const ragMs = Date.now() - ragStart;
   const context = asContext(matches);
 
   let result;
@@ -136,10 +144,23 @@ async function handleSummarize(req, env) {
     return json({ error: String(e) }, e.status && e.status < 500 ? 400 : 502);
   }
 
-  const meta = { turns: result.turns, maxTurns, truncated: result.truncated, grounded: matches.length };
-  const posted = await postSummary(env, topic, data, result.text, meta);
+  const telemetry = {
+    model: HAIKU.replace(/^claude-/, "").replace(/-\d{8}$/, ""),
+    inputTokens: result.usage?.input_tokens,
+    outputTokens: result.usage?.output_tokens,
+    turns: result.turns,
+    maxTurns,
+    toolCalls: result.toolCalls,
+    truncated: result.truncated,
+    ragHits: matches.length,
+    hits: matches,
+    ragMs,
+    llmMs: result.llmMs,
+    totalMs: Date.now() - startedAt,
+  };
+  const posted = await postSummary(env, topic, data, result.text, telemetry);
 
-  return json({ ok: true, ...meta, usage: result.usage, ...posted });
+  return json({ ok: true, ...telemetry, hits: undefined, ...posted });
 }
 
 export default {
