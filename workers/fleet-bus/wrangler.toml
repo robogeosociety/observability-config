@@ -1,0 +1,58 @@
+# fleet-bus — the fleet message bus on Durable Objects, replacing the Valkey
+# container on the mini (robogeosociety/infra#26).
+#
+# Push-driven like host-vitals: the mini POSTs envelopes to /publish. Subscribers
+# are server-side, so there is no persistent connection from the mini and no
+# reconnect path to own on a host whose disk wedges.
+name = "fleet-bus"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+# SQLite-backed DOs: one object per topic, addressed by getByName(topic).
+[[durable_objects.bindings]]
+name = "TOPIC"
+class_name = "TopicDO"
+
+# Work topics get a distinct class: at-least-once with a durable backlog, acks and
+# quota-aware parking. Still addressed by topic name, so routing stays uniform.
+[[durable_objects.bindings]]
+name = "QUEUE"
+class_name = "QueueDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TopicDO", "QueueDO"]
+
+# Bus telemetry lands in the SAME dataset as host telemetry, so the existing
+# alerting can see bus liveness without a second query path. Column map is
+# positional and shared — see workers/host-vitals/README.md.
+[[analytics_engine_datasets]]
+binding = "VITALS"
+dataset = "host_vitals"
+
+# The digest's message id, so the rollup edits one message instead of posting a
+# stream of them. Losing this costs one duplicate, not correctness.
+[[kv_namespaces]]
+binding = "DIGEST"
+id = "50b2ce6e87394595bf2cbed917c5f97d"
+
+# Level-triggered half of #ops: alarms cover the edges, this covers "right now".
+# Hourly — frequent enough to be current, rare enough that an edited message is
+# not churning.
+[triggers]
+crons = ["7 * * * *"]
+
+[vars]
+# Hostname stamped into the AE `host` blob, matching what Vector reports so bus
+# rows and host rows line up on the same series key.
+BUS_HOST = "Tommys-Mac-mini"
+
+# Secrets (wrangler secret put):
+#   BUS_TOKEN       — shared bearer token; the mini is the only publisher
+#   WEBHOOK_OPS     — #ops Discord webhook, the `ops` subscriber route (deliver.js)
+#   HANDLER_SUMMARY — endpoint that turns a GitHub notification into a haiku
+#                     summary. Must answer 429 (or 200 {parked:true}) when its
+#                     token quota is exhausted; that is what parks the queue
+#                     instead of dead-lettering a backlog of healthy work.
+#   HANDLER_TOKEN   — optional bearer presented to handlers
