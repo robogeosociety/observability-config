@@ -133,3 +133,45 @@ test("the same note across different vaults stays distinct", () => {
     2,
   );
 });
+
+test("input reports the TOTAL, with the cached share broken out", () => {
+  // Measured from a real `claude -p` run: 10 fresh, 12,377 cache-write, 20,215
+  // cache-read. Reporting `input_tokens` alone would have said "10 in" for a
+  // 32.6k-token prompt.
+  const l = summaryLine({
+    ...base,
+    inputTokens: 32602,
+    freshInputTokens: 10,
+    cacheWriteTokens: 12377,
+    cacheReadTokens: 20215,
+    outputTokens: 39,
+  });
+  assert.match(l, /32\.6k in/);
+  assert.match(l, /32\.6k cached/);
+  assert.doesNotMatch(l, /\b10 in\b/);
+});
+
+test("no cache usage renders without a cache note", () => {
+  const l = summaryLine({ ...base, cacheWriteTokens: 0, cacheReadTokens: 0 });
+  assert.doesNotMatch(l, /cached/);
+});
+
+test("detail separates the token classes for cost attribution", () => {
+  // Cache writes cost more than fresh input and cache reads far less; a rollup
+  // cannot separate them after the fact.
+  const d = detailLine({
+    ...base,
+    freshInputTokens: 10,
+    cacheWriteTokens: 12377,
+    cacheReadTokens: 20215,
+    outputTokens: 39,
+  });
+  assert.match(d, /12\.4k cache-write/);
+  assert.match(d, /20\.2k cache-read/);
+});
+
+test("an unreported tool count says so rather than claiming zero", () => {
+  // The CLI envelope has no tool-call field; "0 tool calls" would be a claim we
+  // cannot make.
+  assert.match(detailLine({ ...base, toolCalls: null }), /not reported/);
+});

@@ -54,6 +54,13 @@ export function byNote(hits = []) {
   return [...best.values()].sort((a, b) => b.score - a.score);
 }
 
+/** "(28.5k cached)" when a meaningful share of the input was cache reads. */
+export function cacheNote(t) {
+  const cached = (t.cacheReadTokens || 0) + (t.cacheWriteTokens || 0);
+  if (!cached || !t.inputTokens) return "";
+  return ` (${compact(cached)} cached)`;
+}
+
 /**
  * The always-visible line.
  *
@@ -65,7 +72,11 @@ export function byNote(hits = []) {
 export function summaryLine(t) {
   const bits = [
     t.model,
-    `${compact(t.inputTokens)} in / ${compact(t.outputTokens)} out`,
+    // Total input, with the cached share broken out. `input_tokens` alone counts
+    // only uncached input — a measured run was 10 fresh against 32.6k total —
+    // so a single "in" number would understate the prompt enormously and price
+    // it wrongly, since the three classes bill differently.
+    `${compact(t.inputTokens)} in${cacheNote(t)} / ${compact(t.outputTokens)} out`,
     // Distinct notes, not raw chunks — see byNote().
     `${byNote(t.hits).length || t.ragHits} rag`,
     ms(t.totalMs),
@@ -109,7 +120,19 @@ export function detailLine(t) {
   if (t.llmMs != null) timings.push(`model ${ms(t.llmMs)}`);
   if (timings.length) parts.push(timings.join(", "));
 
-  parts.push(`${t.turns}/${t.maxTurns} turns, ${t.toolCalls} tool calls`);
+  // Token classes spelled out for cost attribution — cache writes cost more than
+  // fresh input, cache reads far less, and a rollup cannot separate them later.
+  if (t.cacheWriteTokens || t.cacheReadTokens) {
+    parts.push(
+      `tokens ${compact(t.freshInputTokens)} fresh / ${compact(t.cacheWriteTokens)} cache-write / ` +
+        `${compact(t.cacheReadTokens)} cache-read / ${compact(t.outputTokens)} out`,
+    );
+  }
+
+  // toolCalls is null when the runtime does not report it. "0 tool calls" would
+  // be a claim we cannot make.
+  const tools = t.toolCalls == null ? "tool calls not reported" : `${t.toolCalls} tool calls`;
+  parts.push(`${t.turns}/${t.maxTurns} turns, ${tools}`);
   if (t.truncated) parts.push("hit the turn ceiling — output is partial");
 
   return `-# ${parts.join(" · ")}`;
