@@ -97,6 +97,22 @@ export const CATALOG = {
     type: "event",
     handler: "summary",
   },
+
+  // An #ops alarm that has fired repeatedly, sent for explanation against the
+  // operator's own vault notes. Work rather than telemetry: the point is the
+  // written explanation, and a quota outage must not discard the backlog of
+  // alarms that were worth explaining.
+  //
+  // NOTE: nothing publishes this yet. Detecting that an alarm is REPEATING —
+  // counting occurrences in a window and firing once per burst rather than once
+  // per alarm — is not built. Registering the topic makes the lane addressable
+  // and testable; the producer is still owed.
+  "fleet.ops.alarm.repeated": {
+    cls: "work",
+    src: "gateway",
+    type: "event",
+    handler: "summary",
+  },
 };
 
 /** @returns {TopicSpec | null} */

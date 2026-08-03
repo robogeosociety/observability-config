@@ -27,7 +27,15 @@ def post(url: str, token: str, body: dict) -> tuple[int, str]:
         url,
         method="POST",
         data=json.dumps(body).encode(),
-        headers={"content-type": "application/json", "authorization": f"Bearer {token}"},
+        headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {token}",
+            # Cloudflare rejects urllib's default UA with error 1010 (blocked
+            # browser signature). Observed on the first real run — the model had
+            # already produced the summary, so the cost of this was a wasted
+            # generation, not just a retry.
+            "user-agent": "rgs-summarize/1.0",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310
