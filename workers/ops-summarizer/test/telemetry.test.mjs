@@ -62,13 +62,15 @@ test("hitting the ceiling is flagged where it cannot be missed", () => {
   assert.match(summaryLine({ ...base, truncated: true }), /turn ceiling/);
 });
 
-test("the detail line is a spoiler so it expands on demand", () => {
+test("the detail line is plain subtext, not a spoiler", () => {
   const d = detailLine(base);
-  assert.ok(d.startsWith("-# ||") && d.endsWith("||"), "must be a subtext spoiler");
+  assert.ok(d.startsWith("-# "), "must be Discord subtext");
+  assert.doesNotMatch(d, /\|\|/, "spoilers were deliberately dropped");
 });
 
-test("a newline would close the spoiler, so the detail stays single-line", () => {
-  // Discord ends `||…||` at a line break; multi-line detail silently leaks.
+test("the detail stays on one line", () => {
+  // Two short grey lines under a summary read as a footer; five read as a second
+  // message.
   assert.doesNotMatch(detailLine(base), /\n/);
 });
 
@@ -91,7 +93,7 @@ test("render produces exactly the two lines", () => {
   const lines = render(base).split("\n");
   assert.equal(lines.length, 2);
   assert.ok(lines[0].startsWith("-# ") && !lines[0].includes("||"));
-  assert.ok(lines[1].startsWith("-# ||"));
+  assert.ok(lines[1].startsWith("-# ") && !lines[1].includes("||"));
 });
 
 test("chunk hits collapse to distinct notes, best score first", () => {

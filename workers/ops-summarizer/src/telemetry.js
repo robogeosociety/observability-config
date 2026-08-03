@@ -11,19 +11,14 @@
 // calls — without turning the footer into a paragraph. The rule is one visible
 // line, everything else behind a spoiler.
 //
-// SPOILERS. `||text||` renders as a click-to-reveal blackout, and it composes with
-// `-#`, so `-# ||…||` is small grey text that stays hidden until clicked. That is
-// as close to expand-on-demand as Discord offers — there is no native collapsible
-// block. Two constraints worth knowing, both verified rather than assumed:
+// Both lines are plain `-#` subtext. Spoilers (`||…||`) were tried and dropped by
+// preference — they are the only expand-on-demand Discord offers, but they make
+// the reader click to see whether an answer was grounded, which is exactly the
+// thing worth seeing at a glance.
 //
-//   * Spoilers work in message CONTENT and in embed DESCRIPTIONS. They do NOT
-//     render in an embed footer, which is plain text — the footer would show the
-//     literal pipes. So telemetry moved out of the footer and into the body.
-//   * A newline inside `||…||` ends the spoiler. Multi-line detail therefore has
-//     to be one line with separators, not a code block.
-//
-// NOT in an embed field either: fields are laid out in columns and a long
-// telemetry string wraps badly next to a summary.
+// Still not an embed: the telemetry uses `-#` subtext, which does not render in an
+// embed footer (plain text) and wraps badly in a field (columns). Plain message
+// content also matches the @obsidian bot's existing shape.
 
 /** 12345 → "12.3k". Matches the existing bot's token formatting. */
 export function compact(n) {
@@ -82,11 +77,11 @@ export function summaryLine(t) {
 }
 
 /**
- * The spoilered detail line — the part worth clicking for when a summary looks
- * wrong: which notes grounded it and where the time went.
+ * The second subtext line: which notes grounded the answer and where the time
+ * went — the detail you want when a summary looks wrong.
  *
- * Single line by necessity (a newline closes the spoiler), so separators do the
- * work of layout.
+ * Kept to one line with separators rather than wrapped across several. Two short
+ * grey lines under a summary read as a footer; five read as a second message.
  */
 export function detailLine(t) {
   const parts = [];
@@ -117,7 +112,7 @@ export function detailLine(t) {
   parts.push(`${t.turns}/${t.maxTurns} turns, ${t.toolCalls} tool calls`);
   if (t.truncated) parts.push("hit the turn ceiling — output is partial");
 
-  return `-# ||${parts.join(" · ")}||`;
+  return `-# ${parts.join(" · ")}`;
 }
 
 /** Both lines, ready to append to a message body. */
