@@ -127,6 +127,9 @@ async function handlePost(req, env) {
   const tel = renderTelemetry({
     model: telemetry.model || "claude -p",
     inputTokens: telemetry.inputTokens,
+    freshInputTokens: telemetry.freshInputTokens,
+    cacheWriteTokens: telemetry.cacheWriteTokens,
+    cacheReadTokens: telemetry.cacheReadTokens,
     outputTokens: telemetry.outputTokens,
     turns: telemetry.turns ?? 1,
     maxTurns: telemetry.maxTurns ?? Number(env.MAX_TURNS || 3),
@@ -135,7 +138,7 @@ async function handlePost(req, env) {
     ragHits: telemetry.ragHits ?? (telemetry.hits || []).length,
     hits: telemetry.hits || [],
     ragMs: telemetry.ragMs,
-    llmMs: telemetry.llmMs,
+    llmMs: telemetry.apiMs ?? telemetry.llmMs,
     totalMs: telemetry.totalMs,
   });
 

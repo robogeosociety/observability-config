@@ -64,13 +64,31 @@ def claude_output() -> tuple[str, dict]:
     text = d.get("result") or d.get("text") or d.get("content") or ""
     if isinstance(text, list):  # content-block form
         text = "".join(b.get("text", "") for b in text if isinstance(b, dict))
-    usage = d.get("usage") or {}
+
+    # `input_tokens` alone is a trap: it counts only the UNCACHED input. A real
+    # run measured 10 input / 12,377 cache-write / 20,215 cache-read — so
+    # reporting input_tokens would have understated the prompt by 3000x, and the
+    # three classes are priced differently, which matters for cost aggregation
+    # (robogeosociety/infra cost dashboard).
+    u = d.get("usage") or {}
+    cache_write = u.get("cache_creation_input_tokens") or 0
+    cache_read = u.get("cache_read_input_tokens") or 0
+    fresh_in = u.get("input_tokens") or 0
+
     return str(text).strip(), {
-        "inputTokens": usage.get("input_tokens"),
-        "outputTokens": usage.get("output_tokens"),
+        "inputTokens": fresh_in + cache_write + cache_read,
+        "freshInputTokens": fresh_in,
+        "cacheWriteTokens": cache_write,
+        "cacheReadTokens": cache_read,
+        "outputTokens": u.get("output_tokens"),
         "turns": d.get("num_turns") or 1,
-        # The CLI reports total turns, not tool calls; absent is honest.
-        "toolCalls": d.get("num_tool_uses") or 0,
+        # The CLI envelope has no tool-call count. Absent rather than invented —
+        # an earlier version read a `num_tool_uses` key that does not exist and
+        # would have silently reported 0 forever.
+        "toolCalls": None,
+        # The CLI's own timing beats wall-clock around the step: it excludes CLI
+        # startup and install.
+        "apiMs": d.get("duration_api_ms"),
     }
 
 
