@@ -160,6 +160,22 @@ export default {
 
     if (req.method === "GET" && path === "/stat") return json({ topics: await collectStat(env) });
 
+    // Out-of-band ack from whatever actually ran a work job — a GitHub Actions
+    // run under subscription auth, since the model does not run in a Worker.
+    if (req.method === "POST" && path === "/ack") {
+      let body;
+      try {
+        body = await req.json();
+      } catch {
+        return json({ error: "body is not JSON" }, 400);
+      }
+      const { topic, id, failed, reason } = body || {};
+      const spec = specFor(topic);
+      if (!spec || spec.cls !== "work") return json({ error: `not a work topic: ${topic}` }, 404);
+      if (!Number.isInteger(id)) return json({ error: "id must be an integer" }, 400);
+      return json(await env.QUEUE.getByName(topic).ack(id, { failed: Boolean(failed), reason }));
+    }
+
     // Manual digest trigger, so the rollup can be exercised without waiting for
     // cron — the same entry point the scheduled handler uses.
     if (req.method === "POST" && path === "/digest") {

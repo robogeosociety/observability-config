@@ -16,6 +16,8 @@
 // So the queue distinguishes three outcomes, and only one of them counts against
 // an item:
 //
+//   leased    2xx {leased}   handed to GitHub Actions, which will ack when the
+//                           model run finishes. NOT deleted — see below.
 //   ack       2xx           done, delete it
 //   parked    429 / quota   NOT the item's fault — park the WHOLE queue until
 //                           `parked_until`, leave attempts untouched, resume
@@ -26,12 +28,24 @@
 // Parking is queue-wide on purpose. Quota is a shared resource: if item 1 was
 // rejected for quota, items 2..N will be too, and trying them just deepens the
 // hole while spending the retry budget of items that were never broken.
+//
+// LEASES exist because the model does not run here. Claude work runs in GitHub
+// Actions under subscription auth (the CLI holds it and a Worker cannot run the
+// CLI), so the handler only *dispatches* — the answer arrives minutes later. A
+// queue that acked on dispatch would lose any summary whose workflow failed, and
+// GHA timeouts conclude as `cancelled`, a failure mode this fleet has already
+// been bitten by silently. So a dispatched job stays in the queue under a lease;
+// the workflow acks it on success, and an expired lease simply becomes due again.
 import { DurableObject } from "cloudflare:workers";
 
 const MAX_ATTEMPTS = 5;
 const BATCH = 10; // items drained per alarm — bounded so one alarm cannot run long
 const BASE_BACKOFF_MS = 30_000;
 const QUOTA_COOLDOWN_MS = 15 * 60_000; // how long to park before probing again
+// Generous: a cold Actions runner installing the CLI and running a model can take
+// minutes. Too short and we double-dispatch; too long and a genuinely lost run
+// sits invisible. 20 minutes is past the p99 of the existing card-enrich lane.
+const LEASE_MS = 20 * 60_000;
 
 export class QueueDO extends DurableObject {
   constructor(ctx, env) {
@@ -43,7 +57,11 @@ export class QueueDO extends DurableObject {
           envelope  TEXT NOT NULL,
           attempts  INTEGER NOT NULL DEFAULT 0,
           not_before INTEGER NOT NULL DEFAULT 0,
-          created_at INTEGER NOT NULL
+          created_at INTEGER NOT NULL,
+          -- Set when a job has been handed to an async worker (a GitHub Actions
+          -- run) that will ack it later. Until the lease expires the job is
+          -- neither runnable nor deleted: it is out for delivery.
+          leased_until INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS dead (
           id        INTEGER PRIMARY KEY,
@@ -74,14 +92,59 @@ export class QueueDO extends DurableObject {
     return { ok: true, id, depth: this.#depth() };
   }
 
+  /**
+   * Out-of-band ack from the worker that actually ran the job.
+   *
+   * Idempotent: acking an unknown or already-deleted id is a no-op success, so a
+   * workflow that retries its callback cannot fail on the second attempt.
+   */
+  async ack(id, { failed = false, reason = null } = {}) {
+    const rows = this.ctx.storage.sql
+      .exec("SELECT id, envelope, attempts FROM jobs WHERE id = ?", id)
+      .toArray();
+    if (!rows.length) return { ok: true, unknown: true };
+
+    if (!failed) {
+      this.ctx.storage.sql.exec("DELETE FROM jobs WHERE id = ?", id);
+      return { ok: true, acked: id };
+    }
+
+    // An explicit failure is worth more than a silent lease expiry: it tells us
+    // now rather than in 20 minutes, so clear the lease and let backoff apply.
+    const row = rows[0];
+    if (row.attempts >= MAX_ATTEMPTS) {
+      this.ctx.storage.sql.exec(
+        "INSERT OR REPLACE INTO dead (id, envelope, reason, failed_at) VALUES (?, ?, ?, ?)",
+        row.id,
+        row.envelope,
+        reason || "workflow reported failure",
+        Date.now(),
+      );
+      this.ctx.storage.sql.exec("DELETE FROM jobs WHERE id = ?", id);
+      return { ok: true, dead: id };
+    }
+    const delay = BASE_BACKOFF_MS * 2 ** Math.max(0, row.attempts - 1);
+    this.ctx.storage.sql.exec(
+      "UPDATE jobs SET leased_until = 0, not_before = ? WHERE id = ?",
+      Date.now() + delay,
+      id,
+    );
+    await this.#ensureAlarm(Date.now(), true);
+    return { ok: true, retrying: id };
+  }
+
   /** Queue health for the #ops digest. */
   async stat() {
     const parked = this.#parked();
     const oldest = this.ctx.storage.sql
       .exec("SELECT created_at FROM jobs ORDER BY id LIMIT 1")
       .toArray();
+    const leased = this.ctx.storage.sql
+      .exec("SELECT COUNT(*) AS n FROM jobs WHERE leased_until > ?", Date.now())
+      .one().n;
     return {
       depth: this.#depth(),
+      leased,
       dead: this.ctx.storage.sql.exec("SELECT COUNT(*) AS n FROM dead").one().n,
       parkedUntil: parked.until > Date.now() ? parked.until : null,
       parkedReason: parked.until > Date.now() ? parked.reason : null,
@@ -101,7 +164,10 @@ export class QueueDO extends DurableObject {
 
     const rows = this.ctx.storage.sql
       .exec(
-        "SELECT id, envelope, attempts FROM jobs WHERE not_before <= ? ORDER BY id LIMIT ?",
+        `SELECT id, envelope, attempts FROM jobs
+          WHERE not_before <= ? AND leased_until <= ?
+          ORDER BY id LIMIT ?`,
+        now,
         now,
         BATCH,
       )
@@ -112,6 +178,19 @@ export class QueueDO extends DurableObject {
 
       if (outcome.kind === "ack") {
         this.ctx.storage.sql.exec("DELETE FROM jobs WHERE id = ?", row.id);
+        continue;
+      }
+
+      if (outcome.kind === "leased") {
+        // Out for delivery. Attempts is incremented so a workflow that never acks
+        // cannot retry forever — the lease expiring is a failed attempt, which is
+        // exactly what it is.
+        this.ctx.storage.sql.exec(
+          "UPDATE jobs SET leased_until = ?, attempts = ? WHERE id = ?",
+          Date.now() + (outcome.leaseMs || LEASE_MS),
+          row.attempts + 1,
+          row.id,
+        );
         continue;
       }
 
@@ -199,6 +278,10 @@ export class QueueDO extends DurableObject {
       if (body && body.parked) {
         return { kind: "parked", reason: body.reason || "handler reported quota", retryAfterMs: body.retryAfterMs };
       }
+      // The handler dispatched the work elsewhere and will ack out of band.
+      if (body && body.leased) {
+        return { kind: "leased", leaseMs: body.leaseMs };
+      }
       return { kind: "ack" };
     }
 
@@ -235,8 +318,11 @@ export class QueueDO extends DurableObject {
 
   /** Arm the alarm for the next due job, if any. */
   async #ensureAlarm(now, force = false) {
+    // A leased job becomes runnable again when its lease lapses, so the wake-up
+    // time is whichever comes first — otherwise a lost workflow would leave the
+    // job parked until some unrelated publish happened to re-arm the alarm.
     const next = this.ctx.storage.sql
-      .exec("SELECT MIN(not_before) AS t FROM jobs")
+      .exec("SELECT MIN(MAX(not_before, leased_until)) AS t FROM jobs")
       .toArray();
     if (!next.length || next[0].t == null) return; // queue empty — no alarm
     const at = Math.max(now, next[0].t);
