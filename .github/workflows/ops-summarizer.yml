@@ -55,7 +55,24 @@ jobs:
           APP_ID: ${{ secrets.APP_ID }}
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
           HANDLER_TOKEN: ${{ secrets.OPS_SUMMARIZER_TOKEN }}
+          # Needed to ack fleet-bus once a run finishes. Its absence was silent:
+          # /post returned {"posted":true,"acked":null} — the summary reached #ops
+          # and the queue never learned, so the job sat leased until it expired and
+          # the same summary was generated again.
+          BUS_TOKEN: ${{ secrets.BUS_TOKEN }}
+          WEBHOOK_OPS: ${{ secrets.WEBHOOK_OPS }}
         run: |
+          missing=""
+          for n in APP_ID APP_PRIVATE_KEY HANDLER_TOKEN BUS_TOKEN WEBHOOK_OPS; do
+            eval "v=\$$n"
+            [ -n "$v" ] || missing="$missing $n"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::empty or unset secrets:$missing — refusing to overwrite live values"
+            exit 1
+          fi
           printf '%s' "$APP_ID"          | npx wrangler@4 secret put APP_ID
           printf '%s' "$APP_PRIVATE_KEY" | npx wrangler@4 secret put APP_PRIVATE_KEY
           printf '%s' "$HANDLER_TOKEN"   | npx wrangler@4 secret put HANDLER_TOKEN
+          printf '%s' "$BUS_TOKEN"       | npx wrangler@4 secret put BUS_TOKEN
+          printf '%s' "$WEBHOOK_OPS"     | npx wrangler@4 secret put WEBHOOK_OPS
