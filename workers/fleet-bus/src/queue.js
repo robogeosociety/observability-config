@@ -189,7 +189,12 @@ export class QueueDO extends DurableObject {
       .toArray();
 
     for (const row of rows) {
-      const outcome = await this.#process(JSON.parse(row.envelope));
+      // The row id must travel with the job. Without it the handler cannot tell
+      // the async worker WHICH row to ack, and — because the workflow keys its
+      // concurrency group on the id — every dispatch collided in one group named
+      // `summarize-`, so each new run cancelled the previous pending one. Both
+      // failures had the same single cause.
+      const outcome = await this.#process(JSON.parse(row.envelope), row.id);
 
       if (outcome.kind === "ack") {
         this.ctx.storage.sql.exec("DELETE FROM jobs WHERE id = ?", row.id);
@@ -252,7 +257,7 @@ export class QueueDO extends DurableObject {
    * topic. The classification is the part that matters, and it is deliberately
    * explicit about quota: a 429, or an explicit `{parked:true}`, parks the queue.
    */
-  async #process(envelope) {
+  async #process(envelope, jobId) {
     const route = envelope?.data?.handler || "default";
     const url = this.env[`HANDLER_${route.toUpperCase()}`];
     if (!url) return { kind: "failed", terminal: true, reason: `no handler for route ${route}` };
@@ -265,7 +270,7 @@ export class QueueDO extends DurableObject {
           "content-type": "application/json",
           ...(this.env.HANDLER_TOKEN ? { authorization: `Bearer ${this.env.HANDLER_TOKEN}` } : {}),
         },
-        body: JSON.stringify(envelope),
+        body: JSON.stringify({ ...envelope, jobId }),
       });
     } catch (e) {
       return { kind: "failed", terminal: false, reason: `fetch failed: ${e}` };
