@@ -19,8 +19,12 @@ on:
 # One at a time per job id. Two runs summarising the same queue row would both
 # post and both ack, and the second ack would be a no-op on an already-deleted
 # row — harmless, but the duplicate message is not.
+# Keyed on the queue row id. `github.run_id` is the fallback so a payload without
+# an id gets its OWN group rather than collapsing every dispatch into one named
+# `summarize-` — which is what happened: each new run cancelled the previous
+# pending one, and none of them ever ran.
 concurrency:
-  group: summarize-${{ github.event.client_payload.jobId }}
+  group: summarize-${{ github.event.client_payload.jobId || github.run_id }}
   cancel-in-progress: false
 
 jobs:
