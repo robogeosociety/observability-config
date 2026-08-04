@@ -124,3 +124,24 @@ test("an unrenderable payload degrades instead of throwing", () => {
   const e = render({ kind: "event", topic: "fleet.wiki.request.pending", envelope: { data: circular } });
   assert.match(e.description, /not renderable/);
 });
+
+// --- repetition thresholds -------------------------------------------------
+// The DO itself needs the workerd runtime, so what is asserted here is the
+// contract the escalation depends on: the topic it publishes to must exist, be
+// `work` (durable — a burst explanation must survive a quota outage), and route
+// to the summary handler.
+
+test("the escalation target topic is registered and durable", () => {
+  const spec = specFor("fleet.ops.alarm.repeated");
+  assert.ok(spec, "TopicDO escalates to this topic; unregistered means publish 404s");
+  assert.equal(spec.cls, "work", "must be durable — a burst is not drop-safe");
+  assert.equal(spec.handler, "summary");
+});
+
+test("escalation source and type match what TopicDO publishes", () => {
+  // TopicDO builds the envelope by hand, so a mismatch here is a 422 at publish
+  // time that only shows up when an alarm actually repeats.
+  const spec = specFor("fleet.ops.alarm.repeated");
+  assert.equal(spec.src, "gateway");
+  assert.equal(spec.type, "event");
+});

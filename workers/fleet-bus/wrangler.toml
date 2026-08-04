@@ -48,6 +48,13 @@ crons = ["7 * * * *"]
 # rows and host rows line up on the same series key.
 BUS_HOST = "Tommys-Mac-mini"
 
+# Repetition detection. An alarm firing is routine; an alarm firing REPEATEDLY is
+# a different fact, and the one worth spending a model call to explain. Escalation
+# fires ONCE per burst and re-arms only after a recovery, so a flapping topic
+# produces one explanation rather than a stream of near-identical ones.
+ALARM_WINDOW_MIN = "180"
+ALARM_REPEAT_THRESHOLD = "3"
+
 # Secrets (wrangler secret put):
 #   BUS_TOKEN       — shared bearer token; the mini is the only publisher
 #   WEBHOOK_OPS     — #ops Discord webhook, the `ops` subscriber route (deliver.js)

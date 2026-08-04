@@ -52,6 +52,18 @@ export class TopicDO extends DurableObject {
         -- Tracks whether we have already announced silence for this topic, so a
         -- late heartbeat produces exactly one recovery and a long outage does not
         -- re-announce on every alarm.
+        -- Every silence announcement, for repetition detection. Rows outside the
+        -- window are pruned on write, so this stays small without a sweeper.
+        CREATE TABLE IF NOT EXISTS alarms (
+          at        INTEGER PRIMARY KEY,
+          reason    TEXT
+        );
+        -- One row per topic marking the burst we have already escalated, so a
+        -- flapping alarm produces ONE explanation rather than one per firing.
+        CREATE TABLE IF NOT EXISTS escalated (
+          topic     TEXT PRIMARY KEY,
+          at        INTEGER NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS liveness (
           topic     TEXT PRIMARY KEY,
           silent    INTEGER NOT NULL DEFAULT 0,
@@ -85,6 +97,10 @@ export class TopicDO extends DurableObject {
     const wasSilent = this.#silentState(topic);
     if (wasSilent.silent) {
       this.#setSilent(topic, false, null);
+      // A recovery ends the burst. Without this, one escalation would suppress
+      // every future one for this topic forever.
+      this.ctx.storage.sql.exec("DELETE FROM escalated WHERE topic = ?", topic);
+      this.ctx.storage.sql.exec("DELETE FROM alarms");
       await deliver(this.env, topic, {
         kind: "recovered",
         topic,
@@ -180,7 +196,66 @@ export class TopicDO extends DurableObject {
         topic: row.topic,
         lastSeenSec: Math.round((now - row.updated_at) / 1000),
       });
+      await this.#recordAndMaybeEscalate(row.topic, now, `no publish within the topic's TTL`);
     }
+  }
+
+  /**
+   * Count how often this topic has gone silent lately, and escalate a burst once.
+   *
+   * An alarm firing is routine; an alarm firing REPEATEDLY is a different fact,
+   * and it is the one worth spending a model call to explain. So escalation is
+   * gated on a count within a window rather than on any single firing.
+   *
+   * Fires ONCE per burst. Escalating on every firing past the threshold would
+   * turn a flapping alarm into a stream of near-identical summaries — the exact
+   * noise the summary is meant to replace. The marker clears on recovery, so the
+   * NEXT burst escalates again.
+   */
+  async #recordAndMaybeEscalate(topic, now, reason) {
+    const windowMs = Number(this.env.ALARM_WINDOW_MIN || 180) * 60_000;
+    const threshold = Number(this.env.ALARM_REPEAT_THRESHOLD || 3);
+
+    this.ctx.storage.sql.exec("INSERT OR REPLACE INTO alarms (at, reason) VALUES (?, ?)", now, reason);
+    // Prune on write rather than sweeping: the table only grows here.
+    this.ctx.storage.sql.exec("DELETE FROM alarms WHERE at < ?", now - windowMs);
+
+    const rows = this.ctx.storage.sql
+      .exec("SELECT at FROM alarms ORDER BY at")
+      .toArray();
+    if (rows.length < threshold) return;
+
+    // Already escalated this burst?
+    const prior = this.ctx.storage.sql
+      .exec("SELECT at FROM escalated WHERE topic = ?", topic)
+      .toArray();
+    if (prior.length) return;
+
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO escalated (topic, at) VALUES (?, ?)",
+      topic,
+      now,
+    );
+
+    if (!this.env.QUEUE) return; // binding absent in tests
+
+    const samples = rows.slice(-5).map((r) => new Date(r.at).toISOString().slice(11, 19) + " silent");
+    await this.env.QUEUE.getByName("fleet.ops.alarm.repeated").enqueue({
+      v: 1,
+      ts: now / 1000,
+      src: "gateway",
+      topic: "fleet.ops.alarm.repeated",
+      type: "event",
+      data: {
+        handler: "summary",
+        title: `${topic} keeps going silent`,
+        topic,
+        count: rows.length,
+        windowMin: Math.round(windowMs / 60_000),
+        reason,
+        samples,
+      },
+    });
   }
 
   #silentState(topic) {
