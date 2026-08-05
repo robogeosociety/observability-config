@@ -25,7 +25,15 @@
 //
 //   --index NAME   default obsidian-vaults
 //   --vaults DIR,… default ~/obsidian/{dev,camping,gear,home,travel}
+//
+// NOTE: --vaults must list EVERY vault in the index. Ids are content hashes and
+// carry no vault tag, so there is no way to scope a reconcile to one vault: any
+// vault you leave out looks entirely deleted. Narrowing it is a 94%-orphan run
+// that the blast-radius guard refuses — which is the guard doing its job, not a
+// bug to work around with --max-delete-fraction.
 //   --max-delete-fraction F  refuse above this share of the index (default 0.10)
+//
+//   WRANGLER_CMD  how to invoke wrangler (default "wrangler"; CI uses "npx --yes wrangler@4")
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -33,6 +41,13 @@ import { stat } from "node:fs/promises";
 import { chunksForVault } from "./vault-chunks.mjs";
 
 const run = promisify(execFile);
+
+// How to invoke wrangler. The mini's Actions runner has node but no wrangler, and
+// installing one there would put a version of this lane's tooling in host state —
+// the failure mode the fleet keeps rediscovering. The workflow passes
+// WRANGLER_CMD="npx --yes wrangler@4", which needs nothing installed and pins the
+// version in the workflow file where it is reviewable.
+const WRANGLER = (process.env.WRANGLER_CMD || "wrangler").trim().split(/\s+/);
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -49,7 +64,8 @@ const VAULTS = flag("--vaults", ["dev", "camping", "gear", "home", "travel"]
 const DELETE_BATCH = 500;
 
 async function wrangler(subcommand) {
-  const { stdout } = await run("wrangler", subcommand, { maxBuffer: 32 * 1024 * 1024 });
+  const [bin, ...prefix] = WRANGLER;
+  const { stdout } = await run(bin, [...prefix, ...subcommand], { maxBuffer: 32 * 1024 * 1024 });
   return stdout;
 }
 
@@ -120,7 +136,8 @@ export function refuseReason(orphanCount, indexSize, maxFraction) {
   const fraction = orphanCount / indexSize;
   if (fraction > maxFraction) {
     return `${orphanCount}/${indexSize} vectors (${(fraction * 100).toFixed(1)}%) look orphaned, over the ${(maxFraction * 100).toFixed(0)}% ceiling — `
-      + "that is the shape of a bad read, not a day of edits. Re-run with a higher --max-delete-fraction if it is genuinely a large deletion.";
+      + "that is the shape of a bad read or a partial --vaults list, not a day of edits. "
+      + "Raise --max-delete-fraction only once you have confirmed which notes actually went away.";
   }
   return null;
 }
