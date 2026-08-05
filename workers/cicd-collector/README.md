@@ -19,7 +19,7 @@ build on next.
 | cron            | beat      | what happens                                                        |
 | --------------- | --------- | ------------------------------------------------------------------- |
 | `*/5 * * * *`   | poll      | completed runs since the overlap window → `cicd_workflow_runs`; red default-branch runs → one compact `#ops` message (alert-once per `run_id:attempt`); one `cicd_collector_polls` heartbeat row |
-| `3-58/5 * * * *`| vitals    | reads the mini's `host_vitals` dataset back through the AE SQL API; disk / memory / vector-silence breaches → one compact `#ops` message (alert-once per signal per day) + a heartbeat row |
+| `3-58/5 * * * *`| vitals    | reads the mini's `host_vitals` dataset back through the AE SQL API; disk / memory / vector-silence / bus-silence breaches → one compact `#ops` message (alert-once per signal per day) + a heartbeat row |
 | `7 * * * *`     | inventory | one `cicd_workflow_inventory` row per workflow file per repo (the pipeline map, run-or-not) + a heartbeat row |
 
 Discovery is dynamic (`GET /installation/repositories`, non-archived): a new
@@ -52,7 +52,7 @@ blob2 outcome (`ok`|`error`); doubles: repos, runs_seen, runs_written,
 alerts_sent, errors, api_calls, duration_ms, rate_remaining. The doubles are
 named for the poll beat; the **vitals** beat reuses the same row shape (one
 heartbeat dataset per Worker) with `repos` = signals evaluated, `runs_seen` =
-signals breaching, `api_calls` = 3 (its AE queries), and `rate_remaining` = -1.
+signals breaching, `api_calls` = 4 (its AE queries), and `rate_remaining` = -1.
 
 ## Design deltas from #149
 
@@ -96,6 +96,7 @@ binding it has no other use for, and split alert state across two Workers.)
 | **disk** | `filesystem_used_ratio` per mount, weighted mean over `VITALS_DISK_WINDOW_MIN` | mount over `VITALS_DISK_ALERT_RATIO` |
 | **memory** | `memory_available_bytes`, weighted mean over `VITALS_MEM_WINDOW_MIN` | under `VITALS_MEM_ALERT_BYTES` with ≥ `VITALS_MEM_MIN_SAMPLES` samples. `memory_swap_used_bytes` rides the same query as context on the line, never as a trigger |
 | **vector-silent** | `max(double2)` per host | newest **source** observation older than `VITALS_SILENT_SEC`, or the host absent from the whole `VITALS_FRESH_LOOKBACK_MIN` window |
+| **bus-silent** | `max(double2)` of `bus.fleet.supervisor.tick` (collector `bus` — the fleet-bus Worker mirrors every publish) | **self-arming**: newest row older than `VITALS_BUS_SILENT_SEC` *and* newer than `VITALS_BUS_DISARM_SEC` — quiet before the mini's dual-publish (obs-config#174) ever starts, and quiet again if the lane is formally retired |
 
 Freshness reads `double2` (source time), not the row timestamp: AE stamps rows
 at write time, so a Vector that buffered for an hour and then flushed looks
