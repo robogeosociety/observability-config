@@ -23,19 +23,52 @@ export const idFor = (rel, i) => `${createHash("sha1").update(rel).digest("hex")
 export const MAX_CHARS = 1200;
 export const MIN_CHARS = 80;
 
+/**
+ * Split one over-budget paragraph. Prefers a line break, then a space, and only
+ * hard-cuts mid-word when a paragraph contains neither — a data table or a pasted
+ * blob, where there is no good boundary to find.
+ */
+function splitLong(p) {
+  const out = [];
+  let rest = p;
+  while (rest.length > MAX_CHARS) {
+    let cut = rest.lastIndexOf("\n", MAX_CHARS);
+    if (cut < MIN_CHARS) cut = rest.lastIndexOf(" ", MAX_CHARS);
+    if (cut < MIN_CHARS) cut = MAX_CHARS;
+    out.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest) out.push(rest);
+  return out.filter((c) => c.length > 0);
+}
+
 export function chunk(text) {
   const out = [];
   let buf = "";
+  const flush = () => {
+    if (buf.trim().length >= MIN_CHARS) out.push(buf.trim());
+    buf = "";
+  };
   for (const para of text.split(/\n{2,}/)) {
     const p = para.trim();
     if (!p) continue;
-    if (buf.length + p.length + 2 > MAX_CHARS && buf.length >= MIN_CHARS) {
-      out.push(buf.trim());
-      buf = "";
+
+    // A single paragraph can exceed the budget on its own — a data table, a pasted
+    // blob, a long list with no blank lines. Splitting only BETWEEN paragraphs let
+    // those through whole: the home vault grew a 15,886-char note and every upsert
+    // batch containing it failed with VECTOR_UPSERT_ERROR 40023, because chunk text
+    // rides in Vectorize metadata and metadata is capped at ~10 KiB per vector.
+    // The mirror had been failing on `home` every run.
+    if (p.length > MAX_CHARS) {
+      flush();
+      for (const piece of splitLong(p)) if (piece.length >= MIN_CHARS) out.push(piece);
+      continue;
     }
+
+    if (buf.length + p.length + 2 > MAX_CHARS && buf.length >= MIN_CHARS) flush();
     buf += (buf ? "\n\n" : "") + p;
   }
-  if (buf.trim().length >= MIN_CHARS) out.push(buf.trim());
+  flush();
   return out;
 }
 
