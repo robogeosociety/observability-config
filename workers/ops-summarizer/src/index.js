@@ -33,6 +33,25 @@ const authorized = (req, env) =>
   Boolean(env.HANDLER_TOKEN) &&
   timingSafeEqual(req.headers.get("authorization") || "", `Bearer ${env.HANDLER_TOKEN}`);
 
+/**
+ * /mcp accepts a SECOND, search-only bearer as well as HANDLER_TOKEN.
+ *
+ * The MCP clients are the fleet's channel bots, and they run with
+ * `--dangerously-skip-permissions`. HANDLER_TOKEN unlocks `/post` (which posts to the
+ * #ops webhook), `/ingest` (which rewrites the retrieval index), `/summarize` and
+ * `/fail` — none of which a bot asking "what does the vault say about X" needs. One
+ * credential for every caller is tidy right up until the tidiest caller is a language
+ * model with a shell.
+ *
+ * MCP_TOKEN unlocks this route and nothing else. Unset, the route behaves exactly as
+ * before, so this is additive: fleet-bus and the workflows keep using HANDLER_TOKEN.
+ */
+const authorizedForMcp = (req, env) => {
+  const header = req.headers.get("authorization") || "";
+  if (authorized(req, env)) return true;
+  return Boolean(env.MCP_TOKEN) && timingSafeEqual(header, `Bearer ${env.MCP_TOKEN}`);
+};
+
 /** The retrieval query for a job — what we search the vault for. */
 function ragQuery(topic, data) {
   if (topic === "fleet.ops.alarm.repeated") {
@@ -194,6 +213,13 @@ export default {
       });
     }
 
+    // Checked before the global gate so a search-only bearer can reach this route
+    // without being handed the write surface behind it.
+    if (url.pathname === "/mcp") {
+      if (!authorizedForMcp(req, env)) return json({ error: "unauthorized" }, 401);
+      return handleMcp(req, env, { retrieve });
+    }
+
     if (!authorized(req, env)) return json({ error: "unauthorized" }, 401);
 
     // The dev vault as an MCP tool. Same bearer as everything else here, so a
@@ -201,7 +227,6 @@ export default {
     // Reached by every Claude surface that speaks MCP — headless `claude -p`
     // jobs, the channel bots, interactive sessions — because MCP config is
     // per project/user, not per session.
-    if (url.pathname === "/mcp") return handleMcp(req, env, { retrieve });
 
     if (req.method === "POST" && url.pathname === "/summarize") return handleSummarize(req, env);
     if (req.method === "POST" && url.pathname === "/post") return handlePost(req, env);
