@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- External watchdog for the observability container stack. Runs on the host (NOT a
-     container) every 2 min, so it can page when OrbStack/Grafana itself is down. Loaded
-     by watchdog/deploy.sh. Runs the internal-disk copy (never /Volumes under launchd). -->
+<!-- External watchdog: probes the fleet-bus supervisor tick, the container engine and
+     the /Volumes/dev wedge from the host every 2 min — independent of Cloudflare AND of
+     the containers, so it can page when either is the broken piece. Loaded by
+     watchdog/deploy.sh. Runs the internal-disk copy (never /Volumes under launchd). -->
 <plist version="1.0">
 <dict>
   <key>Label</key>
