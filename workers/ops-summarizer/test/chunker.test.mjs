@@ -67,3 +67,40 @@ test("no chunk from a realistic mixed note comes near the metadata cap", () => {
     assert.ok(c.length * 4 < 10 * 1024, "must stay clear of the ~10 KiB metadata cap even as UTF-8");
   }
 });
+
+// ── the invisible-note invariant ────────────────────────────────────────────
+
+test("a note shorter than MIN_CHARS still produces one chunk", async () => {
+  // Measured before this fix: 187 of 1,913 notes across the five vaults produced
+  // nothing and were absent from the index — 30% of `gear`, 66% of `travel`.
+  // Silently, because nothing counts notes that produced nothing.
+  const { chunksForVault } = await import("../scripts/vault-chunks.mjs");
+  const { mkdtemp, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+
+  const dir = await mkdtemp(join(tmpdir(), "shortvault-"));
+  await writeFile(join(dir, "stub.md"), "---\ntags: [x]\n---\n\nSee [[Other Note]].\n");
+  const out = await chunksForVault(dir, "v");
+  assert.equal(out.length, 1, "a stub note must be indexed, not dropped");
+  assert.match(out[0].text, /See \[\[Other Note\]\]/);
+});
+
+test("a note that is only front matter is still skipped", async () => {
+  // The floor governs splitting, not inclusion — but an empty note has nothing to
+  // retrieve, and indexing it would put a titleless blank in every result set.
+  const { chunksForVault } = await import("../scripts/vault-chunks.mjs");
+  const { mkdtemp, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+
+  const dir = await mkdtemp(join(tmpdir(), "emptyvault-"));
+  await writeFile(join(dir, "empty.md"), "---\ntags: [x]\n---\n\n\n");
+  assert.deepEqual(await chunksForVault(dir, "v"), []);
+});
+
+test("chunk() itself still drops sub-MIN_CHARS fragments", () => {
+  // The fix belongs at the note level. If chunk() started emitting fragments, long
+  // notes would gain a trailing scrap chunk each — noise in every result set.
+  assert.deepEqual(chunk(para(20)), []);
+});

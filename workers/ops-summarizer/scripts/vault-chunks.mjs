@@ -96,7 +96,24 @@ export async function chunksForVault(vaultDir, vaultName = vaultNameFor(vaultDir
     // look similar to every other note.
     const body = raw.replace(/^---\n[\s\S]*?\n---\n/, "");
     const title = rel.replace(/\.md$/, "");
-    chunk(body).forEach((text, i) => {
+
+    let pieces = chunk(body);
+
+    // INVARIANT: a note with content is never invisible.
+    //
+    // MIN_CHARS exists to stop a stray fragment becoming its own chunk when a note is
+    // being SPLIT. Applied to a whole short note it does something else entirely: the
+    // note produces no chunks at all, is never upserted, and cannot be retrieved by
+    // any query. Measured 2026-08-05 across the five vaults: 187 of 1,913 notes —
+    // 30% of `gear`, 66% of `travel` — were absent from the index for this reason,
+    // silently, because nothing counts notes that produced nothing.
+    //
+    // Short notes are exactly the ones worth keeping: stubs, index notes, link hubs.
+    // So the floor governs splitting, not inclusion — a note that survives front
+    // matter with any content at all gets one chunk, however small.
+    if (pieces.length === 0 && body.trim().length > 0) pieces = [body.trim()];
+
+    pieces.forEach((text, i) => {
       chunks.push({ id: idFor(`${vaultName}/${rel}`, i), vault: vaultName, path: rel, title, text });
     });
   }
