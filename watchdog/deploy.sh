@@ -16,6 +16,8 @@ install -m 0755 "$REPO/capture-wedge.sh" "$RT/capture-wedge.sh"
 
 # Stage the webhook (the ops channel) into an internal .env so the launchd runtime never
 # reads /Volumes. chmod 600 — it's the secret.
+# (The fleet-bus credentials need no staging: the watchdog reads ~/.config/fleet-bus/env
+# in place — already on the internal disk. Absent file = bus check skipped, never a page.)
 if [ -r "$GRAFANA_ENV" ]; then
   hook=$(grep -m1 '^DISCORD_WEBHOOK_URL=' "$GRAFANA_ENV" | cut -d= -f2- | tr -d '"'\''')
   umask 177
