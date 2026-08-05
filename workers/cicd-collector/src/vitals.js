@@ -20,6 +20,11 @@
 //             This is the heartbeat that replaces the retired TIG stack-watchdog's
 //             implicit liveness: no rows means the agent, the box, or the ingest
 //             Worker is down, and the other two signals have gone blind.
+//   bus     — newest `bus.fleet.supervisor.tick` row (the fleet-bus Worker mirrors
+//             every publish into this dataset, metric `bus.<topic>`, collector
+//             `bus`) older than VITALS_BUS_SILENT_SEC: the mini's dual-publish
+//             shadow (obs-config#174) has stopped reaching the Worker. SELF-ARMING
+//             — see the evaluate() block for the exact predicate and rationale.
 //
 // Column map (workers/host-vitals/README.md — positional, do not guess):
 //   host_vitals  blob1=host  blob2=metric name  blob3=tags "k=v,k=v" sorted
@@ -73,6 +78,11 @@ export function config(env = {}) {
     swapClearBytes: num(env.VITALS_SWAP_CLEAR_BYTES, 6e9),
     silentSec: num(env.VITALS_SILENT_SEC, 600),
     freshLookbackMin: num(env.VITALS_FRESH_LOOKBACK_MIN, 60),
+    // The supervisor ticks the bus every ~60 s; 600 s of silence mirrors the
+    // vector-silent threshold. The disarm window is the self-arming bound: a row
+    // older than this no longer counts as an armed lane (see evaluate()).
+    busSilentSec: num(env.VITALS_BUS_SILENT_SEC, 600),
+    busDisarmSec: num(env.VITALS_BUS_DISARM_SEC, 7 * 86_400),
   };
 }
 
@@ -137,6 +147,25 @@ export function sqlFreshness(lookbackMin) {
   ].join("\n");
 }
 
+/** Newest SOURCE timestamp for the supervisor's bus heartbeat mirror. The
+ *  fleet-bus Worker writes one row per publish (blob2 = `bus.<topic>`, blob4 =
+ *  `bus`, double2 = the envelope's ts) — same freshness idiom as sqlFreshness:
+ *  the VALUE is double2, the window predicate stays on the indexed `timestamp`.
+ *  No host filter on purpose: blob1 here is the Worker's BUS_HOST constant
+ *  ("Tommys-Mac-mini"), not Vector's host tag, and there is exactly one
+ *  publisher — filtering on cfg.host would silently blind the signal. */
+export function sqlBusFreshness(lookbackSec) {
+  return [
+    "SELECT max(double2) AS newest_source_ts,",
+    "       sum(_sample_interval) AS samples",
+    "FROM host_vitals",
+    "WHERE blob2 = 'bus.fleet.supervisor.tick'",
+    "  AND blob4 = 'bus'",
+    `  AND timestamp > now() - INTERVAL '${Math.ceil(lookbackSec / 60)}' MINUTE`,
+    "FORMAT JSON",
+  ].join("\n");
+}
+
 // ── row helpers ──────────────────────────────────────────────────────────────
 
 /** Pull `mountpoint=` out of a collapsed blob3 tag string, e.g.
@@ -193,7 +222,7 @@ export function duration(sec) {
 // The one exception is `silent`, where absent data IS the signal.
 
 /** @returns {{key:string,state:"breach"|"clear"|"unknown",text?:string,clearText?:string,note?:string}[]} */
-export function evaluate({ disk = [], memory = [], freshness = [] }, cfg, nowSec) {
+export function evaluate({ disk = [], memory = [], freshness = [], bus = [] }, cfg, nowSec) {
   const out = [];
 
   // ── disk, per configured mount ──
@@ -358,6 +387,50 @@ export function evaluate({ disk = [], memory = [], freshness = [] }, cfg, nowSec
     }
   }
 
+  // ── supervisor-bus silent ──
+  // SELF-ARMING: alarm ONLY when the newest `bus.fleet.supervisor.tick` row is
+  // older than busSilentSec AND newer than busDisarmSec. The lower bound is the
+  // ordinary heartbeat threshold; the upper bound is what makes the signal safe
+  // to ship ahead of the producer. Before the mini's dual-publish ever runs
+  // (today's only rows are the 2026-08-02 exercise, already past the disarm
+  // window by the time this deploys) the newest row is ancient or absent, and
+  // the signal stays "unknown" — silent — instead of alarming daily about a lane
+  // that has not started. And if the lane is ever formally retired, the same
+  // bound disarms it again after busDisarmSec of silence, instead of alarming
+  // forever about a bus nobody publishes to. Absent data therefore does NOT
+  // breach here (unlike vector-silent, where the agent is known-deployed):
+  // "never armed" and "long retired" are both quiet by construction.
+  const busRow = bus.find((r) => Number.isFinite(n(r.newest_source_ts)));
+  if (!busRow) {
+    out.push({ key: "bus-silent", state: "unknown", note: "bus: no rows (not armed)" });
+  } else {
+    const age = nowSec - n(busRow.newest_source_ts);
+    if (age > cfg.busDisarmSec) {
+      out.push({
+        key: "bus-silent",
+        state: "unknown",
+        note: `bus: newest row ${duration(age)} old — past the disarm window (lane retired?)`,
+      });
+    } else if (age > cfg.busSilentSec) {
+      out.push({
+        key: "bus-silent",
+        state: "breach",
+        text:
+          `🔴 **supervisor bus silent** — newest \`bus.fleet.supervisor.tick\` publish is ` +
+          `**${duration(age)}** old (threshold ${duration(cfg.busSilentSec)}). The mini's ` +
+          `dual-publish shadow (obs-config#174) has stopped reaching the fleet-bus Worker.`,
+      });
+    } else if (age <= cfg.busSilentSec / 2) {
+      out.push({
+        key: "bus-silent",
+        state: "clear",
+        clearText: `✅ **supervisor bus** publishing again — newest tick ${duration(age)} old`,
+      });
+    } else {
+      out.push({ key: "bus-silent", state: "unknown", note: `bus: ${duration(age)} in hysteresis band` });
+    }
+  }
+
   return out;
 }
 
@@ -453,14 +526,15 @@ export async function runVitals(env, deps, nowMs = Date.now()) {
     errors: 0, api_calls: 0, rate_remaining: -1,
   };
   try {
-    const [disk, memory, freshness] = await Promise.all([
+    const [disk, memory, freshness, bus] = await Promise.all([
       aeQuery(env, sqlDisk(cfg.diskWindowMin)),
       aeQuery(env, sqlMemory(cfg.memWindowMin)),
       aeQuery(env, sqlFreshness(cfg.freshLookbackMin)),
+      aeQuery(env, sqlBusFreshness(cfg.busDisarmSec)),
     ]);
-    stats.api_calls = 3;
+    stats.api_calls = 4;
 
-    const observations = evaluate({ disk, memory, freshness }, cfg, nowMs / 1000);
+    const observations = evaluate({ disk, memory, freshness, bus }, cfg, nowMs / 1000);
     stats.repos = observations.length; // signals evaluated (see README: beat column map)
     stats.runs_seen = observations.filter((o) => o.state === "breach").length;
 

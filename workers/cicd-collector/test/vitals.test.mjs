@@ -21,6 +21,7 @@ import {
   message,
   mountpointOf,
   runVitals,
+  sqlBusFreshness,
   sqlDisk,
   sqlFreshness,
   sqlMemory,
@@ -52,6 +53,15 @@ const freshRow = (ageSec) => ({
   samples: "600",
 });
 
+// The fleet-bus Worker's mirror rows carry its BUS_HOST constant, not Vector's
+// host tag — the bus signal must not host-filter, so the fixture keeps the
+// mismatched name on purpose.
+const busRow = (ageSec) => ({
+  host: "Tommys-Mac-mini",
+  newest_source_ts: NOW_S - ageSec,
+  samples: "10",
+});
+
 /** Everything healthy — the baseline every test perturbs one signal from. */
 const healthy = () => ({
   disk: [diskRow("/", 0.5), diskRow("/Volumes/dev", 0.5)],
@@ -61,6 +71,7 @@ const healthy = () => ({
     memRow(8e9, { metric: "memory_swap_total_bytes" }),
   ],
   freshness: [freshRow(60)],
+  bus: [busRow(60)],
 });
 
 // ── config ───────────────────────────────────────────────────────────────────
@@ -436,7 +447,9 @@ function beatRig(rows) {
       ? "disk"
       : sql.includes("memory_available_bytes")
         ? "memory"
-        : "freshness";
+        : sql.includes("bus.fleet.supervisor.tick")
+          ? "bus"
+          : "freshness";
     return okJson(rows[which] ?? []);
   };
   const deps = {
@@ -462,9 +475,9 @@ test("runVitals: healthy box → no post, one ok heartbeat", async (t) => {
   assert.equal(rig.beats.length, 1);
   assert.equal(rig.beats[0].beat, "vitals");
   assert.equal(rig.beats[0].outcome, "ok");
-  assert.equal(rig.beats[0].stats.api_calls, 3);
+  assert.equal(rig.beats[0].stats.api_calls, 4);
   assert.equal(rig.beats[0].stats.runs_seen, 0); // signals breaching
-  assert.equal(rig.beats[0].stats.repos, 5); // signals: 2 mounts + mem + swap + silence
+  assert.equal(rig.beats[0].stats.repos, 6); // signals: 2 mounts + mem + swap + silence + bus
 });
 
 test("runVitals: a breach posts once and records the day in the shared KV doc", async (t) => {
@@ -546,4 +559,65 @@ test("swap: falls back to absolute bytes when swap_total is absent", () => {
   const swap = v.find((x) => x.key === "swap");
   assert.equal(swap.state, "breach");
   assert.match(swap.text, /total unknown/);
+});
+
+// ── supervisor-bus silent (self-arming; obs-config#174 shadow) ────────────────
+
+test("sqlBusFreshness: double2 value, bus metric+collector filter, 7-day lookback", () => {
+  const sql = sqlBusFreshness(7 * 86_400);
+  assert.match(sql, /FROM host_vitals/);
+  assert.match(sql, /blob2 = 'bus\.fleet\.supervisor\.tick'/);
+  assert.match(sql, /blob4 = 'bus'/);
+  assert.match(sql, /max\(double2\) AS newest_source_ts/);
+  assert.doesNotMatch(sql, /max\(timestamp\)/);
+  assert.match(sql, /INTERVAL '10080' MINUTE/); // 7 days, in the dialect's MINUTE unit
+  assert.doesNotMatch(sql, /blob1/); // no host filter: blob1 is BUS_HOST, not Vector's tag
+});
+
+test("bus: a fresh tick is clear", () => {
+  const obs = evaluate(healthy(), CFG, NOW_S);
+  assert.equal(obs.find((o) => o.key === "bus-silent").state, "clear");
+});
+
+test("bus: silence past the threshold (and inside the disarm window) breaches", () => {
+  const obs = evaluate({ ...healthy(), bus: [busRow(20 * 60)] }, CFG, NOW_S);
+  const b = obs.find((o) => o.key === "bus-silent");
+  assert.equal(b.state, "breach");
+  assert.match(b.text, /\*\*20m\*\* old/);
+  assert.match(b.text, /fleet-bus Worker/);
+});
+
+test("bus: SELF-ARMING — no rows at all stays unknown, never a breach", () => {
+  // Before the mini's dual-publish ever runs there is nothing to measure; an
+  // unarmed lane must not alarm daily about a heartbeat that has not started.
+  const obs = evaluate({ ...healthy(), bus: [] }, CFG, NOW_S);
+  const b = obs.find((o) => o.key === "bus-silent");
+  assert.equal(b.state, "unknown");
+  assert.match(b.note, /not armed/);
+});
+
+test("bus: SELF-ARMING — a row older than the disarm window goes quiet again", () => {
+  // The formally-retired-lane case: 8 days of silence disarms the signal
+  // instead of alarming forever about a bus nobody publishes to.
+  const obs = evaluate({ ...healthy(), bus: [busRow(8 * 86_400)] }, CFG, NOW_S);
+  const b = obs.find((o) => o.key === "bus-silent");
+  assert.equal(b.state, "unknown");
+  assert.match(b.note, /disarm/);
+});
+
+test("bus: the hysteresis band neither alerts nor clears", () => {
+  const at = (age) =>
+    evaluate({ ...healthy(), bus: [busRow(age)] }, CFG, NOW_S)
+      .find((o) => o.key === "bus-silent").state;
+  assert.equal(at(11 * 60), "breach");
+  assert.equal(at(8 * 60), "unknown"); // under 600s but inside the band
+  assert.equal(at(60), "clear");
+});
+
+test("bus: thresholds are env-tunable like every other signal", () => {
+  const c = config({ VITALS_BUS_SILENT_SEC: "300", VITALS_BUS_DISARM_SEC: "86400" });
+  assert.equal(c.busSilentSec, 300);
+  assert.equal(c.busDisarmSec, 86_400);
+  assert.equal(config({}).busSilentSec, 600); // shipped default
+  assert.equal(config({}).busDisarmSec, 7 * 86_400);
 });

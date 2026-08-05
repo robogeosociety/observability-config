@@ -71,7 +71,9 @@ quota, items 2..N will be too. `Retry-After` is honoured when supplied.
 | GET | `/stat` | per-topic health |
 | POST | `/digest` | render the rollup now (cron does this hourly) |
 
-All except `/health` need `Authorization: Bearer $BUS_TOKEN`.
+All except `/health` need `Authorization: Bearer $BUS_TOKEN` — the read routes
+(`GET /retained/*`, `/stream/*`, `/stat`) included; the bare `curl`s in the
+PR #174 exercise transcript predate the gate and will 401 today.
 
 ## #ops output
 
