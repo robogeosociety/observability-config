@@ -12,10 +12,25 @@ import { join, relative, extname } from "node:path";
 import { createHash } from "node:crypto";
 
 // Vectorize caps ids at 64 bytes and vault paths run longer than that
-// ("Wiki/Infrastructure/…"), so the id is a hash of the path plus the chunk
-// index. Stable across runs, which is what makes re-ingest an upsert rather than
-// a duplicate. The readable path stays in metadata.
-export const idFor = (rel, i) => `${createHash("sha1").update(rel).digest("hex").slice(0, 24)}#${i}`;
+// ("Wiki/Infrastructure/…"), so the id is a hash of the path plus the chunk index.
+// The readable path stays in metadata.
+//
+// The id ALSO carries a hash of the chunk's text, and that is what makes the ingest
+// incremental. An unchanged chunk derives the id it already has, so it is already in
+// the index and can be skipped without embedding it again; a changed chunk derives a
+// new id, so it is absent and gets embedded. The reconcile then deletes the old id as
+// an orphan, because the vault no longer produces it.
+//
+// This means the enumeration the reconcile already performs IS the skip-list — no
+// manifest to keep, no metadata to fetch back (Vectorize returns all 768 floats with
+// every vector and offers no flag to suppress them, so reading state back costs about
+// 30 MB a run), and nothing that can drift from the index's actual contents.
+//
+// 16 hex of path + 8 of text is 29 bytes with the separator and index — well inside
+// the 64-byte cap, and the collision risk across ~5k chunks is negligible.
+export const idFor = (rel, i, text = "") =>
+  `${createHash("sha1").update(rel).digest("hex").slice(0, 16)}` +
+  `-${createHash("sha1").update(text).digest("hex").slice(0, 8)}#${i}`;
 
 // Chunking is paragraph-aware with a character budget rather than a fixed window:
 // vault notes are prose with headings, and splitting mid-sentence produces matches
@@ -114,7 +129,7 @@ export async function chunksForVault(vaultDir, vaultName = vaultNameFor(vaultDir
     if (pieces.length === 0 && body.trim().length > 0) pieces = [body.trim()];
 
     pieces.forEach((text, i) => {
-      chunks.push({ id: idFor(`${vaultName}/${rel}`, i), vault: vaultName, path: rel, title, text });
+      chunks.push({ id: idFor(`${vaultName}/${rel}`, i, text), vault: vaultName, path: rel, title, text });
     });
   }
   return chunks;

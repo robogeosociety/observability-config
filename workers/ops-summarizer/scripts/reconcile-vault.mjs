@@ -69,8 +69,9 @@ async function wrangler(subcommand) {
   return stdout;
 }
 
-/** Every id currently in the index, paged. */
-async function idsInIndex(index) {
+/** Every id currently in the index, paged. Shared with the ingest, which uses it
+ * as a skip-list: an id already present is a chunk whose text has not changed. */
+export async function idsInIndex(index) {
   const ids = new Set();
   let cursor;
   let total = null;
