@@ -61,7 +61,12 @@ const VAULTS = flag("--vaults", ["dev", "camping", "gear", "home", "travel"]
   .map((v) => `${process.env.HOME}/obsidian/${v}`).join(","))
   .split(",").filter(Boolean);
 
-const DELETE_BATCH = 500;
+// 500 ids per delete_by_ids call fails with Vectorize error 40007; 100 succeeds.
+// Measured on the id-scheme cutover, where the reconcile had 5,247 orphans to clear
+// and died on the first batch. The docs do not state the cap, so this is empirical —
+// if a future run starts failing with 40007 again, halve it rather than widening a
+// retry around it.
+const DELETE_BATCH = 100;
 
 async function wrangler(subcommand) {
   const [bin, ...prefix] = WRANGLER;
