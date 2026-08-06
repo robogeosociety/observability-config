@@ -103,7 +103,9 @@ test("expected ids match what the ingest would write, for the same content", asy
   const chunks = await chunksForVault(dir);
   assert.equal(ids.size, chunks.length);
   for (const c of chunks) assert.ok(ids.has(c.id), `${c.id} missing`);
-  assert.ok(ids.has(idFor(`${name}/Note.md`, 0)));
+  // The id now carries a hash of the chunk's TEXT as well as its path, which is what
+  // makes the ingest incremental — so it can only be reconstructed from the chunk.
+  assert.ok(ids.has(idFor(`${name}/Note.md`, 0, chunks[0].text)));
 });
 
 test("front matter is stripped before chunking, as the ingest does", async () => {
@@ -125,4 +127,45 @@ test("dotdirs are skipped, so .obsidian state never becomes an expected id", asy
   const chunks = await chunksForVault(dir, "v");
   assert.equal(chunks.length, 1);
   assert.equal(chunks[0].path, "real.md");
+});
+
+// ── incremental ingest: the id is the change detector ───────────────────────
+
+test("editing a note changes its chunk id, leaving the old one an orphan", async () => {
+  // This is the whole mechanism. A changed chunk derives an id the index does not
+  // have (so it gets embedded), and the id it used to have is no longer produced by
+  // the vault (so the reconcile deletes it). No manifest, no metadata read-back.
+  const { writeFile } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+
+  const dir = await vault({ "n.md": para(300) });
+  const before = (await chunksForVault(dir, "v")).map((c) => c.id);
+  await writeFile(join(dir, "n.md"), para(300, "b"));
+  const after = (await chunksForVault(dir, "v")).map((c) => c.id);
+
+  assert.notDeepEqual(before, after, "an edit must produce different ids");
+  assert.deepEqual(orphans(new Set(before), new Set(after)), before.sort());
+});
+
+test("an untouched note keeps its id, so the ingest can skip it", async () => {
+  const dir = await vault({ "n.md": para(300) });
+  const first = (await chunksForVault(dir, "v")).map((c) => c.id);
+  const second = (await chunksForVault(dir, "v")).map((c) => c.id);
+  assert.deepEqual(first, second);
+  assert.deepEqual(orphans(new Set(first), new Set(second)), [], "nothing to delete");
+});
+
+test("two notes with identical text still get distinct ids", async () => {
+  // The path is hashed too. Without that, one note's chunk would satisfy the other's
+  // id and the second note would never be embedded at all.
+  const dir = await vault({ "a.md": para(300), "b.md": para(300) });
+  const ids = (await chunksForVault(dir, "v")).map((c) => c.id);
+  assert.equal(new Set(ids).size, ids.length, "ids must be unique per note");
+});
+
+test("ids stay inside Vectorize's 64-byte cap", async () => {
+  const dir = await vault({ "deeply/nested/path/to/a/note/with/a/long/name.md": para(3000) });
+  for (const c of await chunksForVault(dir, "some-vault-name")) {
+    assert.ok(c.id.length <= 64, `id ${c.id} is ${c.id.length} bytes`);
+  }
 });
