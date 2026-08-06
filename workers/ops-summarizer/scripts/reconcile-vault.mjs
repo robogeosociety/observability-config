@@ -69,22 +69,50 @@ async function wrangler(subcommand) {
   return stdout;
 }
 
-/** Every id currently in the index, paged. Shared with the ingest, which uses it
- * as a skip-list: an id already present is a chunk whose text has not changed. */
-export async function idsInIndex(index) {
-  const ids = new Set();
-  let cursor;
-  let total = null;
-  for (;;) {
+/** True for the one error that means "start the enumeration over", not "give up". */
+export const isCursorError = (err) =>
+  /cursor/i.test(`${err?.message ?? ""} ${err?.stderr ?? ""}`) ||
+  /\b40052\b/.test(`${err?.message ?? ""} ${err?.stderr ?? ""}`);
+
+/**
+ * Every id currently in the index, paged. Shared with the ingest, which uses it as a
+ * skip-list: an id already present is a chunk whose text has not changed.
+ *
+ * Pagination cursors expire (the API returns a cursorExpirationTimestamp) and are
+ * invalidated by writes to the index, so a long enumeration racing an ingest fails
+ * mid-walk with "List vectors cursor appears to be corrupted [code: 40052]". That is
+ * exactly what happened on the id-scheme cutover, when the corpus doubled while the
+ * reconcile was walking it.
+ *
+ * A dead cursor cannot be resumed, only restarted — partial pages are useless, since
+ * an id missed on page 4 would read as an orphan and be deleted. So restart the whole
+ * walk, and only for this error: anything else is a real failure and must surface.
+ */
+export async function idsInIndex(index, { attempts = 4, fetchPage } = {}) {
+  const getPage = fetchPage ?? (async (cursor) => {
     const cmd = ["vectorize", "list-vectors", index, "--count", "1000", "--json"];
     if (cursor) cmd.push("--cursor", cursor);
-    const page = JSON.parse(await wrangler(cmd));
-    total ??= page.totalCount;
-    for (const v of page.vectors ?? []) ids.add(v.id);
-    if (!page.isTruncated || !page.nextCursor) break;
-    cursor = page.nextCursor;
+    return JSON.parse(await wrangler(cmd));
+  });
+
+  for (let attempt = 1; ; attempt++) {
+    const ids = new Set();
+    let cursor;
+    let total = null;
+    try {
+      for (;;) {
+        const page = await getPage(cursor);
+        total ??= page.totalCount;
+        for (const v of page.vectors ?? []) ids.add(v.id);
+        if (!page.isTruncated || !page.nextCursor) break;
+        cursor = page.nextCursor;
+      }
+      return { ids, reportedTotal: total };
+    } catch (err) {
+      if (attempt >= attempts || !isCursorError(err)) throw err;
+      console.warn(`  enumeration cursor died mid-walk (attempt ${attempt}/${attempts}) — restarting`);
+    }
   }
-  return { ids, reportedTotal: total };
 }
 
 /**

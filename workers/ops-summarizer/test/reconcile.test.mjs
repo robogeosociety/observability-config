@@ -169,3 +169,46 @@ test("ids stay inside Vectorize's 64-byte cap", async () => {
     assert.ok(c.id.length <= 64, `id ${c.id} is ${c.id.length} bytes`);
   }
 });
+
+// ── enumeration must survive a cursor dying mid-walk ────────────────────────
+
+test("a dead cursor restarts the walk instead of returning a partial set", async () => {
+  // Observed on the id-scheme cutover: the corpus doubled while the reconcile was
+  // paging it and the API returned "cursor appears to be corrupted [code: 40052]".
+  // Returning what had been collected so far would be catastrophic — every id on the
+  // unread pages would look like an orphan and be deleted.
+  const { idsInIndex } = await import("../scripts/reconcile-vault.mjs");
+  let calls = 0;
+  const fetchPage = async (cursor) => {
+    calls++;
+    if (!cursor) return { totalCount: 4, isTruncated: true, nextCursor: "c1", vectors: [{ id: "a" }, { id: "b" }] };
+    if (calls === 2) {
+      const err = new Error("A request to the Cloudflare API failed.");
+      err.stderr = "List vectors cursor appears to be corrupted [code: 40052]";
+      throw err;
+    }
+    return { totalCount: 4, isTruncated: false, vectors: [{ id: "c" }, { id: "d" }] };
+  };
+  const { ids } = await idsInIndex("ix", { fetchPage });
+  assert.deepEqual([...ids].sort(), ["a", "b", "c", "d"], "must return the COMPLETE set");
+});
+
+test("a non-cursor failure surfaces instead of being retried away", async () => {
+  const { idsInIndex } = await import("../scripts/reconcile-vault.mjs");
+  const fetchPage = async () => { throw new Error("unauthorized"); };
+  await assert.rejects(() => idsInIndex("ix", { fetchPage }), /unauthorized/);
+});
+
+test("a cursor that never recovers gives up rather than looping forever", async () => {
+  const { idsInIndex } = await import("../scripts/reconcile-vault.mjs");
+  let calls = 0;
+  const fetchPage = async () => {
+    calls++;
+    const err = new Error("boom"); err.stderr = "cursor appears to be corrupted";
+    throw err;
+  };
+  // The cursor text lives on err.stderr; the rethrown error keeps its own message,
+  // which is what a caller sees. Assert on both so neither can drift.
+  await assert.rejects(() => idsInIndex("ix", { attempts: 3, fetchPage }), /boom/);
+  assert.equal(calls, 3, "bounded attempts — must not loop forever on a dead cursor");
+});
