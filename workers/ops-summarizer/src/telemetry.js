@@ -20,6 +20,20 @@
 // embed footer (plain text) and wraps badly in a field (columns). Plain message
 // content also matches the @obsidian bot's existing shape.
 
+/**
+ * Formatting options, because the same numbers suit two different places.
+ *
+ *   detail  — both lines (#ops, where a summary is the message and someone may
+ *             need to see what grounded it) or just the first (#dev threads,
+ *             where the footnote annotates a card that is already terse).
+ *   prefix  — Discord subtext by default. Overridable for surfaces that do not
+ *             render `-# `, such as an embed footer.
+ *
+ * Defaults reproduce the original two-line #ops behaviour exactly, so existing
+ * callers need no change.
+ */
+export const DEFAULTS = { detail: true, prefix: "-# " };
+
 /** 12345 → "12.3k". Matches the existing bot's token formatting. */
 export function compact(n) {
   if (n == null || Number.isNaN(n)) return "?";
@@ -69,7 +83,8 @@ export function cacheNote(t) {
  * ONLY when they are interesting — a `1 turn · 0 tools` on every message is noise
  * that trains people to stop reading the line.
  */
-export function summaryLine(t) {
+export function summaryLine(t, opts = {}) {
+  const { prefix } = { ...DEFAULTS, ...opts };
   const bits = [
     t.model,
     // Total input, with the cached share broken out. `input_tokens` alone counts
@@ -84,7 +99,7 @@ export function summaryLine(t) {
   if (t.turns > 1) bits.splice(2, 0, `${t.turns} turns`);
   if (t.toolCalls > 0) bits.splice(t.turns > 1 ? 3 : 2, 0, `${t.toolCalls} tools`);
   if (t.truncated) bits.push("⚠ turn ceiling");
-  return `-# ${bits.join(" · ")}`;
+  return `${prefix}${bits.join(" · ")}`;
 }
 
 /**
@@ -94,7 +109,8 @@ export function summaryLine(t) {
  * Kept to one line with separators rather than wrapped across several. Two short
  * grey lines under a summary read as a footer; five read as a second message.
  */
-export function detailLine(t) {
+export function detailLine(t, opts = {}) {
+  const { prefix } = { ...DEFAULTS, ...opts };
   const parts = [];
 
   const notes = byNote(t.hits);
@@ -135,10 +151,18 @@ export function detailLine(t) {
   parts.push(`${t.turns}/${t.maxTurns} turns, ${tools}`);
   if (t.truncated) parts.push("hit the turn ceiling — output is partial");
 
-  return `-# ${parts.join(" · ")}`;
+  return `${prefix}${parts.join(" · ")}`;
 }
 
-/** Both lines, ready to append to a message body. */
-export function render(t) {
-  return `${summaryLine(t)}\n${detailLine(t)}`;
+/**
+ * The footnote, ready to append to a message body.
+ *
+ * `detail: false` gives the one-line form. That line already carries everything a
+ * #dev reader asked for — model, turns, tools, tokens, rag hits, latency — so the
+ * second line is additive rather than load-bearing, and omitting it keeps a thread
+ * annotation from outweighing the card it annotates.
+ */
+export function render(t, opts = {}) {
+  const o = { ...DEFAULTS, ...opts };
+  return o.detail ? `${summaryLine(t, o)}\n${detailLine(t, o)}` : summaryLine(t, o);
 }
