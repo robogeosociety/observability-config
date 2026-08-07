@@ -34,6 +34,13 @@ test("the search-only bearer opens /mcp", async () => {
   assert.notEqual(res.status, 401);
 });
 
+test("the search-only bearer also opens GET /search", async () => {
+  // The vault-rag router calls the plain search route rather than JSON-RPC over /mcp.
+  // Same privilege — it reads.
+  const res = await call("/search?q=hello", "search-token", ENV, "GET");
+  assert.notEqual(res.status, 401);
+});
+
 test("the search-only bearer opens NOTHING else", async () => {
   // The whole point. If any of these stops returning 401, a channel bot has just
   // gained the ability to post to #ops or rewrite the index.

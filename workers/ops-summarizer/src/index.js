@@ -34,7 +34,8 @@ const authorized = (req, env) =>
   timingSafeEqual(req.headers.get("authorization") || "", `Bearer ${env.HANDLER_TOKEN}`);
 
 /**
- * /mcp accepts a SECOND, search-only bearer as well as HANDLER_TOKEN.
+ * The READ-ONLY routes (/mcp and GET /search) accept a second, search-only bearer as
+ * well as HANDLER_TOKEN.
  *
  * The MCP clients are the fleet's channel bots, and they run with
  * `--dangerously-skip-permissions`. HANDLER_TOKEN unlocks `/post` (which posts to the
@@ -43,10 +44,14 @@ const authorized = (req, env) =>
  * credential for every caller is tidy right up until the tidiest caller is a language
  * model with a shell.
  *
- * MCP_TOKEN unlocks this route and nothing else. Unset, the route behaves exactly as
- * before, so this is additive: fleet-bus and the workflows keep using HANDLER_TOKEN.
+ * MCP_TOKEN unlocks those two and nothing else. Unset, they behave exactly as before,
+ * so this is additive: fleet-bus and the workflows keep using HANDLER_TOKEN.
+ *
+ * /search is here because the vault-rag router (discobots) fans out to whichever
+ * endpoint each vault is configured to use, and the plain search route is a far
+ * simpler thing to call than JSON-RPC over /mcp. It reads; it is the same privilege.
  */
-const authorizedForMcp = (req, env) => {
+const authorizedForRead = (req, env) => {
   const header = req.headers.get("authorization") || "";
   if (authorized(req, env)) return true;
   return Boolean(env.MCP_TOKEN) && timingSafeEqual(header, `Bearer ${env.MCP_TOKEN}`);
@@ -213,11 +218,19 @@ export default {
       });
     }
 
-    // Checked before the global gate so a search-only bearer can reach this route
-    // without being handed the write surface behind it.
+    // Checked before the global gate so a search-only bearer can reach these routes
+    // without being handed the write surface behind them.
     if (url.pathname === "/mcp") {
-      if (!authorizedForMcp(req, env)) return json({ error: "unauthorized" }, 401);
+      if (!authorizedForRead(req, env)) return json({ error: "unauthorized" }, 401);
       return handleMcp(req, env, { retrieve });
+    }
+
+    if (req.method === "GET" && url.pathname === "/search") {
+      if (!authorizedForRead(req, env)) return json({ error: "unauthorized" }, 401);
+      const q = url.searchParams.get("q") || "";
+      if (!q) return json({ error: "q required" }, 400);
+      const vault = url.searchParams.get("vault") || null;
+      return json({ matches: await retrieve(env, q, Number(url.searchParams.get("k") || 5), vault) });
     }
 
     if (!authorized(req, env)) return json({ error: "unauthorized" }, 401);
@@ -271,13 +284,6 @@ export default {
       } catch (e) {
         return json({ error: String(e) }, 502);
       }
-    }
-
-    if (req.method === "GET" && url.pathname === "/search") {
-      const q = url.searchParams.get("q") || "";
-      if (!q) return json({ error: "q required" }, 400);
-      const vault = url.searchParams.get("vault") || null;
-      return json({ matches: await retrieve(env, q, Number(url.searchParams.get("k") || 5), vault) });
     }
 
     return json({ error: "not found" }, 404);
