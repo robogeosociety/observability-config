@@ -1,5 +1,20 @@
 # AGENTS.md — conventions for agentic changes to observability-config
 
+> [!IMPORTANT]
+> **Read this first: the stack these rules protect is no longer running.** Grafana,
+> InfluxDB, Telegraf, the renderer and the launchd coordinator were all retired
+> 2026-07-22 (rgs#167 WS5) — containers removed, no volumes, `com.tommy.observability-
+> coordinator` and `com.tommydoerr.stack-watchdog` gone from launchd.
+>
+> The **process rules below still apply** — open a PR, don't merge, don't mutate live
+> systems, verify with the hermetic suite. But the *deploy* half is inert: there is no
+> coordinator to pick up a merge and no container to restart, so a merged change here
+> changes nothing until a stack exists again. Ruling 1 of 2026-07-26 decided **not** to
+> rebuild one — telemetry stays on Analytics Engine.
+>
+> Treat this repo as the design of record, not live configuration. Posture:
+> [cloudflare-posture.md](https://github.com/robogeosociety/robot-geographical-society/blob/main/docs/proposals/cloudflare-posture.md).
+
 This repo is the **live configuration** for the home observability stack
 (Grafana + InfluxDB + Telegraf on `tommys-mac-mini`). If you are an AI agent
 making a change here, follow the conventions below — they are not style

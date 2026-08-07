@@ -1,5 +1,11 @@
 # CLAUDE.md — observability-config
 
+> [!IMPORTANT]
+> **ARCHITECTURE BELOW IS NOT RUNNING.** Grafana + InfluxDB were retired 2026-07-25
+> (rgs#167 WS5); containers removed, coordinator unloaded. Treat this as the design of
+> record for a stack that would need rebuilding, not a description of live state.
+> Posture of record: [cloudflare-posture.md](https://github.com/robogeosociety/robot-geographical-society/blob/main/docs/proposals/cloudflare-posture.md) (2026-07-26).
+
 Infrastructure-as-code for the home observability stack on `tommys-mac-mini`:
 **Grafana** (dashboards) + **InfluxDB** (time-series), both OrbStack containers,
 file-provisioned. This file holds context that isn't derivable from the code.

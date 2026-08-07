@@ -1,5 +1,13 @@
 # COORDINATION-PLAN.md — concurrent dashboard contribution on one machine
 
+> [!IMPORTANT]
+> **SUBJECT RETIRED.** This plan serializes concurrent *Grafana* dashboard deploys.
+> Grafana and InfluxDB were retired in rgs#167 WS5 — the containers are removed and
+> `com.tommy.observability-coordinator` is no longer in launchd. The coordination design
+> is sound and worth keeping if a LAN dashboard stack returns (an open question in the
+> posture doc), but nothing here is live today.
+> Posture of record: [cloudflare-posture.md](https://github.com/robogeosociety/robot-geographical-society/blob/main/docs/proposals/cloudflare-posture.md) (2026-07-26).
+
 How any project on `tommys-mac-mini` can land **a dashboard idea (an index entry)**
 or **a full dashboard PR (JSON + datasource + intent)** at the same time as other
 projects, without colliding — plus a scheduler and queue that serialize the few

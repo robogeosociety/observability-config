@@ -1,5 +1,16 @@
 # Telegraf — Mac host system metrics + stack endpoint health
 
+> [!IMPORTANT]
+> **This pipeline is not running.** Telegraf's only sink was the InfluxDB `system` bucket,
+> and **InfluxDB was retired 2026-07-22** (rgs#167 WS5) — the container is removed and no
+> volumes remain. Host metrics now travel a different path: the `vector` agent
+> (`supervisor/ops/vector/`) → the `host-vitals` Worker → Analytics Engine `host_vitals`,
+> with alerting in the `cicd-collector` Worker.
+>
+> Kept as the design of record — the 15s scrape config and the Valkey/redis input are still
+> the reference if a LAN metrics stack is ever rebuilt. Whether one is rebuilt was ruled on
+> 2026-07-26: **no** (ruling 1). Posture: [cloudflare-posture.md](https://github.com/robogeosociety/robot-geographical-society/blob/main/docs/proposals/cloudflare-posture.md).
+
 Collects CPU, load, memory, swap, disk usage, disk I/O, network throughput, and
 OrbStack container stats from `tommys-mac-mini` into the InfluxDB `system`
 bucket, feeding the **Mac System** + **OrbStack Containers** dashboards. Also

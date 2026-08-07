@@ -1,5 +1,15 @@
 # Cloudflare Migration Plan — Campsite Collector Monitoring
 
+> [!IMPORTANT]
+> **DELIVERED, and no further Cloudflare moves.** The campsite monitoring tail described
+> here did migrate: the RGS Worker emits the AE datasets, the host ingest job and the
+> `campsites` InfluxDB bucket are gone. What is now **stale is the direction of travel** —
+> as of 2026-07-26 Cloudflare is a capability held in reserve, not the default target, and
+> **no new Workers** are added. Read this as a completed record, not a plan.
+> Note also that `campsites.robogeosociety.xyz` no longer resolves; the frontend serves on
+> `robot-geographical-society-web.pages.dev`.
+> Posture of record: [cloudflare-posture.md](https://github.com/robogeosociety/robot-geographical-society/blob/main/docs/proposals/cloudflare-posture.md) (2026-07-26).
+
 Move **all** campsite collector monitoring off `tommys-mac-mini` to native Cloudflare.
 The collector itself (`robot-geographical-society`, "RGS") already runs at the edge and
 writes Cloudflare Analytics Engine (AE); what remains host-side is the *monitoring tail* —
