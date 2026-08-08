@@ -1,0 +1,45 @@
+# Which vaults the cloud index carries, and which of them each cloud consumer reads.
+#
+# The mirror image of discobots' channels/vault-rag.toml, which answers the same two
+# questions for the bots. There it is "which bot may search what"; here it is "what
+# does the cloud hold, and what does each Cloudflare-side consumer look at".
+#
+# Consumed by two different runtimes, which is why this file is not the only place the
+# policy appears:
+#
+#   * scripts/ingest-vault.mjs (Node, on the mini) reads `mirrored` directly.
+#   * The Worker cannot read a file at runtime — it is a bundle — so its slice lives in
+#     wrangler.toml [vars]. test/vault-policy.test.mjs asserts the two agree, so drift
+#     fails CI rather than quietly giving a consumer vaults it was not meant to see.
+#
+# This file is authoritative. wrangler.toml follows it.
+
+# Vaults shipped into the Vectorize index by the nightly mirror.
+#
+# Still all five, deliberately. Dropping the four non-dev vaults would remove 3,340 of
+# 5,207 vectors (64%), and no cloud consumer needs them once the alarm lane is filtered
+# — but the filter should prove itself for a week first. Re-adding a vault means
+# re-embedding it; the order that costs least if the call turns out wrong is
+# filter-then-drop, not drop-then-discover.
+mirrored = ["dev", "camping", "gear", "home", "travel"]
+
+# ── Consumers ───────────────────────────────────────────────────────────────────
+
+[consumers.alarms]
+# The repeated-alarm summariser. It explains why a job is failing, so it wants
+# infrastructure runbooks and incident write-ups — the `dev` vault and nothing else.
+#
+# Until now this lane retrieved with NO vault filter at all, so an #ops alarm about a
+# stalled cron could be explained with campsite notes and gear receipts. That is not a
+# theoretical dilution: `camping` alone is 35% of the index, nearly as large as `dev`.
+vaults = ["dev"]
+
+[consumers.mcp]
+# The /mcp server, reached by interactive Claude sessions off the mini. Broader on
+# purpose: a person asking about a trip or a piece of gear is a real use, and this
+# consumer is not summarising an alarm.
+#
+# Note this is the consumer that would actually lose something if `mirrored` narrows to
+# dev — the channel bots would not, since they read vecserve on the mini, which carries
+# all five and answers in ~43 ms.
+vaults = ["dev", "camping", "gear", "home", "travel"]

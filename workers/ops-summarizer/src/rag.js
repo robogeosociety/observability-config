@@ -38,7 +38,10 @@ export async function retrieve(env, query, topK = 5, vault = null) {
     // Filtering after the fact would silently return fewer than topK results, and
     // a narrow vault would come back nearly empty for no visible reason.
     const opts = { topK, returnMetadata: "all" };
-    if (vault) opts.filter = { vault };
+    // A string filters to one vault; an array filters to several ($in). The alarm lane
+    // passes a list from policy, the /search route passes whatever the caller named.
+    if (Array.isArray(vault)) opts.filter = { vault: { $in: vault } };
+    else if (vault) opts.filter = { vault };
     const res = await env.VECTORIZE.query(vector, opts);
     return (res.matches || []).map((m) => ({
       score: m.score,
