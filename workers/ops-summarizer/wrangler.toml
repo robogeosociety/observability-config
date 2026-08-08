@@ -23,6 +23,12 @@ binding = "VECTORIZE"
 index_name = "obsidian-vaults"
 
 [vars]
+# Which vaults the repeated-alarm lane retrieves from. A Worker is a bundle and cannot
+# read a file at runtime, so this mirrors [consumers.alarms] in vaults.toml — which is
+# the authoritative copy. test/vault-policy.test.mjs fails if the two drift, because a
+# consumer quietly reading vaults nobody granted it is the failure worth catching.
+ALARM_VAULTS = "dev"
+
 # Turn ceiling passed through to the Actions run and shown in the #ops footer.
 MAX_TURNS = "3"
 

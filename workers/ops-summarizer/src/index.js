@@ -57,6 +57,21 @@ const authorizedForRead = (req, env) => {
   return Boolean(env.MCP_TOKEN) && timingSafeEqual(header, `Bearer ${env.MCP_TOKEN}`);
 };
 
+/**
+ * The vaults the alarm lane may retrieve from, from wrangler [vars].
+ *
+ * Unset means unfiltered, which is the old behaviour — so a Worker deployed without
+ * the var degrades to "search everything" rather than to "search nothing". A summary
+ * with diluted context is worse than one with focused context; a summary with NO
+ * context is worse than both.
+ */
+export function alarmVaults(env) {
+  const raw = (env.ALARM_VAULTS || "").trim();
+  if (!raw) return null;
+  const list = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return list.length === 0 ? null : list.length === 1 ? list[0] : list;
+}
+
 /** The retrieval query for a job — what we search the vault for. */
 function ragQuery(topic, data) {
   if (topic === "fleet.ops.alarm.repeated") {
@@ -91,7 +106,11 @@ async function handleSummarize(req, env) {
   const jobId = envelope?.jobId ?? data.jobId;
 
   const ragStart = Date.now();
-  const matches = await retrieve(env, ragQuery(topic, data));
+  // Retrieve only from the vaults this lane is meant to read. Until 2026-08-07 this
+  // call passed no filter at all, so an alarm about a stalled cron could be explained
+  // with campsite notes — `camping` is 35% of the index, nearly as large as `dev`.
+  // The list comes from vaults.toml via wrangler [vars]; see ALARM_VAULTS there.
+  const matches = await retrieve(env, ragQuery(topic, data), 5, alarmVaults(env));
   const ragMs = Date.now() - ragStart;
 
   const result = await dispatchSummary(env, {
