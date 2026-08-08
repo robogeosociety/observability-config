@@ -1,0 +1,96 @@
+# Compare the two retrieval stores on a fixed query set, weekly.
+#
+# WHY THIS EXISTS. The fleet runs two independent embeddings of the same vaults —
+# vecserve on the mini (nomic-embed-text-v1.5) serving every channel bot, and
+# Vectorize (bge-base-en-v1.5) serving this Worker's alarm RAG. Both are kept current
+# by their own lanes. Nothing measured them against each other, so "is the local one
+# answering worse than the cloud would have" had no answer but an opinion.
+#
+# WHAT IT DOES NOT DO. It does not gate on overlap. The two use different models over
+# different chunkings and legitimately disagree — an overlap threshold would fail
+# forever and teach us to ignore the check, which is exactly the complaint
+# obsidian-automations#336 makes about a job that has been failing since July.
+# Overlap is recorded as a trend; the number is for reading, not for passing.
+#
+# WHAT IS A REGRESSION. A store that stops answering. A query that returned notes last
+# week and returns nothing today means a stale index, a broken ingest, or a backend
+# that is down — all real, all actionable. That is what fails this job and pages #ops.
+
+name: rag-compare
+
+on:
+  schedule:
+    - cron: "23 16 * * 1" # Mondays, off the hour and clear of the 09:41 mirror
+  workflow_dispatch:
+
+concurrency:
+  group: rag-compare
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    # Must run on the mini: vecserve binds loopback, so no other runner can reach it.
+    # That co-location is also what makes the latency figure meaningful — it is the
+    # number a channel bot actually experiences.
+    runs-on: [self-hosted, macOS, fleet]
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare the stores
+        id: compare
+        env:
+          HANDLER_TOKEN: ${{ secrets.HANDLER_TOKEN }}
+        run: |
+          export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+          cd workers/ops-summarizer
+          # Capture regardless of exit code: a regression must still be reported, and
+          # `set -e` would throw the evidence away before it could be posted.
+          set +e
+          node scripts/compare-rag.mjs --json > /tmp/rag-compare.json
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          node -e '
+            const r = require("/tmp/rag-compare.json");
+            const s = r.summary;
+            const pct = (x) => (x == null ? "n/a" : (x * 100).toFixed(0) + "%");
+            const lines = [
+              "| metric | value |", "| --- | --- |",
+              `| queries | ${s.queries} |`,
+              `| mean overlap (reported, not gated) | ${pct(s.meanOverlap)} |`,
+              `| median latency — vecserve | ${s.vecserveMs} ms |`,
+              `| median latency — vectorize | ${s.vectorizeMs} ms |`,
+              `| answered by only one store | ${s.silent} |`,
+              `| errored | ${s.errored} |`,
+              "", "| vault | query | shared | vecserve | vectorize |", "| --- | --- | --- | --- | --- |",
+              ...r.rows.map((x) => `| ${x.vault} | ${x.q.slice(0, 48)} | ${x.shared} | ${x.vecserve} | ${x.vectorize} |`),
+            ];
+            require("node:fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+            console.log(lines.slice(0, 8).join("\n"));
+          '
+
+      # Quiet unless something is actually wrong — the whole argument of #336. A weekly
+      # green run leaves its numbers in the step summary and says nothing in Discord.
+      - name: Alarm in #ops on a regression
+        if: steps.compare.outputs.rc != '0'
+        env:
+          WEBHOOK_OPS: ${{ secrets.WEBHOOK_OPS }}
+        run: |
+          [ -n "$WEBHOOK_OPS" ] || { echo "no webhook configured — skipping"; exit 0; }
+          body=$(node -e '
+            const r = require("/tmp/rag-compare.json"); const s = r.summary;
+            const bad = r.rows.filter((x) => x.err || x.vectorize === 0 || x.vecserve === 0)
+              .map((x) => `- \`${x.vault}\` ${x.q.slice(0, 60)} — vecserve ${x.vecserve}, vectorize ${x.vectorize}${x.err ? " (" + x.err + ")" : ""}`);
+            console.log(JSON.stringify({ content:
+              `🔎 **rag-compare** — a retrieval store stopped answering\n` +
+              `${s.silent} of ${s.queries} queries answered by only one store, ${s.errored} errored.\n` +
+              bad.slice(0, 6).join("\n") +
+              `\n-# overlap is not a pass/fail signal here; a silent store is.` }));
+          ')
+          curl -sf -X POST "$WEBHOOK_OPS" -H 'content-type: application/json' -d "$body" >/dev/null \
+            && echo "posted to #ops"
+
+      - name: Fail the run if a store stopped answering
+        if: steps.compare.outputs.rc != '0'
+        run: exit 1

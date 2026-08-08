@@ -38,6 +38,49 @@ export const QUERIES = [
 // two different chunkers — the note is the only shared unit of meaning.
 const notePaths = (rows) => new Set(rows.map((r) => r.title).filter(Boolean));
 
+/** Wall time around a call, so the comparison carries latency as well as overlap. */
+async function timed(fn) {
+  const t0 = performance.now();
+  try {
+    return { rows: await fn(), ms: performance.now() - t0, err: null };
+  } catch (e) {
+    return { rows: [], ms: performance.now() - t0, err: e.message };
+  }
+}
+
+const median = (xs) => {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+};
+
+/**
+ * The verdict, and what it deliberately does NOT gate on.
+ *
+ * Overlap is REPORTED, never enforced. The two stores use different embedding models
+ * over different chunkings, so they legitimately disagree — an overlap threshold would
+ * fail forever and teach us to ignore the check, which is the failure mode this repo
+ * already has an issue open about (obsidian-automations#336).
+ *
+ * What IS a regression is a store that stops answering. A query that returned notes
+ * last week and returns nothing today means an index went stale, an ingest broke, or a
+ * backend is down — all real, all actionable, none of them a matter of taste.
+ */
+export function verdict(rows) {
+  const silent = rows.filter((r) => !r.err && (r.vectorize === 0 || r.vecserve === 0));
+  const errored = rows.filter((r) => r.err);
+  const overlaps = rows.filter((r) => !r.err).map((r) => r.jaccard);
+  return {
+    queries: rows.length,
+    errored: errored.length,
+    silent: silent.length,
+    meanOverlap: overlaps.length ? overlaps.reduce((a, b) => a + b, 0) / overlaps.length : null,
+    vectorizeMs: median(rows.map((r) => r.vectorizeMs).filter((x) => x != null)),
+    vecserveMs: median(rows.map((r) => r.vecserveMs).filter((x) => x != null)),
+    ok: errored.length === 0 && silent.length === 0,
+  };
+}
+
 async function queryVectorize(q, vault) {
   const u = new URL(`${WORKER}/search`);
   u.searchParams.set("q", q);
@@ -72,25 +115,19 @@ export function overlap(a, b) {
 async function main() {
   const rows = [];
   for (const { vault, q } of QUERIES) {
-    let vec = [];
-    let old = [];
-    let err = null;
-    try {
-      vec = await queryVectorize(q, vault);
-    } catch (e) {
-      err = `vectorize: ${e.message}`;
-    }
-    try {
-      old = await queryVecserve(q, vault);
-    } catch (e) {
-      err = (err ? err + "; " : "") + `vecserve: ${e.message}`;
-    }
-    rows.push({ vault, q, err, vectorize: vec.length, vecserve: old.length, ...overlap(vec, old),
-      topVectorize: vec[0]?.title || null, topVecserve: old[0]?.title || null });
+    const v = await timed(() => queryVectorize(q, vault));
+    const l = await timed(() => queryVecserve(q, vault));
+    const err = [v.err && `vectorize: ${v.err}`, l.err && `vecserve: ${l.err}`].filter(Boolean).join("; ") || null;
+    rows.push({ vault, q, err, vectorize: v.rows.length, vecserve: l.rows.length,
+      vectorizeMs: Math.round(v.ms), vecserveMs: Math.round(l.ms), ...overlap(v.rows, l.rows),
+      topVectorize: v.rows[0]?.title || null, topVecserve: l.rows[0]?.title || null });
   }
 
+  const sum = verdict(rows);
+
   if (process.argv.includes("--json")) {
-    console.log(JSON.stringify(rows, null, 2));
+    console.log(JSON.stringify({ summary: sum, rows }, null, 2));
+    if (!sum.ok) process.exitCode = 1;
     return;
   }
 
@@ -104,8 +141,14 @@ async function main() {
       console.log(`         vecserve : ${r.topVecserve || "-"}`);
     }
   }
-  const answered = rows.filter((r) => r.vectorize > 0).length;
-  console.log(`\nvectorize answered ${answered}/${rows.length} queries`);
+  console.log(
+    `\n${sum.queries} queries · mean overlap ${(sum.meanOverlap ?? 0).toFixed(2)} · ` +
+      `median latency vectorize ${sum.vectorizeMs}ms / vecserve ${sum.vecserveMs}ms`,
+  );
+  if (!sum.ok) {
+    console.log(`REGRESSION: ${sum.errored} errored, ${sum.silent} answered by only one store`);
+    process.exitCode = 1;
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();
