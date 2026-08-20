@@ -13,7 +13,10 @@
 // copy to drift.
 export const ENVELOPE_VERSION = 1;
 
-export const SRCS = ["supervisor", "discobot-live", "wikiserve", "tommybot", "gateway"];
+// "ops-buttons" is the Discord interactions Worker (discobots): it is the only producer
+// that publishes a COMMAND rather than telemetry, which is why it needs its own src --
+// an action attributed to a heartbeat producer would be indistinguishable from one.
+export const SRCS = ["supervisor", "discobot-live", "wikiserve", "tommybot", "gateway", "ops-buttons"];
 export const TYPES = ["update", "event"];
 
 // `work` is new here and must be added to bus_contract.py's CLASSES before any
