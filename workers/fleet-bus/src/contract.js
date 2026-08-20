@@ -13,7 +13,10 @@
 // copy to drift.
 export const ENVELOPE_VERSION = 1;
 
-export const SRCS = ["supervisor", "discobot-live", "wikiserve", "tommybot", "gateway"];
+// "ops-buttons" is the Discord interactions Worker (discobots): it is the only producer
+// that publishes a COMMAND rather than telemetry, which is why it needs its own src --
+// an action attributed to a heartbeat producer would be indistinguishable from one.
+export const SRCS = ["supervisor", "discobot-live", "wikiserve", "tommybot", "gateway", "ops-buttons"];
 export const TYPES = ["update", "event"];
 
 // `work` is new here and must be added to bus_contract.py's CLASSES before any
@@ -51,6 +54,24 @@ export const CATALOG = {
     type: "update",
     ttl: 600,
     subscribers: ["ops"],
+  },
+  // Fleet action buttons. ops-buttons (discobots) publishes an approved button press here;
+  // fleet_button_worker.py on the mini drains it and runs fleet-ctl.
+  //
+  // TELEMETRY, not event: the mini polls /retained, so last-value is the right shape. The
+  // Discord interaction id rides along as a nonce, so the executor can re-read the same
+  // retained envelope without running the action twice.
+  //
+  // NO subscribers: this is a command for the mini to drain, not something to fan out to
+  // Discord. The executor reports the outcome to #ops itself, once it knows what happened.
+  //
+  // ttl 300 matches the executor's staleness bound -- a queued action that sat through a
+  // restart should expire rather than fire minutes later at an operator who has moved on.
+  "fleet.button.request": {
+    cls: "telemetry",
+    src: "ops-buttons",
+    type: "update",
+    ttl: 300,
   },
   "fleet.wiki.request.pending": {
     cls: "event",
